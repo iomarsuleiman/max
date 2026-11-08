@@ -1,0 +1,271 @@
+/*
+ * Max editor: the Chaos block editor (BlockNote + shadcn), cleaned up and mapped onto Max tokens.
+ * Aliases below translate the editor's variable names to Max's design tokens.
+ */
+:root {
+  --on-surface: var(--fg);
+  --on-surface-variant: var(--fg-2);
+  --ws-card: var(--overlay);
+  --ws-line: var(--line);
+  --ws-line-strong: var(--line-strong);
+  --primary: var(--accent);
+  --ws-hover: var(--hover);
+  --ws-warning: var(--warning);
+  --ws-success: var(--success);
+  --error: var(--danger);
+  --ws-canvas-subtle: var(--surface-2);
+  --ws-accent-soft: var(--accent-soft);
+  --ws-font: var(--font-sans);
+  --ws-ring: var(--focus);
+  --ws-text-soft: var(--fg-2);
+  --lx-select: var(--accent-soft);
+  --lx-handle: var(--fg-3);
+  --lx-handle-hover: var(--fg-2);
+  --lx-gutter: 0px;
+  --lx-gutter-end: 0px;
+}
+
+/* Editor tokens. Hosts override these (or use data-density / data-font) rather than editor rules.
+   Neutrals are OKLCH so light and dark steps stay perceptually even; colours still come from the
+   workspace tokens (app/workspace.css) so the editor matches the product theme. */
+.lx-editor {
+  --lx-editor-font: var(--ws-font);
+  --lx-editor-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --lx-editor-size: 16px;
+  --lx-editor-leading: 1.5;
+  --lx-editor-block-gap: 3px;
+  --lx-neutral-1: oklch(0.985 0 0); --lx-neutral-2: oklch(0.96 0 0); --lx-neutral-3: oklch(0.92 0 0); --lx-neutral-6: oklch(0.6 0 0); --lx-neutral-9: oklch(0.25 0 0);
+}
+:root.dark .lx-editor, .dark .lx-editor { --lx-neutral-1: oklch(0.2 0 0); --lx-neutral-2: oklch(0.24 0 0); --lx-neutral-3: oklch(0.3 0 0); --lx-neutral-6: oklch(0.62 0 0); --lx-neutral-9: oklch(0.93 0 0); }
+.lx-editor[data-density="compact"] { --lx-editor-size: 15px; --lx-editor-leading: 1.4; --lx-editor-block-gap: 1px; }
+.lx-editor[data-font="serif"] { --lx-editor-font: var(--font-serif); }
+.lx-editor[data-font="mono"] { --lx-editor-font: var(--lx-editor-mono); }
+.lx-editor[data-density] .bn-editor, .lx-editor[data-font] .bn-editor { font-family: var(--lx-editor-font); font-size: var(--lx-editor-size); line-height: var(--lx-editor-leading); }
+.lx-editor[data-density="compact"] .bn-block-outer:not(:first-child) > .bn-block > .bn-block-content { padding-block-start: var(--lx-editor-block-gap); }
+.lx-editor-crash { flex-direction: column; align-items: flex-start; margin-block: 12px; }
+.lx-editor-crash__detail { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-height: 160px; overflow: auto; }
+.lx-block-crash { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border: 1px dashed var(--ws-line-strong); border-radius: 8px; font-size: 13px; color: var(--on-surface-variant); }
+.lx-editor { --bn-font-family: var(--ws-font); min-height: 60vh; cursor: text; }
+.lx-editor .bn-container, .lx-editor .bn-editor { background: transparent !important; font-family: var(--ws-font); }
+.lx-editor .bn-editor { padding-inline: var(--lx-gutter, 54px) var(--lx-gutter-end, 54px); padding-block: 2px 120px; min-height: 60vh; font-size: 16px; line-height: 1.5; color: var(--on-surface); }
+.lx-editor .bn-block-outer { scroll-margin-top: 100px; line-height: 1.5; }
+.lx-editor .bn-inline-content { word-break: normal; overflow-wrap: anywhere; }
+.lx-editor .bn-block-content { padding-block: 3px; }
+/* Empty-line hint: quiet, and only on the line being written. */
+.lx-editor .bn-inline-content:has(> .ProseMirror-trailingBreak:only-child)::before { color: color-mix(in srgb, var(--on-surface) 30%, transparent); }
+
+/* Headings: one scale with the page title above it (40 › 30 › 24 › 20px). */
+.lx-editor [data-content-type="heading"] { --level: 1.875em; font-weight: 650; letter-spacing: -0.01em; line-height: 1.3; padding-top: 1.05em; padding-bottom: 2px; }
+.lx-editor [data-content-type="heading"][data-level="2"] { --level: 1.5em; padding-top: 0.95em; }
+.lx-editor [data-content-type="heading"][data-level="3"] { --level: 1.25em; padding-top: 0.8em; }
+.lx-editor [data-prev-level="1"] { --prev-level: 1.875em; } .lx-editor [data-prev-level="2"] { --prev-level: 1.5em; } .lx-editor [data-prev-level="3"] { --prev-level: 1.25em; }
+.lx-editor .bn-block-group:not(.bn-block-group .bn-block-group) > .bn-block-outer:first-child [data-content-type="heading"] { padding-top: 3px; }
+.lx-editor .bn-block-content:dir(rtl)[data-content-type="heading"] { letter-spacing: normal; }
+
+/* Nesting, lists, quotes and toggles on the start side in both directions (BlockNote uses left/right). */
+.lx-editor .bn-block-group .bn-block-group { margin-left: 0; margin-inline-start: 26px; }
+.lx-editor .bn-block-group .bn-block-group > .bn-block-outer:not([data-prev-depth-changed])::before { left: auto; inset-inline-start: -20px; }
+.lx-editor [data-prev-depth-change] { margin-left: 0; margin-inline-start: calc(10px * var(--x)); }
+.lx-editor .bn-block-content[data-content-type="numberedListItem"]::before,
+.lx-editor .bn-block-content[data-content-type="bulletListItem"]::before { padding-right: 0; padding-inline-end: 4px; }
+.lx-editor .bn-block-content[data-content-type="checkListItem"] > div > input { margin: 0; margin-inline: 4px 8px; width: 14px; accent-color: var(--primary); }
+.lx-editor .bn-block-content[data-content-type="checkListItem"][data-checked="true"] .bn-inline-content { color: color-mix(in srgb, var(--on-surface) 45%, transparent); }
+.lx-editor [data-content-type="quote"] blockquote { border-left: 0; border-inline-start: 3px solid currentColor; color: inherit; padding-left: 0; padding-inline-start: 14px; }
+.lx-editor [data-content-type="divider"] hr { border-top-color: var(--ws-line-strong, var(--ws-line)); margin-block: 0.6em; }
+.lx-editor .bn-toggle-add-block-button { margin-left: 0; margin-inline-start: 22px; color: var(--lx-handle); }
+.lx-editor .bn-toggle-button { color: var(--lx-handle-hover); border-radius: 4px; }
+.lx-editor .bn-toggle-button:dir(rtl) > svg { transform: scaleX(-1); }
+.lx-editor .bn-toggle-wrapper[data-show-children="true"] .bn-toggle-button:dir(rtl) > svg { transform: rotate(90deg); }
+.lx-editor .bn-block-content[data-content-type="codeBlock"] { border-radius: 6px; }
+.lx-editor .bn-block-content[data-content-type="codeBlock"] pre { direction: ltr; text-align: left; }
+.lx-editor .bn-block-content[data-content-type="table"] { overflow-x: auto; }
+.lx-editor .bn-block-content[data-content-type="table"] th { background: var(--ws-canvas-subtle); font-weight: 600; }
+/* Selected blocks (Esc, Shift+click, drag start): a flat tint instead of BlockNote's ringed box. */
+.lx-editor .bn-block-content.ProseMirror-selectednode > *::after,
+.lx-editor .ProseMirror-selectednode > .bn-block-content > *::after { background: var(--lx-select); box-shadow: none; border-radius: 4px; }
+.lx-editor .ProseMirror ::selection { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+
+/* Gutter pair: + and ⋮⋮ beside the first line of the hovered block (components/learn/editor/sideMenu.tsx). */
+.lx-editor .bn-side-menu, .lx-side-menu { height: 24px; gap: 2px; padding-inline-end: 4px; animation: lx-fade-in 90ms ease-out; }
+.lx-side-menu .bn-button { height: 24px !important; min-width: 0; border-radius: 4px; padding: 0 !important; color: var(--lx-handle) !important; background: transparent; transition: background-color 80ms ease, color 80ms ease; }
+.lx-side-menu .lx-side-menu__add { width: 24px; }
+.lx-side-menu .lx-side-menu__handle { width: 18px; cursor: grab; }
+.lx-side-menu .lx-side-menu__handle:active { cursor: grabbing; }
+.lx-side-menu .bn-button:hover, .lx-side-menu .bn-button[aria-expanded="true"] { background: var(--ws-hover) !important; color: var(--lx-handle-hover) !important; }
+.lx-side-menu .bn-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.lx-side-menu .bn-button svg { width: auto; height: auto; }
+@keyframes lx-fade-in { from { opacity: 0; } }
+/* Touch: one larger handle (actions and long-press drag); "+" lives above the keyboard instead. */
+@media (pointer: coarse) {
+  .lx-side-menu .lx-side-menu__add { display: none; }
+  .lx-side-menu .lx-side-menu__handle { width: 26px; height: 28px !important; }
+}
+
+/* Drop indicator (BlockNote DropCursor, configured in LessonEditor with no inline colour). */
+.prosemirror-dropcursor-block, .prosemirror-dropcursor-vertical, .prosemirror-dropcursor-inline { background: color-mix(in srgb, var(--primary) 70%, transparent); border-radius: 2px; transition: top 70ms ease-out, left 70ms ease-out, width 70ms ease-out; }
+
+/* Dragging: the source blocks fade, text selection pauses, the preview looks like the block. */
+.lx-editor[data-dragging] { user-select: none; -webkit-user-select: none; }
+.lx-editor[data-dragging] .ProseMirror-selectednode > .bn-block-content > *::after, .lx-editor[data-dragging] .bn-block-content.ProseMirror-selectednode > *::after { background: transparent; }
+body[data-lx-block-drag] .bn-drag-preview { width: var(--lx-drag-width, 640px); padding: 4px 8px; border-radius: 6px; background: var(--ws-card); color: var(--on-surface); font-family: var(--ws-font); font-size: 16px; line-height: 1.5; box-shadow: 0 0 0 1px var(--ws-line); }
+body[data-lx-block-drag="rtl"] .bn-drag-preview { direction: rtl; }
+body[data-lx-block-drag] .bn-drag-preview [data-content-type="heading"] { --level: 1.5em; font-weight: 650; }
+body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, body[data-lx-block-drag] .bn-drag-preview .bn-block-content > *::after { display: none; }
+/* Drop: the moved blocks settle into place (transform and opacity only). The per-block rules that
+   use these come from components/learn/editor/dragFeedback.ts. */
+@keyframes lx-settle { from { opacity: .55; transform: translateY(-3px); } }
+@keyframes lx-settle-tint { from { background-color: var(--lx-select); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lx-editor .bn-side-menu, .lx-side-menu, .lx-editor .bn-block-outer, .lx-editor .bn-block-content { animation: none !important; }
+  .prosemirror-dropcursor-block, .prosemirror-dropcursor-vertical, .prosemirror-dropcursor-inline { transition: none; }
+  .lx-editor .bn-block-outer, .lx-editor .bn-block-content { transition: none; }
+}
+
+/* Editor menus (/ menu, ⋮⋮ actions, formatting toolbar, colours, emoji). BlockNote renders them
+   inside .bn-container, which the editor makes transparent, so they bring their own surface. They sit
+   over the text being written, so they stay readable at any workspace transparency setting (at
+   least 97% opaque, light blur). The solid declaration first is the fallback for browsers without
+   color-mix(). */
+.bn-container .bn-suggestion-menu, .bn-container .bn-grid-suggestion-menu, .bn-container .bn-menu-dropdown, .bn-container .bn-toolbar, .bn-container .bn-color-picker-dropdown,
+.bn-suggestion-menu, .bn-grid-suggestion-menu, .bn-menu-dropdown, .bn-toolbar, .bn-color-picker-dropdown {
+  background: var(--ws-card, var(--surface-container-lowest, #fff)) !important;
+  background: color-mix(in srgb, var(--ws-card, #fff) calc(max(var(--popup-opacity, 0.85), 0.97) * 100%), transparent) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  color: var(--on-surface);
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--on-surface) 9%, transparent), 0 3px 6px color-mix(in srgb, var(--on-surface) 8%, transparent), 0 9px 24px color-mix(in srgb, var(--on-surface) 16%, transparent) !important;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .bn-suggestion-menu, .bn-grid-suggestion-menu, .bn-menu-dropdown, .bn-color-picker-dropdown, .bn-toolbar { background: var(--ws-card, #fff) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+.dark .bn-suggestion-menu, .dark .bn-grid-suggestion-menu, .dark .bn-menu-dropdown, .dark .bn-toolbar, .dark .bn-color-picker-dropdown { box-shadow: 0 0 0 1px rgba(255, 255, 255, .09), 0 3px 6px rgba(0, 0, 0, .3), 0 9px 24px rgba(0, 0, 0, .45) !important; }
+
+/* "/" menu: 320px, two-line rows with a 24px icon tile, group labels, quiet shortcut hints. */
+.bn-suggestion-menu { width: min(320px, calc(100vw - 24px)); max-height: min(380px, 60vh); padding: 4px !important; overscroll-behavior: contain; scroll-padding-block: 28px 4px; }
+.bn-suggestion-menu .bn-suggestion-menu-label { padding: 8px 8px 4px; font-size: 12px; font-weight: 550; color: var(--on-surface-variant); }
+.bn-suggestion-menu [role="option"].bn-suggestion-menu-item { min-height: 40px; gap: 10px; padding: 3px 8px; border-radius: 5px; cursor: pointer; }
+.bn-suggestion-menu .bn-suggestion-menu-item [data-position="left"] { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border-radius: 5px; background: var(--ws-card); box-shadow: 0 0 0 1px var(--ws-line); color: var(--on-surface); }
+.bn-suggestion-menu .bn-suggestion-menu-item [data-position="left"] svg { width: 16px; height: 16px; }
+.bn-suggestion-menu .bn-suggestion-menu-item .text-base { font-size: 14px; line-height: 1.3; color: var(--on-surface); }
+.bn-suggestion-menu .bn-suggestion-menu-item .text-xs { font-size: 12px; line-height: 1.35; color: var(--on-surface-variant); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.bn-suggestion-menu [data-position="right"] > *, .bn-suggestion-menu .mantine-Badge-root, .bn-suggestion-menu [data-slot="badge"] { padding: 0 !important; border: 0 !important; background: transparent !important; font-size: 11px; font-weight: 450; color: var(--on-surface-variant) !important; direction: ltr; }
+.bn-suggestion-menu [role="option"][aria-selected="true"], .bn-suggestion-menu [role="option"]:hover { background: var(--ws-hover) !important; }
+.bn-suggestion-menu:has(> .bn-suggestion-menu-item:only-child:not([id])) { width: auto; min-width: 200px; }
+@media (pointer: coarse) { .bn-suggestion-menu [role="option"].bn-suggestion-menu-item { min-height: 44px; } }
+
+/* Block action menu (⋮⋮): Notion-sized rows with a quiet shortcut hint. */
+.lx-block-menu { min-width: 236px; padding: 4px !important; }
+.lx-block-menu .lx-block-menu__item, .lx-block-menu [data-slot="dropdown-menu-sub-trigger"] { min-height: 28px; gap: 8px; padding: 4px 8px; font-size: 14px; border-radius: 4px; }
+.lx-block-menu .lx-block-menu__label { flex: 1; }
+.lx-block-menu svg { color: var(--on-surface-variant); }
+.lx-block-menu .lx-block-menu__kbd { margin-inline-start: auto; padding: 0; padding-inline-start: 16px; border: 0; background: none; box-shadow: none; font: inherit; font-size: 12px; color: var(--on-surface-variant); direction: ltr; }
+.lx-block-menu .lx-block-menu__item--danger:hover, .lx-block-menu .lx-block-menu__item--danger[data-highlighted] { color: var(--error); }
+.lx-block-menu .lx-block-menu__item--danger:hover svg, .lx-block-menu .lx-block-menu__item--danger[data-highlighted] svg { color: var(--error); }
+.bn-menu-dropdown .bn-menu-divider, .lx-block-menu [role="separator"] { height: 1px; margin: 4px 2px; background: var(--ws-line); }
+@media (pointer: coarse) { .lx-block-menu .lx-block-menu__item, .lx-block-menu [data-slot="dropdown-menu-sub-trigger"] { min-height: 40px; } }
+
+/* Formatting toolbar: one compact 36px row. */
+.bn-toolbar { gap: 1px !important; padding: 3px !important; min-height: 36px; align-items: center; }
+.bn-toolbar .bn-button, .bn-toolbar [data-slot="select-trigger"] { min-width: 28px; height: 28px !important; padding-inline: 6px !important; border-radius: 4px; color: var(--on-surface); }
+.bn-toolbar .bn-button:hover { background: var(--ws-hover); }
+.bn-toolbar .bn-button[data-selected], .bn-toolbar .bn-button[aria-pressed="true"] { color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.bn-toolbar .bn-button svg { width: 16px; height: 16px; }
+
+/* Header drawn without extra elements: an icon tile and the block's name (data-title). */
+
+/* Images: caption under the picture on its start edge, teaching details as a quiet line that
+   appears with the block (a missing description stays visible as a warning). */
+.lx-editor [data-file-block] .bn-file-caption { font-size: 14px; color: var(--on-surface-variant); padding-block: 6px 0; text-align: start; }
+.lx-editor [data-file-block] .bn-add-file-button { border-radius: 6px; background: var(--ws-canvas-subtle); color: var(--on-surface-variant); }
+.lx-editor [data-file-block] .bn-add-file-button:hover { background: var(--ws-hover); }
+.lx-editor .lx-figure { justify-items: start; }
+.lx-editor .lx-figure__alt:not([data-missing]) { opacity: 0; transition: opacity 120ms ease; }
+.lx-editor .bn-block-outer:hover .lx-figure__alt, .lx-editor .lx-figure__alt:focus-visible, .lx-editor .ProseMirror-selectednode .lx-figure__alt { opacity: 1; }
+@media (hover: none) { .lx-editor .lx-figure__alt:not([data-missing]) { opacity: 1; } }
+/* Source and YouTube controls stay out of the way until the block is in use. */
+.lx-editor .lx-youtube__fields input { border-color: transparent; background: var(--ws-hover); }
+.lx-editor .lx-youtube__fields input:hover { border-color: var(--ws-line-strong, var(--ws-line)); }
+.lx-editor .lx-youtube__fields input:focus { border-color: var(--primary); background: var(--ws-card); outline: none; }
+.lx-editor .bn-block-content[data-content-type="equation"] { border-radius: 6px; }
+.lx-editor .bn-block-content[data-content-type="equation"]:hover { background: var(--ws-hover); }
+
+/* ── Custom blocks (editor and reader share these) ──────────────────────── */
+.lx-callout { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 12px 14px; border-radius: 10px; background: var(--ws-accent-soft); border-inline-start: 3px solid var(--primary); }
+.lx-callout__icon { display: grid; place-items: center; background: none; border: 0; padding: 2px; cursor: pointer; color: var(--primary); border-radius: 6px; flex-shrink: 0; }
+.lx-callout__icon:disabled { cursor: default; }
+.lx-callout__body { flex: 1; min-width: 0; }
+.lx-callout[data-tone="tip"] { background: color-mix(in srgb, var(--ws-success) 10%, transparent); border-color: var(--ws-success); }
+.lx-callout[data-tone="tip"] .lx-callout__icon { color: var(--ws-success); }
+.lx-callout[data-tone="warning"] { background: color-mix(in srgb, var(--ws-warning) 11%, transparent); border-color: var(--ws-warning); }
+.lx-callout[data-tone="warning"] .lx-callout__icon { color: var(--ws-warning); }
+.lx-callout[data-tone="danger"] { background: var(--danger-soft); border-color: var(--danger); }
+.lx-callout[data-tone="danger"] .lx-callout__icon { color: var(--danger); }
+.lx-callout[data-tone="key"] { background: var(--warning-soft); border-color: var(--warning); }
+.lx-callout[data-tone="key"] .lx-callout__icon { color: var(--warning); }
+.lx-callout[data-tone="note"] { background: var(--surface-2); border-color: var(--line-strong); }
+.lx-callout[data-tone="note"] .lx-callout__icon { color: var(--fg-2); }
+.lx-math { display: block; overflow-x: auto; overflow-y: hidden; padding: 6px 0; max-width: 100%; }
+.lx-math .katex-display { margin: 0; }
+.lx-figure { margin: 0; display: grid; gap: 6px; justify-items: center; }
+.lx-figure img { max-width: 100%; height: auto; border-radius: 8px; }
+.lx-figure[data-kind="diagram"] img { background: #fff; padding: 12px; border: 1px solid var(--ws-line); }
+.lx-figure__alt { font-size: 12px; color: var(--on-surface-variant); background: none; border: 1px dashed transparent; border-radius: 6px; padding: 2px 6px; cursor: pointer; font-family: inherit; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lx-figure__alt:hover { border-color: var(--ws-line-strong); }
+.lx-figure__alt[data-missing] { color: var(--ws-warning); }
+.lx-embed-input { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding: 12px; border: 1px dashed var(--ws-line-strong); border-radius: 10px; color: var(--on-surface-variant); }
+.lx-embed-input input { flex: 1; min-width: 180px; font: inherit; font-size: 14px; border: 1px solid var(--ws-line-strong); border-radius: 7px; padding: 6px 9px; background: var(--ws-card); color: var(--on-surface); }
+.lx-embed-input__error { width: 100%; color: var(--error); font-size: 12px; }
+.lx-embed-empty { display: flex; gap: 8px; align-items: center; color: var(--on-surface-variant); font-size: 13px; }
+.lx-youtube { width: 100%; display: grid; gap: 8px; }
+.lx-youtube__frame { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; }
+.lx-youtube__frame img, .lx-youtube__frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
+.lx-youtube__play { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; filter: drop-shadow(0 2px 6px rgba(0,0,0,.5)); pointer-events: none; }
+.lx-youtube__range { position: absolute; inset-inline-start: 10px; bottom: 10px; font-size: 12px; font-weight: 600; color: #fff; background: rgba(0,0,0,.72); padding: 4px 8px; border-radius: 6px; }
+.lx-youtube__fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.lx-youtube__fields label { display: grid; gap: 3px; font-size: 11px; color: var(--on-surface-variant); }
+.lx-youtube__fields input { font: inherit; font-size: 13px; border: 1px solid var(--ws-line-strong); border-radius: 7px; padding: 5px 8px; background: var(--ws-card); color: var(--on-surface); width: 84px; }
+.lx-youtube__fields .lx-youtube__caption { flex: 1; min-width: 180px; width: auto; }
+.lx-youtube__launch { position: absolute; inset: 0; display: grid; place-items: center; border: 0; background: transparent; cursor: pointer; color: #fff; }
+.lx-youtube__launch:focus-visible { outline: 3px solid var(--primary); outline-offset: -3px; }
+.lx-caption { font-size: 13px; color: var(--on-surface-variant); line-height: 1.5; text-align: center; }
+
+/* ── Max additions ─────────────────────────────────────────────────────── */
+.lx-editor { min-height: 40vh; }
+.lx-editor .bn-editor { min-height: 40vh; padding-block-end: 30vh; }
+.lx-editor[data-small="true"] { --lx-editor-size: 14px; }
+.lx-editor[data-small="true"] .bn-editor { font-size: 14px; }
+.lx-editor .bn-inline-content { unicode-bidi: plaintext; text-align: start; }
+.lx-editor[data-readonly="true"] { cursor: default; }
+/* Page link block */
+.mx-pagelink { display: flex; align-items: center; gap: 6px; width: 100%; padding: 3px 4px; margin-inline-start: -4px; border-radius: 4px; color: var(--fg); font-weight: 500; text-decoration: none; cursor: pointer; }
+.mx-pagelink:hover { background: var(--hover); }
+.mx-pagelink__icon { width: 22px; display: inline-grid; place-items: center; color: var(--fg-2); }
+.mx-pagelink__title { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.mx-pagelink[data-missing] { color: var(--fg-3); }
+/* Inline page mention */
+.mx-mention { display: inline-flex; align-items: baseline; gap: 3px; padding: 0 3px; border-radius: 4px; color: var(--fg); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; cursor: pointer; }
+.mx-mention:hover { background: var(--hover); }
+/* Bookmark block */
+.mx-bookmark { display: flex; width: 100%; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; text-decoration: none; color: var(--fg); }
+.mx-bookmark:hover { background: var(--hover); }
+.mx-bookmark__body { flex: 1; min-width: 0; padding: 12px 14px; display: grid; gap: 4px; }
+.mx-bookmark__url { font-size: 12px; color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Table of contents */
+.mx-toc { width: 100%; display: grid; gap: 1px; padding: 4px 0; }
+.mx-toc a { display: block; padding: 3px 6px; border-radius: 4px; color: var(--fg-2); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; font-size: 14px; cursor: pointer; }
+.mx-toc a:hover { background: var(--hover); color: var(--fg); }
+.mx-toc a[data-level="2"] { padding-inline-start: 24px; }
+.mx-toc a[data-level="3"] { padding-inline-start: 42px; }
+.mx-toc__empty { color: var(--fg-3); font-size: 14px; padding: 4px 6px; }
+/* Diagram */
+.lx-diagram { margin: 0; width: 100%; display: grid; gap: 6px; }
+.lx-diagram img { max-width: 100%; margin-inline: auto; }
+.lx-diagram details { font-size: 12px; color: var(--fg-3); }
+.mx-diagram-edit { width: 100%; display: grid; gap: 8px; padding: 12px; border-radius: 8px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.mx-diagram-edit textarea { width: 100%; font: 13px/1.5 var(--font-mono); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--overlay); color: var(--fg); resize: vertical; }
+.bn-suggestion-menu [role="option"] > .bn-suggestion-menu-item { min-height: 0; padding: 0; }
+.bn-suggestion-menu [role="option"] > [data-position="left"] { padding: 0 !important; }
+.bn-suggestion-menu [role="option"] p, .bn-suggestion-menu [role="option"] .text-base, .bn-suggestion-menu [role="option"] .text-xs { margin: 0; }
