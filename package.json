@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "A calm, private workspace for notes, nested pages and personal databases.",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=20.11"
@@ -13,14 +13,17 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p convex",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
     "convex:dev": "convex dev",
-    "convex:deploy": "convex deploy"
+    "convex:deploy": "convex deploy",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "mcp:docs": "tsx scripts/mcp-inventory.ts",
+    "covers:fetch": "node scripts/fetch-covers.mjs"
   },
   "dependencies": {
     "@blocknote/code-block": "0.55.0",
@@ -63,7 +66,13 @@
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.3.5",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^5.1.0"
+  },
+  "homepage": "https://max.chaos.fail",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iomarsuleiman/max"
   }
 }

@@ -123,6 +123,7 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.nativeEvent.isComposing) {
               e.preventDefault();
+              e.currentTarget.blur();
               onEnter();
             }
           }}

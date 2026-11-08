@@ -1,47 +1,68 @@
+<p align="center"><img src="assets/max-icon.svg" width="72" alt="Max logo"></p>
+
 # Max
 
-**Max** is an open-source, personal notes and knowledge workspace inspired by the simplicity of Notion. Sign in, organize nested pages, write rich documents, manage personal databases, and access the same capabilities through an MCP client.
+**Your notes, pages and databases. Private by default.**
 
-> **Status: planning / pre-alpha.** The application is not implemented yet. This repository currently contains project and community scaffolding, not a working editor.
+Max is a calm, personal workspace: nested pages, a block editor, personal databases and templates, with a built-in [Model Context Protocol](https://modelcontextprotocol.io) server so ChatGPT, Claude or any MCP client can work with your notes when you allow it.
 
-## Planned features
+Live at **[max.chaos.fail](https://max.chaos.fail)** once deployed (see [docs/SETUP.md](docs/SETUP.md)).
 
-- Private accounts and sign-in with Clerk
-- Notes, nested pages, search, favorites and trash
-- Block-based rich-text editing using BlockNote
-- Personal databases and saved views
-- Reliable autosave, recovery, import and export
-- Remote Model Context Protocol (MCP) interface with parity for all supported UI operations
-- Light/dark themes, responsive design and Arabic/RTL support
+## What's inside
 
-**Not planned:** team workspaces, real-time collaboration, shared cursors or invitations.
+- **Pages inside pages.** A sidebar tree with drag handles to reorder and nest, keyboard moves (⌥⇧ + arrows), favorites, recents, a trash you can restore from, and a "Move to…" picker.
+- **The Chaos block editor.** Headings, to-dos, toggles, toggle headings, callouts, quotes, tables, code with highlighting, math (KaTeX), Mermaid diagrams, images with alt text, YouTube with watch ranges, web bookmarks, table of contents, page links and `@` mentions. Gutter handles to drag blocks, `/` command menu, Markdown shortcuts, safe paste from Word, Google Docs and Notion.
+- **Reliable saving.** Truthful status (Saving, Saved, Offline, Not saved, Changed elsewhere), drafts kept on the device until the server confirms, recovery after refresh or crash, retries with backoff, and revision checks so nothing silently overwrites newer edits.
+- **Personal databases.** Table, board, list, gallery and calendar views; text, number, select, multi-select, status, checkbox, date, URL, email, phone, relation, formula, rollup, created and edited time; filters, sorts, search, hidden and reordered columns, resizable columns, drag to reorder rows, drag cards between board columns and calendar days, row templates.
+- **Templates.** A gallery (video projects, tasks, meeting notes, reading list, content calendar, journal, weekly planner, wiki) plus your own page and row templates with `{{today}}` placeholders.
+- **Import and export.** Notion "Markdown & CSV" exports (pages, nesting, databases with inferred column types, rows, row content, links and images), Markdown files and Max backups. Export everything as Markdown (.zip) or JSON.
+- **Assistants (MCP).** 70 tools that mirror every UI action, sharing one service layer and permission checks with the app. OAuth for ChatGPT and Claude, personal access tokens for other clients, confirmations for destructive actions and an activity log.
+- **Made to be used every day.** Light and dark themes (OKLCH tokens tuned separately), emoji and Lucide icons in ten colors, covers, fonts, density, full-width pages, RTL and mixed English/Arabic text, keyboard shortcuts, mobile drawer, and a settings window for account, preferences, editor, sidebar, connections and data.
 
-## Planned stack
+## Quick start (local mode, no accounts needed)
 
-Next.js, React, TypeScript, Convex, Clerk, BlockNote, Tailwind CSS, shadcn/ui, and a remote MCP server using shared application services. These are architecture decisions, not installed dependencies yet.
+```bash
+pnpm install
+pnpm dev
+```
 
-## Getting started
+Open http://localhost:3000. Without Clerk and Convex keys, Max runs as a single private workspace stored in `.max-data/` on your machine. Local mode is for development and self-hosting; production deployments need the cloud setup.
 
-The app has not been scaffolded, so there are no installation or run commands yet. Once implementation begins, this section will document prerequisites, environment variables, local development, tests and deployment. Do not commit credentials.
+## Cloud setup
 
-## Project documentation
+Max uses [Clerk](https://clerk.com) for accounts and [Convex](https://convex.dev) for data, deployed on [Vercel](https://vercel.com). The full checklist is in [docs/SETUP.md](docs/SETUP.md).
 
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
-- [Code of conduct](CODE_OF_CONDUCT.md)
-- [Support](SUPPORT.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Brand assets](assets/README.md)
+## Scripts
 
-## Contributing
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Run the app (local mode unless cloud keys are set) |
+| `pnpm convex:dev` | Run the Convex backend against your dev deployment |
+| `pnpm build` / `pnpm start` | Production build and server |
+| `pnpm lint` · `pnpm typecheck` · `pnpm test` | Checks (ESLint, TypeScript for app and Convex, Vitest) |
+| `pnpm e2e` | Playwright journeys (desktop and mobile) against a production build |
+| `pnpm mcp:docs` | Regenerate the MCP tool table in docs/MCP.md |
+| `pnpm covers:fetch` | Download public-domain cover images (The Met, NASA, James Webb) |
 
-Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. The project is at an early stage; proposed features should be discussed before large implementations.
+## Project layout
+
+```
+app/                 Routes: workspace (home, p/[pageId], templates, trash), auth, public pages, /mcp, local API
+components/editor    The Chaos block editor adapted for Max (blocks, side menu, slash menu, drag feedback, paste policy)
+components/…         Workspace shell and sidebar, page view, databases, settings, import, dashboard, UI kit
+convex/              Schema, database adapter and the authenticated dispatcher
+lib/domain/          Every operation (pages, documents, blocks, databases, templates, import/export, settings, tokens)
+lib/server/          Local store, MCP server and server-side runner
+lib/import/          Notion export parser
+tests/unit · e2e     Vitest domain tests and Playwright journeys
+```
+
+## Documentation
+
+[Setup](docs/SETUP.md) · [Architecture](docs/ARCHITECTURE.md) · [MCP](docs/MCP.md) · [Design](docs/DESIGN.md) · [Performance](docs/PERFORMANCE.md) · [Roadmap](docs/ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Third-party libraries, fonts, and any later-added artwork retain their respective licenses. The Max logo will be supplied separately; its reuse terms must be confirmed before publishing.
+[AGPL-3.0-or-later](LICENSE). The editor is adapted from the Chaos project (same license). Third-party libraries keep their own licenses. The Max logo is not covered by the code license; see [assets/README.md](assets/README.md).
 
-## Disclaimer
-
-Max is independent of Notion and is not affiliated with or endorsed by Notion.
+Max is independent and not affiliated with or endorsed by Notion.

@@ -25,6 +25,7 @@ import { PageOptions } from "./PageOptions";
 import { SaveStatus } from "./SaveStatus";
 import { ImageDetailsDialog } from "./ImageDetailsDialog";
 import { useDocumentSync } from "./useDocumentSync";
+import { requestEditorFocus, takeEditorFocusRequest } from "@/lib/client/editorFocus";
 
 const MaxEditor = dynamic(() => import("@/components/editor/MaxEditor"), {
   ssr: false,
@@ -110,7 +111,7 @@ export function PageView({ pageId }: { pageId: string }) {
             You&apos;re editing a template. New {page.databaseId ? "rows" : "pages"} made from it copy this content. Use {"{{today}}"} to insert the date.
           </div>
         )}
-        <PageHeader page={page} readOnly={readOnly} widthClass={widthClass} onEnter={() => document.dispatchEvent(new CustomEvent("max:focus-editor"))} />
+        <PageHeader page={page} readOnly={readOnly} widthClass={widthClass} onEnter={() => requestEditorFocus(pageId)} />
         <div className={cn("mx-auto w-full px-4 pb-24 sm:px-12", widthClass)}>
           {page.locked && !page.archivedAt && (
             <p className="mb-2 inline-flex items-center gap-1.5 text-[12.5px] text-fg-3">
@@ -266,6 +267,7 @@ function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; 
   const onReady = useCallback(
     (editor: MaxEditorType) => {
       editorRef.current = editor;
+      if (takeEditorFocusRequest(pageId)) requestAnimationFrame(() => focusEditorStart(editor));
       if (draftChecked.current) return;
       draftChecked.current = true;
       const draft = sync.readDraft();
@@ -303,7 +305,9 @@ function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; 
   }, [doc.revision, doc.blocks, sync, sync.state]);
 
   useEffect(() => {
-    const focus = () => focusEditorStart(editorRef.current);
+    const focus = () => {
+      if (editorRef.current && takeEditorFocusRequest(pageId)) focusEditorStart(editorRef.current);
+    };
     document.addEventListener("max:focus-editor", focus);
     return () => document.removeEventListener("max:focus-editor", focus);
   }, []);

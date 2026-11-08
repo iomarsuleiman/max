@@ -2,32 +2,30 @@
 
 Thanks for helping build Max.
 
-## Before you start
+## Getting started
 
-1. Search existing issues and pull requests.
-2. For large changes, open an issue describing the problem, proposed approach, alternatives and tradeoffs.
-3. Keep changes focused. Avoid adding dependencies or new product scope without discussion.
-4. Respect the project's private single-user scope: no collaboration, team workspaces or sharing unless the roadmap changes.
+```bash
+pnpm install
+pnpm dev          # local mode, no accounts needed
+pnpm check        # lint + typecheck + unit tests
+pnpm e2e          # Playwright journeys against a production build
+```
 
-## Development workflow
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before changing data or operations.
 
-The application has not been scaffolded yet. Setup commands and environment variables will be added after the initial Next.js/Convex/Clerk implementation.
+## Rules of the road
 
-When tooling is available, contributions should:
-- Pass formatting, linting, TypeScript checks and tests.
-- Include tests for behavior changes, especially access control, editor persistence and MCP parity.
-- Document migrations and any new configuration.
-- Keep secrets, private notes, tokens and production data out of commits and fixtures.
-- Include screenshots for visible UI changes and accessibility notes for interactive controls.
+1. **One operation layer.** Add or change behaviour in `lib/domain/ops`. The UI and MCP both call it; never add a UI-only or MCP-only path for data. Run `pnpm mcp:docs` when operations change.
+2. **Ownership first.** Every handler must load data through `requirePage`/owner-scoped queries. Add a cross-account test for new operations.
+3. **Truthful states.** Don't show success before the server confirms. Every new control needs loading, empty, error and disabled states.
+4. **Tests.** Behaviour changes come with unit tests; user-visible flows with a Playwright journey where practical.
+5. **Scope.** Max is a private, single-owner workspace. Collaboration and sharing are out of scope.
+6. Keep secrets, real notes and production data out of commits and fixtures.
 
 ## Pull requests
 
-Use the PR template. Describe the motivation, implementation, testing and risks. Prefer small PRs. Do not mark tests as passing unless you ran them.
+Use the PR template, keep changes focused, include screenshots for UI changes and only tick checks you ran.
 
-## Security
+## License
 
-Do not disclose vulnerabilities in public issues. Follow [SECURITY.md](SECURITY.md).
-
-## Community
-
-Follow the [Code of Conduct](CODE_OF_CONDUCT.md). By submitting a contribution, you agree it is provided under the repository's MIT license, unless explicitly stated otherwise for third-party material.
+Max is licensed under [AGPL-3.0-or-later](LICENSE). By contributing, you agree your contribution is provided under that license.

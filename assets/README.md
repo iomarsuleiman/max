@@ -1,5 +1,9 @@
 # Max brand assets
 
-The project owner will provide the official Max logo. Do not create a placeholder pretending to be the final logo.
+- `max-mark.svg`: the butterfly mark (single color, 100×100 viewBox), vectorized from the supplied logo.
+- `max-icon.svg`: the mark on a dark rounded tile, used for the favicon and app icons.
+- `max-logo-source.png`: the original logo as supplied by the owner.
 
-Once supplied, add optimized SVG/PNG assets here, record attribution and explicit reuse rights, and use them in the app, favicon and documentation. The software is MIT-licensed; artwork may have separate terms.
+The in-app component is `components/brand/Logo.tsx`. Generated icons live in `app/icon.svg`, `app/apple-icon.png` and `public/icon-*.png`.
+
+The Max name and logo are not licensed under the code license (AGPL-3.0). Don't use them to imply endorsement of a fork or derived service.
