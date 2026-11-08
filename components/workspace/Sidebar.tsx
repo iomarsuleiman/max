@@ -270,7 +270,6 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
 
 export function Avatar({ name, url, size = 28 }: { name: string; url: string | null; size?: number }) {
   if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
     return <img src={url} alt="" width={size} height={size} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
   }
   const initials = name.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "M";

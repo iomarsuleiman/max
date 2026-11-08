@@ -9,6 +9,7 @@ import { pageTitle } from "@/lib/client/format";
 import type { PageRow, PropertyDef, PropertyValue, SelectOption } from "@/lib/domain/types";
 import type { RecordView } from "@/lib/client/types";
 import { COLORS, READONLY_TYPES, Tag, formatDateValue, formatNumber } from "./meta";
+import { PageIcon } from "@/components/workspace/PageIcon";
 
 type Value = PropertyValue | undefined;
 
@@ -78,7 +79,7 @@ function RelationChip({ id }: { id: string }) {
   const q = useOp<{ page: PageRow }>("pages.get", { id });
   return (
     <Link href={`/p/${id}`} onClick={(e) => e.stopPropagation()} className="inline-flex max-w-full items-center gap-1 truncate rounded px-1 text-[13px] underline decoration-line-strong underline-offset-2 hover:bg-hover">
-      {q.data?.page.icon && <span aria-hidden>{q.data.page.icon}</span>}
+      {q.data?.page.icon && <PageIcon icon={q.data.page.icon} size={13} />}
       {q.data ? pageTitle(q.data.page.title) : q.error ? "Deleted row" : "…"}
     </Link>
   );
@@ -298,7 +299,7 @@ function RelationEditor({ prop, value, onSave, databaseId }: { prop: PropertyDef
         {q.data?.records.map((r) => (
           <li key={r._id}>
             <button type="button" onClick={() => toggle(r._id)} className="flex h-7 w-full items-center gap-2 rounded-[5px] px-2 text-start text-[13.5px] hover:bg-hover">
-              {r.icon && <span>{r.icon}</span>}
+              {r.icon && <PageIcon icon={r.icon} />}
               <span className="truncate">{pageTitle(r.title)}</span>
               {selected.has(r._id) && <Check className="ms-auto size-3.5 text-fg-2" />}
             </button>

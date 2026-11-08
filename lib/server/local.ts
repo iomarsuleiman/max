@@ -14,7 +14,7 @@ import type { Source } from "@/lib/domain/types";
  * MAX_LOCAL_MODE=true is set explicitly.
  */
 export const LOCAL_OWNER = "local";
-const DIR = path.resolve(process.env.MAX_DATA_DIR || ".max-data");
+const DIR = path.resolve(/*turbopackIgnore: true*/ process.env.MAX_DATA_DIR || ".max-data");
 const FILE = path.join(DIR, "db.json");
 const FILES = path.join(DIR, "files");
 

@@ -71,14 +71,12 @@ function load(e: Entry) {
   return e.inflight;
 }
 
-let invalidateTimer: ReturnType<typeof setTimeout> | null = null;
 let invalidatePromise: Promise<void> | null = null;
 /** Refetches every watched query. Resolves once fresh data is in (like Convex's mutation guarantee). */
 export function invalidateLocal(): Promise<void> {
   if (invalidatePromise) return invalidatePromise;
   invalidatePromise = new Promise<void>((resolve) => {
-    invalidateTimer = setTimeout(() => {
-      invalidateTimer = null;
+    setTimeout(() => {
       invalidatePromise = null;
       const loads: Promise<void>[] = [];
       for (const [key, e] of cache) {
@@ -151,10 +149,8 @@ function useReadLocal() {
 /* ── Cloud mode: Convex reactive queries ─────────────────────────────────── */
 
 function useOpCloud<T>(op: string, args: Args | "skip"): QueryState<T> {
-  const queries = useMemo(
-    () => (args === "skip" ? {} : { q: { query: anyApi.ops.query, args: { op, args } } }),
-    [op, args === "skip" ? "skip" : JSON.stringify(args)], // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  const argKey = args === "skip" ? "skip" : JSON.stringify(args);
+  const queries = useMemo(() => (argKey === "skip" ? {} : { q: { query: anyApi.ops.query, args: { op, args: JSON.parse(argKey) } } }), [op, argKey]);
   const result = useQueries(queries as never) as { q?: unknown };
   const last = useRef<{ data: unknown; key: string } | null>(null);
   if (args === "skip") return SKIPPED;

@@ -1,15 +1,15 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
 const cloud = !!(process.env.NEXT_PUBLIC_CONVEX_URL && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-const isWorkspace = createRouteMatcher(["/home(.*)", "/p/(.*)", "/trash(.*)", "/templates(.*)", "/import(.*)"]);
+const WORKSPACE = /^\/(home|p|trash|templates)(\/|$)/;
 
 const clerk = clerkMiddleware(async (auth, req) => {
-  if (isWorkspace(req)) await auth.protect();
+  // Workspace pages need a session. Every data call is also checked by Convex itself.
+  if (WORKSPACE.test(req.nextUrl.pathname)) await auth.protect();
 });
 
-/** Cloud mode: workspace routes require a Clerk session (Convex also checks identity on every call). */
-export default function proxy(req: NextRequest, ev: Parameters<typeof clerk>[1]) {
+export default function proxy(req: NextRequest, ev: NextFetchEvent) {
   if (!cloud) return NextResponse.next();
   return clerk(req, ev);
 }

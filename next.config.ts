@@ -12,7 +12,6 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: false,
-  // @ts-expect-error -- Next 16 option; keeps the repo free of generated agent files.
   agentRules: false,
   serverExternalPackages: [],
   images: { remotePatterns: [{ protocol: "https", hostname: "i.ytimg.com" }] },

@@ -11,6 +11,7 @@ import { EditableValue } from "./cells";
 import { PropIcon } from "./meta";
 import { AddProperty, PropertyMenu } from "./PropertyMenu";
 import { orderedProperties } from "./useDatabase";
+import { PageIcon } from "@/components/workspace/PageIcon";
 
 /** Property panel at the top of a database row's page. */
 export function RecordProperties({ record, readOnly }: { record: PageRow; readOnly: boolean }) {
@@ -25,7 +26,7 @@ export function RecordProperties({ record, readOnly }: { record: PageRow; readOn
       <p className="mb-2 text-[12.5px] text-fg-3">
         In{" "}
         <Link href={`/p/${db.data.database._id}`} className="underline decoration-line-strong underline-offset-2 hover:text-fg-2">
-          {db.data.database.icon} {pageTitle(db.data.database.title)}
+          <PageIcon icon={db.data.database.icon} kind="database" size={13} className="me-0.5 inline-grid align-[-2px]" />{pageTitle(db.data.database.title)}
         </Link>
       </p>
       <dl className="grid gap-0.5">

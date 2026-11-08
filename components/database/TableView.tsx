@@ -11,6 +11,7 @@ import type { DatabaseView, PageRow, PropertyDef } from "@/lib/domain/types";
 import type { RecordView } from "@/lib/client/types";
 import { useWorkspace } from "@/components/workspace/context";
 import { EditableValue } from "./cells";
+import { PageIcon } from "@/components/workspace/PageIcon";
 import { PropIcon } from "./meta";
 import { AddProperty, PropertyMenu } from "./PropertyMenu";
 
@@ -236,7 +237,7 @@ function TableRow({ record, properties, widthOf, databaseId, readOnly, canReorde
         <div key={p.id} role="cell" style={{ width: widthOf(p) }} className="relative flex shrink-0 items-stretch border-s border-line first-of-type:border-s-0 [&:nth-child(2)]:border-s-0">
           {p.type === "title" ? (
             <div className="group/title flex min-w-0 flex-1 items-center">
-              {record.icon && <span className="ps-2" aria-hidden>{record.icon}</span>}
+              {record.icon && <PageIcon icon={record.icon} className="ms-2" />}
               <EditableValue prop={p} value={record.title} record={record} databaseId={databaseId} readOnly={readOnly} onSave={(v) => onUpdate(record._id, { [p.id]: v })} placeholder="Untitled" className="font-medium" />
               <button type="button" onClick={onOpen} className="absolute end-1 top-1/2 inline-flex h-6 -translate-y-1/2 items-center gap-1 rounded bg-overlay px-1.5 text-[11.5px] font-medium text-fg-2 opacity-0 shadow-[0_0_0_1px_var(--line-strong)] hover:bg-surface-2 group-hover/row:opacity-100 focus-visible:opacity-100 max-md:opacity-100">
                 <Maximize2 className="size-3" /> Open

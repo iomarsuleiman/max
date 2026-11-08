@@ -125,7 +125,7 @@ function AccountSection() {
     try {
       const res = await ws.call<{ removed: number }>("account.deleteAllData", { confirm: true });
       toast.success(`Deleted ${res.removed.toLocaleString("en")} items. Your workspace is empty.`);
-      location.href = "/home";
+      window.location.assign(new URL("/home", window.location.origin));
     } catch (err) {
       notifyError(err, "Couldn't delete your data. Nothing was deleted, or only part was; try again.");
     }
@@ -496,7 +496,7 @@ function DataSection() {
           <span />
         </SettingRow>
         <SettingRow title="Trash" description="Pages stay in the trash until you empty it.">
-          <Button size="sm" icon={<Trash2 className="size-3.5" />} onClick={() => (ws.closeSettings(), (location.href = "/trash"))}>Open trash</Button>
+          <Button size="sm" icon={<Trash2 className="size-3.5" />} onClick={() => (ws.closeSettings(), window.location.assign(new URL("/trash", window.location.origin)))}>Open trash</Button>
         </SettingRow>
       </Group>
     </>

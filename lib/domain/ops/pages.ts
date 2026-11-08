@@ -201,7 +201,7 @@ export const pagesUpdate = defineOp({
   async run(ctx, { id: pageId, ...patch }) {
     const page = await requirePage(ctx, pageId);
     if (page.locked && patch.locked !== false && (patch.title !== undefined || patch.icon !== undefined || patch.cover !== undefined)) assertWritable(page);
-    if (patch.cover && !/^(https:\/\/|max-asset:\/\/|gradient:|color:)/.test(patch.cover)) {
+    if (patch.cover && !/^(https:\/\/|max-asset:\/\/|gradient:\d+$|color:[a-z]+$|cover:[a-z0-9-]+$)/.test(patch.cover)) {
       throw new MaxError("VALIDATION", "Covers must be an https image link, an uploaded image, or a built-in gradient.");
     }
     const clean = Object.fromEntries(Object.entries({ ...patch, title: patch.title === undefined ? undefined : cleanTitle(patch.title) }).filter(([, v]) => v !== undefined));
@@ -399,7 +399,7 @@ export const pagesRestore = defineOp({
     const branchRoot = rootId === pageId ? page : page;
     const members = [branchRoot, ...descendants(pages, branchRoot._id)].filter((p) => p.archivedAt && p.archivedRootId === rootId);
     let parentId = branchRoot.parentId;
-    let databaseId = branchRoot.databaseId;
+    const databaseId = branchRoot.databaseId;
     const parent = parentId ? byId.get(parentId) : undefined;
     if (parentId && (!parent || parent.archivedAt)) parentId = null;
     if (databaseId) {

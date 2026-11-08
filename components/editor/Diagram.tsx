@@ -106,7 +106,6 @@ export default function Diagram({ text }: { text: string }) {
   return (
     <figure ref={ref} className="lx-diagram">
       {image ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={image} alt="Diagram" />
       ) : error ? (
         <output className="text-[13px] text-fg-3">Check the diagram syntax below.</output>

@@ -9,7 +9,7 @@ import type { PageSummary } from "@/lib/client/types";
 import { useWorkspace } from "@/components/workspace/context";
 import { Topbar } from "@/components/workspace/Topbar";
 import { PageIcon } from "@/components/workspace/PageIcon";
-import { coverClass } from "@/components/page/CoverPicker";
+import { CoverView } from "@/components/page/CoverView";
 
 interface Overview {
   counts: { pages: number; databases: number; records: number; words: number; trash: number; templates: number };
@@ -146,14 +146,13 @@ function Section({ icon, title, children, flush }: { icon: React.ReactNode; titl
 }
 
 function RecentCard({ page }: { page: PageSummary }) {
-  const cover = coverClass(page.cover);
   return (
     <Link
       href={`/p/${page._id}`}
       onMouseEnter={() => prefetchOp("pages.get", { id: page._id })}
       className="group relative flex h-[132px] w-[148px] shrink-0 snap-start flex-col overflow-hidden rounded-xl bg-overlay shadow-[0_0_0_1px_var(--line),0_1px_2px_oklch(0_0_0/0.04)] transition-shadow hover:shadow-[0_0_0_1px_var(--line-strong),0_4px_14px_oklch(0_0_0/0.08)]"
     >
-      <div className={cn("h-11 shrink-0 bg-surface-2", cover)} />
+      <CoverView cover={page.cover} className="h-11 w-full shrink-0" />
       <div className="-mt-4 px-3">
         <PageIcon icon={page.icon} kind={page.kind} size={24} className="rounded bg-overlay" />
       </div>

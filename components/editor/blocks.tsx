@@ -16,6 +16,7 @@ import { createReactBlockSpec, createReactInlineContentSpec, ResizableFileBlockW
 import { codeBlockOptions } from "@blocknote/code-block";
 import { AlertTriangle, FileText, Globe, Image as ImageIcon, Info, Lightbulb, Link2, ListTree, Octagon, PlayCircle, Sheet, Star, StickyNote, Video } from "lucide-react";
 import Diagram from "./Diagram";
+import { PageIcon } from "@/components/workspace/PageIcon";
 import { isolatedBlock } from "./EditorErrorBoundary";
 import { formatTimestamp, normalizeLink, parseTimestamp, parseYouTube } from "./policy";
 
@@ -144,7 +145,6 @@ export const MaxImage = createReactBlockSpec(
       return (
         <FileWrapper {...(props as object)} buttonIcon={<ImageIcon size={24} />}>
           <figure className="lx-figure">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               className="bn-visual-media"
               src={resolved.loadingState === "loading" ? undefined : resolved.downloadUrl}
@@ -226,7 +226,6 @@ export const YouTube = createIsolatedBlockSpec(
       return (
         <div className="lx-youtube" contentEditable={false}>
           <div className="lx-youtube__frame">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`https://i.ytimg.com/vi/${block.props.videoId}/hqdefault.jpg`} alt="" loading="lazy" />
             <a className="lx-youtube__launch" href={href} target="_blank" rel="noreferrer noopener" aria-label="Watch on YouTube">
               <PlayCircle size={42} aria-hidden />
@@ -290,7 +289,7 @@ export const PageLinkBlock = createIsolatedBlockSpec(
             bridge.navigate(block.props.pageId);
           }}
         >
-          <span className="mx-pagelink__icon">{page?.icon ? <span aria-hidden>{page.icon}</span> : <Icon size={18} strokeWidth={1.75} aria-hidden />}</span>
+          <span className="mx-pagelink__icon">{page?.icon ? <PageIcon icon={page.icon} size={18} /> : <Icon size={18} strokeWidth={1.75} aria-hidden />}</span>
           <span className="mx-pagelink__title">{page ? page.title || "Untitled" : "Page in trash or deleted"}</span>
         </a>
       );
@@ -419,7 +418,7 @@ export const PageMention = createReactInlineContentSpec(
             bridge.navigate(inlineContent.props.pageId);
           }}
         >
-          {page?.icon ? <span aria-hidden>{page.icon}</span> : <FileText size={14} className="self-center" aria-hidden />}
+          {page?.icon ? <PageIcon icon={page.icon} size={14} className="self-center" /> : <FileText size={14} className="self-center" aria-hidden />}
           {page ? page.title || "Untitled" : inlineContent.props.title || "Deleted page"}
         </a>
       );

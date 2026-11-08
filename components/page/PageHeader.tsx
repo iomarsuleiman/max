@@ -3,26 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, SmilePlus } from "lucide-react";
 import { cn } from "@/components/ui";
-import { useAssetResolver, useUploader } from "@/lib/client/upload";
+import { useUploader } from "@/lib/client/upload";
 import type { PageRow } from "@/lib/client/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { IconPicker } from "./IconPicker";
-import { CoverPicker, coverClass } from "./CoverPicker";
-
-function CoverImage({ cover }: { cover: string }) {
-  const resolve = useAssetResolver();
-  const [src, setSrc] = useState<string | null>(cover.startsWith("max-asset://") ? null : cover);
-  useEffect(() => {
-    let live = true;
-    if (cover.startsWith("max-asset://")) void resolve(cover).then((u) => live && setSrc(u));
-    else setSrc(cover);
-    return () => {
-      live = false;
-    };
-  }, [cover, resolve]);
-  // eslint-disable-next-line @next/next/no-img-element
-  return src ? <img src={src} alt="" className="size-full object-cover" /> : <div className="skeleton size-full rounded-none" />;
-}
+import { CoverPicker } from "./CoverPicker";
+import { CoverView } from "./CoverView";
+import { PageIcon } from "@/components/workspace/PageIcon";
 
 export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: PageRow; readOnly: boolean; onEnter: () => void; widthClass: string }) {
   const ws = useWorkspace();
@@ -61,8 +48,8 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
   return (
     <div className="group/header relative">
       {cover && (
-        <div className={cn("relative h-[30vh] max-h-[280px] min-h-[120px] w-full overflow-hidden bg-surface-2", coverClass(cover))}>
-          {!coverClass(cover) && <CoverImage cover={cover} />}
+        <div className="relative h-[30vh] max-h-[280px] min-h-[120px] w-full overflow-hidden bg-surface-2">
+          <CoverView cover={cover} className="size-full" />
           {!readOnly && (
             <div className="absolute bottom-3 end-4 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/header:opacity-100 max-md:opacity-100">
               <CoverPicker
@@ -79,12 +66,12 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
         {page.icon && (
           <div className={cn("relative z-[1]", cover ? "-mt-10" : "")}>
             {readOnly ? (
-              <span className="text-[64px] leading-none">{page.icon}</span>
+              <PageIcon icon={page.icon} size={72} />
             ) : (
               <IconPicker
                 trigger={
-                  <button type="button" aria-label="Change icon" className="rounded-lg p-1 text-[64px] leading-none hover:bg-hover">
-                    {page.icon}
+                  <button type="button" aria-label="Change icon" className="rounded-lg p-1 hover:bg-hover">
+                    <PageIcon icon={page.icon} size={72} />
                   </button>
                 }
                 onPick={(e) => update({ icon: e })}

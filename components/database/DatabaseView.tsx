@@ -12,6 +12,7 @@ import type { DatabaseView as View, PageRow, ViewType } from "@/lib/domain/types
 import type { PageSummary } from "@/lib/client/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { orderedProperties, useDatabase } from "./useDatabase";
+import { PageIcon } from "@/components/workspace/PageIcon";
 import { TableView } from "./TableView";
 import { BoardView, CalendarView, GalleryView, ListView } from "./OtherViews";
 import { FilterButton, PropertiesButton, SearchBox, SortButton } from "./Toolbar";
@@ -216,7 +217,7 @@ function TemplateItem({ template, onUse }: { template: PageSummary; onUse: () =>
   return (
     <div className="group flex items-center">
       <div className="min-w-0 flex-1">
-        <MenuItem icon={template.icon ? <span>{template.icon}</span> : <LayoutTemplate />} onSelect={onUse}>
+        <MenuItem icon={template.icon ? <PageIcon icon={template.icon} /> : <LayoutTemplate />} onSelect={onUse}>
           {pageTitle(template.title)}
         </MenuItem>
       </div>

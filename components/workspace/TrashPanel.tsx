@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { RotateCcw, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Skeleton, Tooltip, cn, confirmAction } from "@/components/ui";
@@ -22,6 +23,7 @@ interface TrashItem {
 
 export function TrashPanel({ compact }: { compact?: boolean }) {
   const ws = useWorkspace();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const q = useOp<{ pages: TrashItem[] }>("trash.list", { query });
   const all = useOp<{ pages: TrashItem[] }>("trash.list", {});
@@ -31,7 +33,7 @@ export function TrashPanel({ compact }: { compact?: boolean }) {
     try {
       const res = await ws.call<{ parentId: string | null }>("pages.restore", { id: item._id });
       toast.success(res.parentId ? `Restored “${pageTitle(item.title)}”` : `Restored “${pageTitle(item.title)}” to the top level`, {
-        action: { label: "Open", onClick: () => (window.location.href = `/p/${item._id}`) },
+        action: { label: "Open", onClick: () => router.push(`/p/${item._id}`) },
       });
     } catch (err) {
       notifyError(err, "Couldn't restore the page.");

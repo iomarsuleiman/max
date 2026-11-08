@@ -4,14 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, FileText, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button, IconButton, cn } from "@/components/ui";
 import type { DatabaseView, PageRow, PropertyDef, SelectOption } from "@/lib/domain/types";
 import type { RecordView } from "@/lib/client/types";
 import { pageTitle } from "@/lib/client/format";
-import { useAssetResolver } from "@/lib/client/upload";
-import { coverClass } from "@/components/page/CoverPicker";
-import { useEffect } from "react";
+import { CoverView } from "@/components/page/CoverView";
+import { PageIcon } from "@/components/workspace/PageIcon";
 import { ValueView } from "./cells";
 import { Tag } from "./meta";
 
@@ -89,7 +88,7 @@ export function BoardView({ database, view, properties, records, readOnly, onUpd
                   <BoardCard key={r._id} id={r._id} disabled={readOnly}>
                     <Link href={`/p/${r._id}`} className="block rounded-lg bg-overlay p-2.5 shadow-[0_0_0_1px_var(--line),0_1px_2px_oklch(0_0_0/0.04)] hover:bg-surface-2" onClick={(e) => e.defaultPrevented && e.preventDefault()}>
                       <div className="flex items-start gap-1.5 text-[13.5px] font-medium text-fg">
-                        {r.icon && <span aria-hidden>{r.icon}</span>}
+                        {r.icon && <PageIcon icon={r.icon} />}
                         <span className="min-w-0 break-words">{pageTitle(r.title)}</span>
                       </div>
                       <CardProps properties={properties.filter((p) => p.id !== group.id)} record={r} />
@@ -147,7 +146,7 @@ export function ListView({ properties, records, readOnly, onCreate }: ViewProps)
           <li key={r._id} className="border-b border-line">
             <Link href={`/p/${r._id}`} className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-1 py-1.5 hover:bg-hover">
               <span className="flex min-w-0 flex-1 items-center gap-2 text-[14px] font-medium text-fg">
-                {r.icon ? <span aria-hidden>{r.icon}</span> : <FileText className="size-4 shrink-0 text-fg-3" strokeWidth={1.75} />}
+                <PageIcon icon={r.icon} />
                 <span className="truncate">{pageTitle(r.title)}</span>
               </span>
               <span className="flex flex-wrap items-center gap-2 text-[12.5px] text-fg-2">
@@ -172,33 +171,16 @@ export function ListView({ properties, records, readOnly, onCreate }: ViewProps)
 
 /* ── Gallery ─────────────────────────────────────────────────────────────── */
 
-function CardCover({ cover }: { cover: string | null | undefined }) {
-  const resolve = useAssetResolver();
-  const [src, setSrc] = useState<string | null>(null);
-  const gradient = coverClass(cover);
-  useEffect(() => {
-    let live = true;
-    if (cover && !gradient) void resolve(cover).then((u) => live && setSrc(u));
-    return () => {
-      live = false;
-    };
-  }, [cover, gradient, resolve]);
-  if (!cover) return <div className="h-28 bg-surface-2" />;
-  if (gradient) return <div className={cn("h-28", gradient)} />;
-  // eslint-disable-next-line @next/next/no-img-element
-  return src ? <img src={src} alt="" className="h-28 w-full object-cover" loading="lazy" /> : <div className="skeleton h-28 rounded-none" />;
-}
-
 export function GalleryView({ properties, records, readOnly, onCreate, view }: ViewProps) {
   const router = useRouter();
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3 px-4 sm:px-12">
       {records.map((r) => (
         <Link key={r._id} href={`/p/${r._id}`} className="overflow-hidden rounded-lg bg-overlay shadow-[0_0_0_1px_var(--line),0_1px_2px_oklch(0_0_0/0.04)] transition-colors hover:bg-surface-2">
-          {view.cardPreview !== "none" && <CardCover cover={r.cover} />}
+          {view.cardPreview !== "none" && <CoverView cover={r.cover} className="h-28 w-full" />}
           <div className="p-2.5">
             <div className="flex items-center gap-1.5 text-[13.5px] font-medium text-fg">
-              {r.icon && <span aria-hidden>{r.icon}</span>}
+              {r.icon && <PageIcon icon={r.icon} />}
               <span className="truncate">{pageTitle(r.title)}</span>
             </div>
             <CardProps properties={properties} record={r} />
@@ -293,7 +275,7 @@ export function CalendarView({ properties, records, readOnly, onCreate, onUpdate
                   {items.map((r) => (
                     <CalendarItem key={r._id} id={r._id} disabled={readOnly}>
                       <Link href={`/p/${r._id}`} className="block truncate rounded bg-overlay px-1.5 py-0.5 text-[12.5px] font-medium text-fg shadow-[0_0_0_1px_var(--line)] hover:bg-surface-2">
-                        {r.icon && <span className="me-1" aria-hidden>{r.icon}</span>}
+                        {r.icon && <PageIcon icon={r.icon} size={13} className="me-1 inline-grid align-[-2px]" />}
                         {pageTitle(r.title)}
                       </Link>
                     </CalendarItem>

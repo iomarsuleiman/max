@@ -15,7 +15,8 @@ import {
 import { SuggestionMenu } from "@blocknote/core/extensions";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/shadcn";
-import { FileText, Plus, Sheet } from "lucide-react";
+import { Plus } from "lucide-react";
+import { PageIcon } from "@/components/workspace/PageIcon";
 import { EditorBridge, maxSchema, type EditorBridgeValue, type MaxEditorType } from "./blocks";
 import { focusEditorEnd, isBlankEditorTarget } from "./focusEnd";
 import { maxSlashItems, normalizeSearch, searchSlashItems } from "./slashMenu";
@@ -139,7 +140,7 @@ export default function MaxEditor(props: MaxEditorProps) {
       .slice(0, 12)
       .map(([id, p]) => ({
         title: p.title || "Untitled",
-        icon: p.icon ? <span>{p.icon}</span> : p.kind === "database" ? <Sheet size={16} /> : <FileText size={16} />,
+        icon: <PageIcon icon={p.icon} kind={p.kind} />,
         group: "Link to page",
         onItemClick: () => editor.insertInlineContent([{ type: "pageMention", props: { pageId: id, title: p.title } } as never, " "]),
       }));

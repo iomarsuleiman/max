@@ -51,6 +51,10 @@
   --tag-pink: oklch(0.92 0.04 350); --tag-pink-fg: oklch(0.45 0.11 355);
   --tag-red: oklch(0.92 0.04 25); --tag-red-fg: oklch(0.47 0.14 27);
 
+  /* Icon colors (Notion's palette) */
+  --icon-gray: #787774; --icon-brown: #9f6b53; --icon-orange: #d9730d; --icon-yellow: #cb912f; --icon-green: #448361;
+  --icon-blue: #337ea9; --icon-purple: #9065b0; --icon-pink: #c14c8a; --icon-red: #d44c47;
+
   --chart-1: oklch(0.6 0.1 250);
   --font-sans: var(--font-inter), var(--font-arabic), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: "Iowan Old Style", "Charter", Georgia, var(--font-arabic), serif;
@@ -91,6 +95,9 @@
   --shadow-pop: 0 0 0 1px oklch(1 0 0 / 0.08), 0 4px 12px oklch(0 0 0 / 0.3), 0 14px 34px oklch(0 0 0 / 0.45);
   --shadow-dialog: 0 0 0 1px oklch(1 0 0 / 0.08), 0 14px 30px oklch(0 0 0 / 0.4), 0 34px 80px oklch(0 0 0 / 0.5);
   --scrim: oklch(0 0 0 / 0.55);
+
+  --icon-gray: #9b9b9b; --icon-brown: #ba856f; --icon-orange: #c77d48; --icon-yellow: #ca9849; --icon-green: #529e72;
+  --icon-blue: #379ad3; --icon-purple: #9d68d3; --icon-pink: #d15796; --icon-red: #df5452;
 
   --tag-gray: oklch(0.32 0.005 260); --tag-gray-fg: oklch(0.86 0.005 260);
   --tag-brown: oklch(0.33 0.03 55); --tag-brown-fg: oklch(0.85 0.04 60);
