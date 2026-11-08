@@ -1,0 +1,22 @@
+/** A compact, searchable emoji set for page icons. */
+export const EMOJI: { e: string; k: string }[] = [
+  ["📝", "memo note write"], ["📄", "page document"], ["📚", "books library reading"], ["📖", "book open read wiki"], ["📓", "notebook journal"], ["📒", "ledger notebook"],
+  ["🗒️", "notepad planner"], ["🗓️", "calendar schedule meeting"], ["📅", "calendar date"], ["📆", "calendar"], ["✅", "check done task todo"], ["☑️", "checkbox"],
+  ["📌", "pin"], ["📍", "location pin"], ["🔖", "bookmark"], ["🏷️", "label tag"], ["📎", "paperclip attach"], ["🗂️", "dividers folders"], ["📁", "folder"], ["📂", "open folder"],
+  ["🗃️", "card box archive"], ["🗄️", "cabinet files"], ["📊", "chart bar stats"], ["📈", "chart up growth"], ["📉", "chart down"], ["🧮", "abacus math"], ["💡", "idea light bulb"],
+  ["🎯", "target goal"], ["🚀", "rocket launch start"], ["⭐", "star favorite"], ["🌟", "glow star"], ["✨", "sparkles new"], ["🔥", "fire hot"], ["⚡", "lightning fast"], ["💎", "gem"],
+  ["🏆", "trophy win"], ["🎉", "party celebrate"], ["🎁", "gift"], ["🎬", "film video movie clapper"], ["🎥", "camera video"], ["📹", "video camera"], ["🎞️", "film frames"],
+  ["📷", "camera photo"], ["📸", "camera flash"], ["🎙️", "microphone podcast"], ["🎧", "headphones music"], ["🎵", "music note"], ["🎨", "art palette design"], ["✏️", "pencil"],
+  ["🖊️", "pen"], ["🖋️", "fountain pen"], ["✍️", "writing hand"], ["📐", "ruler triangle design"], ["📏", "ruler"], ["🧭", "compass direction"], ["🗺️", "map"], ["🌍", "globe world"],
+  ["🏠", "home house"], ["🏢", "office building work"], ["🏫", "school"], ["🏥", "hospital health"], ["🛒", "cart shopping"], ["💰", "money bag"], ["💳", "card payment"], ["💵", "dollar cash"],
+  ["🧾", "receipt"], ["📦", "package box"], ["🚚", "truck delivery"], ["✈️", "plane travel"], ["🧳", "luggage travel"], ["🏖️", "beach vacation"], ["⛰️", "mountain"], ["🌲", "tree"],
+  ["🌱", "seedling grow"], ["🌸", "blossom flower"], ["🌙", "moon night"], ["☀️", "sun"], ["🌈", "rainbow"], ["❄️", "snow"], ["☕", "coffee"], ["🍵", "tea"], ["🍎", "apple food"],
+  ["🍳", "cooking recipe"], ["🥗", "salad healthy"], ["🍕", "pizza"], ["🎂", "cake birthday"], ["🏃", "run exercise"], ["🧘", "yoga meditate"], ["💪", "strong fitness"], ["❤️", "heart love"],
+  ["🧠", "brain think"], ["👀", "eyes look"], ["👋", "wave hello welcome"], ["🤝", "handshake deal"], ["👥", "people team"], ["👤", "person"], ["💬", "chat speech"], ["📣", "megaphone announce"],
+  ["📢", "loudspeaker"], ["🔔", "bell notify"], ["✉️", "envelope email"], ["📬", "mailbox"], ["📞", "phone call"], ["💻", "laptop computer code"], ["🖥️", "desktop"], ["⌨️", "keyboard"],
+  ["🖱️", "mouse"], ["📱", "phone mobile"], ["🔧", "wrench tool"], ["🛠️", "tools build"], ["⚙️", "gear settings"], ["🔩", "nut bolt"], ["🧪", "test tube experiment"], ["🔬", "microscope science"],
+  ["🧬", "dna"], ["🔒", "lock private"], ["🔑", "key"], ["🛡️", "shield security"], ["⚠️", "warning"], ["❗", "exclamation"], ["❓", "question"], ["🔍", "search magnify"], ["🧩", "puzzle"],
+  ["🎲", "dice game"], ["🎮", "game controller"], ["♟️", "chess"], ["🧸", "teddy"], ["🐶", "dog"], ["🐱", "cat"], ["🦋", "butterfly"], ["🐝", "bee"], ["🌻", "sunflower"],
+  ["⏰", "alarm clock time"], ["⏳", "hourglass wait"], ["🕐", "clock"], ["🔄", "repeat cycle"], ["➕", "plus add"], ["📥", "inbox"], ["📤", "outbox"], ["🗑️", "trash"], ["🏁", "finish flag"],
+  ["🚩", "flag"], ["🟢", "green circle"], ["🟡", "yellow circle"], ["🔴", "red circle"], ["🔵", "blue circle"], ["⚪", "white circle"], ["⚫", "black circle"], ["🟣", "purple circle"],
+].map(([e, k]) => ({ e, k }));

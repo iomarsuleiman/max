@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Max is currently pre-alpha and has no released or supported production versions. This policy will be updated when the first release ships.
+The latest commit on `main` and the deployment at max.chaos.fail are supported. Older commits are not patched separately.
 
 ## Reporting a vulnerability
 
@@ -12,7 +12,7 @@ Please use GitHub's **Report a vulnerability** / private vulnerability reporting
 
 Include a concise description, affected commit/version, reproduction steps, potential impact and a safe proof of concept where possible. Do not test against accounts or data you do not own.
 
-The maintainers will triage reports as capacity allows. No response or remediation SLA is promised at this pre-alpha stage.
+The maintainers aim to acknowledge reports within a few days and will coordinate a fix and disclosure with you.
 
 ## Security design requirements
 
