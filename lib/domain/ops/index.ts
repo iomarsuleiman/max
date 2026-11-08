@@ -77,8 +77,24 @@ export async function execute(name: string, args: unknown, ctx: OpContext, expec
   if (expectKind && def.kind !== expectKind) throw new MaxError("VALIDATION", `"${name}" is a ${def.kind}, not a ${expectKind}.`);
   if (def.uiOnly && ctx.source === "mcp") throw new MaxError("VALIDATION", `"${name}" isn't available to assistants.`);
   const audit = ctx.source === "mcp" && def.kind === "mutation";
+  // Writes may carry an idempotency key: a retry with the same key returns the first result.
+  const raw = (args ?? {}) as Record<string, unknown>;
+  const key = def.kind === "mutation" && typeof raw.idempotencyKey === "string" ? raw.idempotencyKey.slice(0, 200) : null;
+  if (key) {
+    const { idempotencyKey: _k, ...rest } = raw;
+    args = rest;
+    const seen = (await ctx.db.list("idempotency", ctx.ownerId, { field: "key", value: key }))[0];
+    if (seen && ctx.now - seen.at < 24 * 3600_000) {
+      if (seen.op !== name) throw new MaxError("VALIDATION", `That idempotency key was already used for ${seen.op}. Use a new key for a different operation.`);
+      return { ...JSON.parse(seen.result), idempotentReplay: true };
+    }
+  }
   try {
     const result = await runOp(def, args, ctx);
+    if (key) {
+      for (const old of await ctx.db.list("idempotency", ctx.ownerId, { field: "key", value: key })) await ctx.db.delete("idempotency", old._id);
+      await ctx.db.insert("idempotency", { ownerId: ctx.ownerId, key, op: name, result: JSON.stringify(result ?? null), at: ctx.now });
+    }
     if (audit) await ctx.db.insert("audit", { ownerId: ctx.ownerId, op: name, source: ctx.source, targetId: targetOf(args), ok: true, code: null, at: ctx.now });
     return result;
   } catch (err) {

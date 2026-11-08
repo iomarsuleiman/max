@@ -203,6 +203,16 @@ export interface AuditRow {
 
 export type Source = "ui" | "mcp";
 
+/** Remembers the result of a write sent with an idempotency key, so a retry doesn't apply it twice. */
+export interface IdempotencyRow {
+  _id: string;
+  ownerId: string;
+  key: string;
+  op: string;
+  result: string;
+  at: number;
+}
+
 export interface Tables {
   pages: PageRow;
   documents: DocumentRow;
@@ -210,6 +220,7 @@ export interface Tables {
   assets: AssetRow;
   tokens: TokenRow;
   audit: AuditRow;
+  idempotency: IdempotencyRow;
 }
 
 export type TableName = keyof Tables;

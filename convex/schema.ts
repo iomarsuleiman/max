@@ -67,6 +67,9 @@ export default defineSchema({
   })
     .index("by_owner", ["ownerId"])
     .index("by_hash", ["hash"]),
+  idempotency: defineTable({ ownerId: v.string(), key: v.string(), op: v.string(), result: v.string(), at: v.number() })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_key", ["ownerId", "key"]),
   audit: defineTable({
     ownerId: v.string(),
     op: v.string(),

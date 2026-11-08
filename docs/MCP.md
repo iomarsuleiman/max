@@ -13,6 +13,9 @@ Max exposes a remote MCP server (Streamable HTTP) at `https://max.chaos.fail/mcp
 - Writes accept `baseRevision` where content is involved; if the page changed since it was read, the tool returns `CONFLICT` instead of overwriting.
 - Tools that permanently remove data need `confirm: true`. Moving to trash (`pages_archive`, `records_delete`) is reversible with `pages_restore`.
 - `batch` runs up to 50 writes as one transaction.
+- Every write accepts `idempotencyKey`; repeating a call with the same key within 24 hours returns the first result instead of applying it twice.
+- Pages are also MCP resources: `max://page/{id}` returns the page as Markdown, and the resource list shows recent pages.
+- `assets_upload` stores images from a public https URL (DNS-checked, private networks and redirects to them refused, 20 MB cap, type checked from the file's bytes) or from base64.
 - Errors are structured: `{ error: { code, message, details } }` with codes `UNAUTHENTICATED`, `NOT_FOUND`, `VALIDATION`, `CONFLICT`, `LIMIT`, `CONFIRMATION_REQUIRED`, `READ_ONLY`, `INTERNAL`.
 - `max_capabilities` lists every tool and the workspace limits.
 - Rate limit: 240 requests per minute per account.
@@ -100,4 +103,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `views_move` | Reorder view | Write | Moves a view tab to a new position. |
 | `views_update` | Update view | Write | Changes a view's name, layout, filters, sorts, hidden or ordered properties, column widths or board grouping. |
 | `workspace_overview` | Workspace overview | Read | Counts, recently visited, recently edited, favorites and 14-day editing activity for the home dashboard. |
+| `assets_upload` | Upload an image | Write | Stores an image from a public https URL (private networks refused) or base64 data and returns a max-asset:// URL. |
+| `import_html` | Import HTML as a page | Write | Converts HTML (passed in or fetched from a public page) into a new page. |
+| `max_capabilities` | What Max can do | Read | Lists tools, limits, resources and error codes. |
 <!-- tools:end -->

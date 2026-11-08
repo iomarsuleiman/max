@@ -89,10 +89,21 @@ export async function runLocal(op: string, args: unknown, source: Source, ownerI
   const def = registry.get(op);
   if (def?.kind === "query") return execute(op, args, ctx, kind);
   const run = s.lock.then(async () => {
-    const result = await s.db.transaction(() => execute(op, args, ctx, kind));
-    await s.db.persist();
-    s.events.emit("change", { op, source });
-    return result;
+    try {
+      const result = await s.db.transaction(() => execute(op, args, ctx, kind));
+      await s.db.persist();
+      s.events.emit("change", { op, source });
+      return result;
+    } catch (err) {
+      // The failed write rolled back; record the attempt for assistant activity (names and codes only).
+      if (source === "mcp" && def) {
+        const a = (args ?? {}) as Record<string, unknown>;
+        const target = a.id ?? a.pageId ?? a.databaseId ?? null;
+        await s.db.insert("audit", { ownerId, op, source, targetId: typeof target === "string" ? target : null, ok: false, code: (err as { code?: string }).code ?? "INTERNAL", at: Date.now() });
+        await s.db.persist();
+      }
+      throw err;
+    }
   });
   s.lock = run.catch(() => undefined);
   return run;

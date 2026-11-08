@@ -183,7 +183,7 @@ export const accountDeleteAllData = defineOp({
   input: z.object({ confirm }),
   async run(ctx) {
     let removed = 0;
-    for (const table of ["documents", "pages", "settings", "tokens", "audit"] as const) {
+    for (const table of ["documents", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
       for (const row of await ctx.db.list(table, ctx.ownerId)) {
         await ctx.db.delete(table, row._id);
         removed++;

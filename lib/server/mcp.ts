@@ -1,11 +1,12 @@
 import "server-only";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { APP_URL, VERSION } from "@/lib/config";
 import { serializeError } from "@/lib/domain/errors";
 import { listOps } from "@/lib/domain/ops";
 import { LIMITS } from "@/lib/domain/ops/helpers";
 import { runForOwner } from "./executor";
+import { importHtml, uploadAsset } from "./mcpExtras";
 
 /** MCP tool names use underscores: "pages.create" → "pages_create". */
 export const toolName = (op: string) => op.replace(/\./g, "_");
@@ -22,6 +23,19 @@ const INSTRUCTIONS = `Max is the user's private notes workspace: nested pages, r
 - Tools marked destructive need confirm: true, only after the user has agreed. Trashing (pages_archive) is reversible with pages_restore.
 - Use batch for several writes that must all succeed together.`;
 
+const IDEMPOTENCY = z.string().min(8).max(200).optional().describe("Optional unique key. Repeating a call with the same key within 24 hours returns the first result instead of applying it again.");
+
+function toolResult(result: unknown) {
+  const structured = (result && typeof result === "object" && !Array.isArray(result) ? result : { result }) as Record<string, unknown>;
+  return { content: [{ type: "text" as const, text: JSON.stringify(result) }], structuredContent: structured };
+}
+function toolError(err: unknown) {
+  return { isError: true, content: [{ type: "text" as const, text: JSON.stringify({ error: serializeError(err) }) }] };
+}
+
+/** Extra tools composed from domain operations (they need the server's network or Node APIs). */
+export const EXTRA_TOOLS = ["assets_upload", "import_html", "max_capabilities"];
+
 export function createMcpServer(ownerId: string) {
   const server = new McpServer({ name: "max", version: VERSION, title: "Max", websiteUrl: APP_URL }, { instructions: INSTRUCTIONS });
   for (const op of mcpTools()) {
@@ -30,7 +44,8 @@ export function createMcpServer(ownerId: string) {
       {
         title: op.title,
         description: op.description,
-        inputSchema: op.input as z.ZodObject,
+        // Writes accept an idempotency key so a retried call isn't applied twice.
+        inputSchema: op.kind === "mutation" ? (op.input as z.ZodObject).extend({ idempotencyKey: IDEMPOTENCY }) : (op.input as z.ZodObject),
         annotations: {
           title: op.title,
           readOnlyHint: op.kind === "query",
@@ -41,16 +56,68 @@ export function createMcpServer(ownerId: string) {
       },
       (async (args: unknown) => {
         try {
-          const result = await runForOwner(ownerId, op.name, args);
-          const structured = (result && typeof result === "object" && !Array.isArray(result) ? result : { result }) as Record<string, unknown>;
-          return { content: [{ type: "text" as const, text: JSON.stringify(result) }], structuredContent: structured };
+          return toolResult(await runForOwner(ownerId, op.name, args));
         } catch (err) {
-          const error = serializeError(err);
-          return { isError: true, content: [{ type: "text" as const, text: JSON.stringify({ error }) }] };
+          return toolError(err);
         }
       }) as never,
     );
   }
+  server.registerTool(
+    "assets_upload",
+    {
+      title: "Upload an image",
+      description: "Stores an image from a public https URL or base64 data (PNG, JPEG, WebP, GIF, AVIF or SVG, up to 20 MB) and returns a max-asset:// URL to use in an image block's url prop or as a page cover.",
+      inputSchema: z.object({
+        url: z.string().url().optional(),
+        base64: z.string().max(28_000_000).optional(),
+        name: z.string().max(200).optional(),
+        pageId: z.string().max(64).nullable().optional(),
+        alt: z.string().max(500).optional(),
+      }),
+      annotations: { title: "Upload an image", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    },
+    (async (args: Parameters<typeof uploadAsset>[1]) => {
+      try {
+        return toolResult(await uploadAsset(ownerId, args));
+      } catch (err) {
+        return toolError(err);
+      }
+    }) as never,
+  );
+  server.registerTool(
+    "import_html",
+    {
+      title: "Import HTML as a page",
+      description: "Creates a page from HTML you pass, or from a public https web page. The HTML is converted to blocks; scripts, styles and embeds are dropped.",
+      inputSchema: z.object({ html: z.string().max(2_000_000).optional(), url: z.string().url().optional(), title: z.string().max(500).optional(), parentId: z.string().max(64).nullable().optional() }),
+      annotations: { title: "Import HTML", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    },
+    (async (args: Parameters<typeof importHtml>[1]) => {
+      try {
+        return toolResult(await importHtml(ownerId, args));
+      } catch (err) {
+        return toolError(err);
+      }
+    }) as never,
+  );
+
+  // Pages as readable resources: max://page/{id} returns Markdown.
+  server.registerResource(
+    "page",
+    new ResourceTemplate("max://page/{id}", {
+      list: async () => {
+        const recent = (await runForOwner(ownerId, "pages.recents", { limit: 25 })) as { pages: { _id: string; title: string }[] };
+        return { resources: recent.pages.map((p) => ({ uri: `max://page/${p._id}`, name: p.title || "Untitled", mimeType: "text/markdown" })) };
+      },
+    }),
+    { title: "Max page", description: "A page's content as Markdown.", mimeType: "text/markdown" },
+    async (uri, { id }) => {
+      const doc = (await runForOwner(ownerId, "documents.get", { pageId: String(id), format: "markdown" })) as { title: string; markdown: string };
+      return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: `# ${doc.title || "Untitled"}\n\n${doc.markdown}` }] };
+    },
+  );
+
   server.registerTool(
     "max_capabilities",
     {
@@ -62,7 +129,13 @@ export function createMcpServer(ownerId: string) {
     async () => {
       const data = {
         version: VERSION,
-        tools: mcpTools().map((op) => ({ name: toolName(op.name), kind: op.kind === "query" ? "read" : "write", needsConfirm: !!op.destructive, title: op.title })),
+        tools: [
+          ...mcpTools().map((op) => ({ name: toolName(op.name), kind: op.kind === "query" ? "read" : "write", needsConfirm: !!op.destructive, title: op.title })),
+          { name: "assets_upload", kind: "write", needsConfirm: false, title: "Upload an image" },
+          { name: "import_html", kind: "write", needsConfirm: false, title: "Import HTML as a page" },
+        ],
+        resources: ["max://page/{id} (Markdown)"],
+        idempotency: "Write tools accept idempotencyKey; repeats within 24 hours return the first result.",
         limits: LIMITS,
         notAvailable: ["Access tokens and account deletion (manage in Max settings)", "Real-time collaboration or sharing (Max is a private workspace)"],
         errors: ["UNAUTHENTICATED", "NOT_FOUND", "VALIDATION", "CONFLICT", "LIMIT", "CONFIRMATION_REQUIRED", "READ_ONLY", "INTERNAL"],

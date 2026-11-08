@@ -10,6 +10,7 @@ const emptyState = (): State => ({
   assets: new Map(),
   tokens: new Map(),
   audit: new Map(),
+  idempotency: new Map(),
 });
 
 let counter = 0;
