@@ -1,9 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function newPage(page: Page, title: string) {
+  // /home opens your home page (or your first page), so wait for that before creating another.
   await page.goto("/home");
-  await page.getByRole("button", { name: "New page" }).last().click();
   await page.waitForURL(/\/p\//);
+  await page.locator(".bn-editor").waitFor();
+  const before = page.url();
+  await page.getByRole("button", { name: "New page" }).last().click();
+  await page.waitForURL((u) => u.href !== before && u.pathname.startsWith("/p/"));
   await page.getByLabel("Page title").fill(title);
   return page.url();
 }

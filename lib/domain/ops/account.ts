@@ -6,6 +6,7 @@ import type { PageRow, PropertyType, SelectOption, SettingsRow } from "../types"
 import { confirm, defineOp, id, type OpContext } from "./define";
 import {
   DEFAULT_SIDEBAR,
+  normalizeSidebar,
   LIMITS,
   UPLOAD_TYPES,
   allPages,
@@ -36,6 +37,7 @@ const settingsPatch = z.object({
   defaultFullWidth: z.boolean().optional(),
   density: z.enum(["comfortable", "compact"]).optional(),
   startPage: z.enum(["home", "last"]).optional(),
+  homePageId: z.string().min(1).nullable().optional(),
   textDirection: z.enum(["auto", "ltr", "rtl"]).optional(),
   spellcheck: z.boolean().optional(),
   showRecents: z.boolean().optional(),
@@ -55,7 +57,16 @@ export const settingsGet = defineOp({
   input: z.object({}),
   async run(ctx) {
     const row = await getSettingsRow(ctx);
-    return { settings: row ?? ({ _id: "", ...defaultSettings(ctx.ownerId, ctx.now) } as SettingsRow), saved: !!row };
+    const settings = row ?? ({ _id: "", ...defaultSettings(ctx.ownerId, ctx.now) } as SettingsRow);
+    let homePageId = settings.homePageId ?? null;
+    if (homePageId) {
+      const home = await ctx.db.get("pages", homePageId);
+      if (!home || home.ownerId !== ctx.ownerId || home.archivedAt) homePageId = null;
+    }
+    return {
+      settings: { ...settings, homePageId, sidebarSections: normalizeSidebar(settings.sidebarSections), collapsedSections: (settings.collapsedSections ?? []).filter((s) => DEFAULT_SIDEBAR.includes(s)) },
+      saved: !!row,
+    };
   },
 });
 
@@ -67,11 +78,14 @@ export const settingsUpdate = defineOp({
   input: settingsPatch,
   async run(ctx, patch) {
     if (patch.sidebarSections) {
-      const set = new Set(patch.sidebarSections);
-      if (set.size !== patch.sidebarSections.length || set.size !== DEFAULT_SIDEBAR.length) {
-        throw new MaxError("VALIDATION", "The sidebar order must list favorites, recents, pages and databases once each.");
+      const listed = patch.sidebarSections.filter((s) => DEFAULT_SIDEBAR.includes(s));
+      if (new Set(listed).size !== listed.length || listed.length !== DEFAULT_SIDEBAR.length) {
+        throw new MaxError("VALIDATION", "The sidebar order must list favorites, recents and pages once each.");
       }
+      patch.sidebarSections = listed;
     }
+    if (patch.homePageId) await requirePage(ctx, patch.homePageId);
+    if (patch.collapsedSections) patch.collapsedSections = patch.collapsedSections.filter((s) => DEFAULT_SIDEBAR.includes(s));
     const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
     const settings = await upsertSettings(ctx, clean);
     return { settings };
@@ -143,7 +157,7 @@ export const workspaceOverview = defineOp({
   name: "workspace.overview",
   kind: "query",
   title: "Workspace overview",
-  description: "Counts, recently visited, recently edited, favorites and 14-day editing activity for the home dashboard.",
+  description: "Counts, recently visited, recently edited, favorites and 14-day editing activity as a workspace summary.",
   input: z.object({}),
   async run(ctx) {
     const [pages, docs] = await Promise.all([allPages(ctx), ctx.db.list("documents", ctx.ownerId)]);

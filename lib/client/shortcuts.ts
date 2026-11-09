@@ -15,7 +15,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: "Navigation", keys: "⌘ [", label: "Back" },
   { group: "Navigation", keys: "⌘ ]", label: "Forward" },
   { group: "Navigation", keys: "⌘ ⇧ U", label: "Go to the parent page" },
-  { group: "Navigation", keys: "⌘ ⇧ H", label: "Go to Home" },
+  { group: "Navigation", keys: "⌘ ⇧ H", label: "Go to your home page" },
   { group: "Navigation", keys: "⌘ ⇧ T", label: "Go to Templates" },
   { group: "Navigation", keys: "⌘ ⇧ G", label: "Open the graph view" },
   { group: "Pages", keys: "⌘ ⇧ F", label: "Add to / remove from Favorites" },
