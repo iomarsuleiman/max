@@ -278,8 +278,8 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   }, []);
 
   // Global shortcuts (the full list lives in lib/client/shortcuts.ts).
-  const shortcutState = useRef({ byId, activePageId: null as string | null });
-  shortcutState.current = { byId, activePageId: peekParam ?? activePageId };
+  const shortcutState = useRef({ byId, activePageId: null as string | null, homePageId: null as string | null });
+  shortcutState.current = { byId, activePageId: peekParam ?? activePageId, homePageId: settings?.homePageId ?? null };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
@@ -300,7 +300,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
       if (e.shiftKey && !e.altKey) {
         if (key === "l") return run(() => void updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }));
         if (key === "i") return run(() => (setImportAsTemplates(false), setImportOpen(true)));
-        if (key === "h") return run(() => router.push("/home"));
+        if (key === "h") return run(() => router.push(shortcutState.current.homePageId ? `/p/${shortcutState.current.homePageId}` : "/home"));
         if (key === "t") return run(() => router.push("/templates"));
         if (key === "g") return run(() => router.push("/graph"));
       }

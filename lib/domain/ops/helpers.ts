@@ -164,7 +164,14 @@ export function summary(p: PageRow) {
 }
 export type PageSummary = ReturnType<typeof summary>;
 
-export const DEFAULT_SIDEBAR: SidebarSectionId[] = ["favorites", "recents", "pages", "databases"];
+/** Sidebar sections, like Notion: databases live in the page tree, not in a section of their own. */
+export const DEFAULT_SIDEBAR: SidebarSectionId[] = ["favorites", "recents", "pages"];
+
+/** Drops retired sections (an older "databases" section) and adds any that are missing. */
+export function normalizeSidebar(sections: SidebarSectionId[] | undefined): SidebarSectionId[] {
+  const kept = (sections ?? []).filter((s, i, all) => DEFAULT_SIDEBAR.includes(s) && all.indexOf(s) === i);
+  return [...kept, ...DEFAULT_SIDEBAR.filter((s) => !kept.includes(s))];
+}
 
 export function defaultSettings(ownerId: string, now: number): Omit<SettingsRow, "_id"> {
   return {
@@ -183,6 +190,7 @@ export function defaultSettings(ownerId: string, now: number): Omit<SettingsRow,
     collapsedSections: [],
     expandedPageIds: [],
     lastPageId: null,
+    homePageId: null,
     displayName: null,
     onboarded: false,
     updatedAt: now,

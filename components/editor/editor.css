@@ -240,16 +240,19 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .lx-editor .bn-inline-content { unicode-bidi: plaintext; text-align: start; }
 .lx-editor[data-readonly="true"] { cursor: default; }
 /* Page link block */
-.lx-editor a.mx-pagelink, .lx-editor a.mx-pagelink:visited { color: var(--fg); text-decoration: none; }
-.lx-editor a.mx-mention, .lx-editor a.mx-mention:visited { color: var(--fg); }
-.lx-editor .bn-inline-content a:not(.mx-mention) { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+/* BlockNote's theme sets `.bn-shadcn .bn-editor a { color: revert }` (browser blue); links here use the text color, like Notion. */
+.lx-editor .bn-editor a.mx-pagelink, .lx-editor .bn-editor a.mx-pagelink:visited { color: var(--fg); text-decoration: none; }
+.lx-editor .bn-editor a.mx-mention, .lx-editor .bn-editor a.mx-mention:visited { color: var(--fg); text-decoration-line: underline; text-decoration-color: color-mix(in oklch, var(--fg) 22%, transparent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.lx-editor .bn-editor .bn-inline-content a:not(.mx-mention), .lx-editor .bn-editor .bn-inline-content a:not(.mx-mention):visited { color: inherit; text-decoration-line: underline; text-decoration-color: color-mix(in oklch, var(--fg) 28%, transparent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.lx-editor .bn-editor .mx-toc a { color: var(--fg-2); }
 .mx-pagelink { display: flex; align-items: center; gap: 6px; width: 100%; padding: 3px 4px; margin-inline-start: -4px; border-radius: 4px; color: var(--fg); font-weight: 500; text-decoration: none; cursor: pointer; }
 .mx-pagelink:hover { background: var(--hover); }
 .mx-pagelink__icon { width: 22px; display: inline-grid; place-items: center; color: var(--fg-2); }
-.mx-pagelink__title { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.mx-pagelink__title { text-decoration: underline; text-decoration-color: color-mix(in oklch, var(--fg) 22%, transparent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .mx-pagelink[data-missing] { color: var(--fg-3); }
 /* Inline page mention */
-.mx-mention { display: inline-flex; align-items: baseline; gap: 3px; padding: 0 3px; border-radius: 4px; color: var(--fg); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; cursor: pointer; }
+.mx-mention { display: inline-flex; align-items: baseline; gap: 3px; padding: 0 3px; border-radius: 4px; color: var(--fg); font-weight: 500; text-decoration: underline; text-decoration-color: var(--line-strong); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
+.lx-editor .bn-editor a.mx-mention svg { color: var(--fg-2); }
 .mx-mention:hover { background: var(--hover); }
 /* Bookmark block */
 .mx-bookmark { display: flex; width: 100%; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; text-decoration: none; color: var(--fg); }

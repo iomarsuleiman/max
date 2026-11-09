@@ -112,7 +112,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `views_delete` | Delete view | Write | Removes a saved view (rows are not affected). A database keeps at least one view. |
 | `views_move` | Reorder view | Write | Moves a view tab to a new position. |
 | `views_update` | Update view | Write | Changes a view's name, layout, filters, sorts, hidden or ordered properties, column widths or board grouping. |
-| `workspace_overview` | Workspace overview | Read | Counts, recently visited, recently edited, favorites and 14-day editing activity for the home dashboard. |
+| `workspace_overview` | Workspace overview | Read | Counts, recently visited, recently edited, favorites and 14-day editing activity as a workspace summary. |
 | `assets_upload` | Upload an image | Write | Stores an image from a public https URL (private networks refused) or base64 data and returns a max-asset:// URL. |
 | `import_html` | Import HTML as a page | Write | Converts HTML (passed in or fetched from a public page) into a new page. |
 | `max_capabilities` | What Max can do | Read | Lists tools, limits, resources and error codes. |

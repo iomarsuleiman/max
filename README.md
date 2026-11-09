@@ -10,7 +10,7 @@ Live at **[max.chaos.fail](https://max.chaos.fail)** once deployed (see [docs/SE
 
 ## What's inside
 
-- **Pages inside pages.** A sidebar tree with drag handles to reorder and nest, keyboard moves (⌥⇧ + arrows), favorites, recents, a trash you can restore from, and a "Move to…" picker.
+- **Pages inside pages.** Any page can be your home page (⋯ → Set as home page), there is no fixed dashboard. A sidebar tree with drag handles to reorder and nest, collapsible Favorites, Recents and Pages sections, keyboard moves (⌥⇧ + arrows), favorites, recents, a trash you can restore from, and a "Move to…" picker.
 - **The Chaos block editor.** Headings, to-dos, toggles, toggle headings, callouts, quotes, tables, code with highlighting, math (KaTeX), Mermaid diagrams, images with alt text, YouTube with watch ranges, web bookmarks, table of contents, page links, `@` page and date mentions, multi-column layouts, inline and linked databases, embeds (Figma, Loom, Vimeo, Maps, CodePen and more) and file, audio and video uploads up to 50 MB. Gutter handles to drag blocks, `/` command menu, Markdown shortcuts, safe paste from Word, Google Docs and Notion.
 - **Page history and comments.** Snapshots every 10 minutes and before every assistant edit or restore, with a preview and one-click restore. Private comments on a page or on a block, resolve and reopen, highlighted blocks.
 - **Graph view.** An Obsidian-style graph of every page and how they link, with a local graph per page, an animated replay of your workspace growing, hover previews, search, filters, forces you can tune and a keyboard-friendly list.
@@ -50,9 +50,9 @@ Max uses [Clerk](https://clerk.com) for accounts and [Convex](https://convex.dev
 ## Project layout
 
 ```
-app/                 Routes: workspace (home, p/[pageId], templates, trash), auth, public pages, /mcp, local API
+app/                 Routes: workspace (home → your home page, p/[pageId], graph, templates, trash), auth, public pages, /mcp, local API
 components/editor    The Chaos block editor adapted for Max (blocks, side menu, slash menu, drag feedback, paste policy)
-components/…         Workspace shell and sidebar, page view, databases, settings, import, dashboard, UI kit
+components/…         Workspace shell and sidebar, page view, databases, settings, import, graph, home page, UI kit
 convex/              Schema, database adapter and the authenticated dispatcher
 lib/domain/          Every operation (pages, documents, blocks, databases, templates, import/export, settings, tokens)
 lib/server/          Local store, MCP server and server-side runner

@@ -10,7 +10,7 @@ import { ArrowDown, ArrowUp, Bot, Check, Copy, Database, Download, GripVertical,
 import { toast } from "sonner";
 import { Button, Field, IconButton, Input, Kbd, Notice, Segmented, SettingRow, Skeleton, Switch, cn, confirmAction } from "@/components/ui";
 import { useOp, useRead } from "@/lib/client/data";
-import { bytes, dateTime, timeAgo } from "@/lib/client/format";
+import { bytes, dateTime, pageTitle, timeAgo } from "@/lib/client/format";
 import { APP_URL, CLOUD, REPO_URL, VERSION } from "@/lib/config";
 import type { SettingsRow } from "@/lib/client/types";
 import { Avatar } from "@/components/workspace/Sidebar";
@@ -199,7 +199,7 @@ function AccountSection() {
 /* ── Preferences ─────────────────────────────────────────────────────────── */
 
 function PreferencesSection() {
-  const { s, set } = useSettings();
+  const { s, set, ws } = useSettings();
   if (!s) return <Skeleton className="h-40" />;
   return (
     <>
@@ -231,9 +231,29 @@ function PreferencesSection() {
         <SettingRow title="Full width for new pages" description="Each page can still be switched from its ⋯ menu.">
           <Switch label="Full width for new pages" checked={s.defaultFullWidth} onCheckedChange={(v) => set("defaultFullWidth", v)} />
         </SettingRow>
-        <SettingRow title="Open on start" description="What you see when you open Max.">
-          <Segmented label="Open on start" value={s.startPage} onChange={(v) => set("startPage", v)} options={[{ value: "home", label: "Home" }, { value: "last", label: "Last visited page" }]} />
+        <SettingRow title="Home page" description="Any page can be your home page. It opens when you start Max and with ⌘⇧H." htmlFor="home-page">
+          <select
+            id="home-page"
+            value={s.homePageId ?? ""}
+            onChange={(e) => set("homePageId", e.target.value || null, e.target.value ? "Home page set" : "Home page cleared")}
+            className="h-8 max-w-[220px] rounded-md bg-surface px-2 text-[13px] text-fg shadow-[0_0_0_1px_var(--line-strong)] outline-none focus-visible:shadow-[0_0_0_2px_var(--focus)]"
+          >
+            <option value="">None (open the last page)</option>
+            {(ws.tree ?? [])
+              .filter((p) => p.kind === "page")
+              .sort((a, b) => pageTitle(a.title).localeCompare(pageTitle(b.title)))
+              .map((p) => (
+                <option key={p._id} value={p._id}>
+                  {pageTitle(p.title)}
+                </option>
+              ))}
+          </select>
         </SettingRow>
+        {!s.homePageId && (
+          <SettingRow title="Open on start" description="Without a home page, Max opens one of these.">
+            <Segmented label="Open on start" value={s.startPage} onChange={(v) => set("startPage", v)} options={[{ value: "last", label: "Last visited page" }, { value: "home", label: "First page" }]} />
+          </SettingRow>
+        )}
       </Group>
     </>
   );
@@ -283,13 +303,13 @@ function EditorSection() {
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 
-const SECTION_LABEL = { favorites: "Favorites", recents: "Recents", pages: "Pages", databases: "Databases" } as const;
+const SECTION_LABEL: Record<string, string> = { favorites: "Favorites", recents: "Recents", pages: "Pages" };
 
 function SidebarSection() {
   const { s, set, ws } = useSettings();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   if (!s) return <Skeleton className="h-40" />;
-  const order = s.sidebarSections;
+  const order = s.sidebarSections.filter((id) => id in SECTION_LABEL);
   const move = (from: number, to: number) => to >= 0 && to < order.length && set("sidebarSections", arrayMove(order, from, to), "Sidebar order saved");
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;

@@ -145,7 +145,7 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
     return m;
   }, [filtered]);
 
-  const radius = useCallback((n: ApiNode) => (3.2 + Math.sqrt(n.degree) * 1.9) * settings.nodeSize * (n.kind === "row" ? 0.8 : 1), [settings.nodeSize]);
+  const radius = useCallback((n: ApiNode) => Math.min(9, 2 + Math.sqrt(n.degree) * 0.9) * settings.nodeSize * (n.kind === "row" ? 0.8 : 1), [settings.nodeSize]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -257,7 +257,7 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
         ctx.strokeStyle = colors.accent;
         ctx.lineWidth = 1.5 / k;
         ctx.beginPath();
-        ctx.arc(n.x, n.y!, r + 3 / k, 0, Math.PI * 2);
+        ctx.arc(n.x, n.y!, r + 2 / k, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -500,7 +500,7 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
     const xs = nodes.map((n) => n.x!);
     const ys = nodes.map((n) => n.y!);
     const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const k = clampZoom(Math.min(canvas.clientWidth / (maxX - minX + 160), canvas.clientHeight / (maxY - minY + 160), 2.2));
+    const k = clampZoom(Math.min(canvas.clientWidth / (maxX - minX + 160), canvas.clientHeight / (maxY - minY + 160), 1.3));
     viewTargetRef.current = { k, x: (-(minX + maxX) / 2) * k, y: (-(minY + maxY) / 2) * k };
     redraw();
   }, [redraw]);

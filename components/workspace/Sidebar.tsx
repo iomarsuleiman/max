@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -11,10 +11,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   Clock,
-  Database,
   Download,
   GripVertical,
-  Home,
   LayoutTemplate,
   LogOut,
   Monitor,
@@ -44,7 +42,7 @@ import { PageTree } from "./PageTree";
 import { TrashPanel } from "./TrashPanel";
 
 type SectionId = SettingsRow["sidebarSections"][number];
-const SECTION_LABEL: Record<SectionId, string> = { favorites: "Favorites", recents: "Recents", pages: "Pages", databases: "Databases" };
+const SECTION_LABEL: Partial<Record<SectionId, string>> = { favorites: "Favorites", recents: "Recents", pages: "Pages" };
 
 export function Sidebar({ mobile }: { mobile?: boolean }) {
   const ws = useWorkspace();
@@ -54,7 +52,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
     if (settings?.sidebarWidth) setWidth(settings.sidebarWidth);
   }, [settings?.sidebarWidth]);
 
-  const sections = (settings?.sidebarSections ?? ["favorites", "recents", "pages", "databases"]).filter((s) => s !== "recents" || settings?.showRecents !== false);
+  const sections = (settings?.sidebarSections ?? ["favorites", "recents", "pages"]).filter((s) => s in SECTION_LABEL && (s !== "recents" || settings?.showRecents !== false));
   const collapsed = new Set(settings?.collapsedSections ?? []);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const [order, setOrder] = useState<SectionId[] | null>(null);
@@ -91,21 +89,20 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
       style={mobile ? undefined : { width }}
     >
       <SidebarHeader mobile={mobile} />
-      <nav className="grid gap-px px-2 pb-2" aria-label="Main">
+      <nav className="grid gap-px ps-4 pe-2 pb-2" aria-label="Main">
         <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
-        <NavLink href="/home" icon={<Home />} label="Home" />
         <NavLink href="/templates" icon={<LayoutTemplate />} label="Templates" />
         <NavLink href="/graph" icon={<Waypoints />} label="Graph view" />
         <NavButton icon={<Download />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
       </nav>
-      <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4">
+      <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto overflow-x-hidden ps-4 pe-2 pb-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
           <SortableContext items={shown} strategy={verticalListSortingStrategy}>
             {shown.map((id, i) => (
               <SidebarSection
                 key={id}
                 id={id}
-                label={SECTION_LABEL[id]}
+                label={SECTION_LABEL[id] ?? id}
                 collapsed={collapsed.has(id)}
                 onToggle={() => toggleSection(id)}
                 onMove={(d) => moveSection(id, d)}
@@ -116,23 +113,18 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
                     <IconButton label="New page" size="xs" onClick={() => ws.createPage()}>
                       <Plus className="size-3.5" />
                     </IconButton>
-                  ) : id === "databases" ? (
-                    <IconButton label="New database" size="xs" onClick={() => ws.createPage({ kind: "database" })}>
-                      <Plus className="size-3.5" />
-                    </IconButton>
                   ) : null
                 }
               >
                 {id === "favorites" && <FavoritesList />}
                 {id === "recents" && <RecentsList />}
                 {id === "pages" && <PagesSection />}
-                {id === "databases" && <DatabasesList />}
               </SidebarSection>
             ))}
           </SortableContext>
         </DndContext>
       </div>
-      <div className="grid gap-px border-t border-line px-2 py-2">
+      <div className="grid gap-px border-t border-line ps-4 pe-2 py-2">
         <Popover
           side="right"
           align="end"
@@ -210,7 +202,7 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
   const name = ws.settings?.displayName || ws.identity.name;
   const workspaceName = ws.settings?.displayName || ws.identity.name !== "You" ? `${name}'s Max` : "My Max";
   return (
-    <div className="flex items-center gap-1 px-2 pb-1 pt-2">
+    <div className="flex items-center gap-1 ps-4 pe-2 pb-1 pt-2">
       <Menu>
         <MenuTrigger asChild>
           <button type="button" className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 text-start hover:bg-hover data-[state=open]:bg-hover">
@@ -344,9 +336,16 @@ function SidebarSection({
         >
           <GripVertical className="size-3.5" />
         </button>
-        <button type="button" onClick={onToggle} aria-expanded={!collapsed} className="flex flex-1 items-center gap-1 text-start text-xs font-medium text-fg-3 hover:text-fg-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={!collapsed}
+          title={collapsed ? `Show ${label}` : `Hide ${label}`}
+          className="flex flex-1 items-center gap-1 self-stretch text-start text-xs font-medium text-fg-3 hover:text-fg-2"
+        >
+          <ChevronRight className={cn("size-3.5 shrink-0 transition-transform duration-150 flip-rtl", !collapsed && "rotate-90")} />
           {label}
-          <ChevronRight className={cn("size-3 opacity-0 transition-[transform,opacity] flip-rtl group-hover/section:opacity-100", !collapsed && "rotate-90")} />
+          {collapsed && <span className="sr-only">(collapsed)</span>}
         </button>
         <div className="flex items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/section:opacity-100 max-md:opacity-100">{action}</div>
       </div>
@@ -511,27 +510,6 @@ function RecentsList() {
               </IconButton>
             }
           />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function DatabasesList() {
-  const ws = useWorkspace();
-  const dbs = useMemo(() => (ws.tree ?? []).filter((p) => p.kind === "database").sort((a, b) => pageTitle(a.title).localeCompare(pageTitle(b.title))), [ws.tree]);
-  if (!ws.tree) return null;
-  if (!dbs.length)
-    return (
-      <button type="button" onClick={() => ws.createPage({ kind: "database" })} className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-[13px] text-fg-3 hover:bg-hover hover:text-fg-2">
-        <Database className="size-3.5" /> Create a database
-      </button>
-    );
-  return (
-    <ul className="grid">
-      {dbs.map((p) => (
-        <li key={p._id}>
-          <SimpleRow page={p} />
         </li>
       ))}
     </ul>
