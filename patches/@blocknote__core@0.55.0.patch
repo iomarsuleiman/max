@@ -1,0 +1,22 @@
+diff --git a/dist/blocks-DaEUT0O1.js b/dist/blocks-DaEUT0O1.js
+index f27910dc4b95b8bad149070d5dd851e7470a5074..294d83e265b25af27a2c904c8f73e9a78cdf0bdd 100644
+--- a/dist/blocks-DaEUT0O1.js
++++ b/dist/blocks-DaEUT0O1.js
+@@ -2353,7 +2353,7 @@ var fr = F(() => ({
+ 	parseContent: ({ el: e, schema: t }) => dr(e, t, "checkListItem"),
+ 	render(e, t) {
+ 		let n = document.createDocumentFragment(), r = document.createElement("input");
+-		r.type = "checkbox", r.checked = e.props.checked, e.props.checked && r.setAttribute("checked", ""), r.disabled = !t.isEditable, r.addEventListener("change", () => {
++		r.type = "checkbox", r.setAttribute("aria-label", "Done"), r.checked = e.props.checked, e.props.checked && r.setAttribute("checked", ""), r.disabled = !t.isEditable, r.addEventListener("change", () => {
+ 			t.isEditable && t.updateBlock(e, { props: { checked: !e.props.checked } });
+ 		});
+ 		let i = document.createElement("p"), a = document.createElement("div");
+@@ -2364,7 +2364,7 @@ var fr = F(() => ({
+ 	},
+ 	toExternalHTML(e) {
+ 		let t = document.createElement("li"), n = document.createElement("input");
+-		n.type = "checkbox", n.checked = e.props.checked, e.props.checked && n.setAttribute("checked", "");
++		n.type = "checkbox", n.setAttribute("aria-label", "Done"), n.checked = e.props.checked, e.props.checked && n.setAttribute("checked", "");
+ 		let r = document.createElement("p");
+ 		return q(e.props, t), t.appendChild(n), t.appendChild(r), {
+ 			dom: t,

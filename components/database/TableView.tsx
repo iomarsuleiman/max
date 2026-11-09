@@ -1,13 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowUpRight, GripVertical, Maximize2, Plus, Trash2, Copy } from "lucide-react";
+import { ArrowUpRight, Check, GripVertical, Maximize2, Plus, Trash2, Copy } from "lucide-react";
 import { IconButton, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, cn } from "@/components/ui";
-import type { DatabaseView, PageRow, PropertyDef } from "@/lib/domain/types";
+import type { CalculationFn, DatabaseView, PageRow, PropertyDef } from "@/lib/domain/types";
 import type { RecordView } from "@/lib/client/types";
 import { useWorkspace } from "@/components/workspace/context";
 import { EditableValue } from "./cells";
@@ -15,9 +14,14 @@ import { PageIcon } from "@/components/workspace/PageIcon";
 import { PropIcon } from "./meta";
 import { AddProperty, PropertyMenu } from "./PropertyMenu";
 
+/** dnd-kit's screen-reader helpers live in <body>, so tables keep a valid row/cell structure. */
+const dndA11y = typeof document !== "undefined" ? { container: document.body } : undefined;
+
 const DEFAULT_WIDTH: Partial<Record<PropertyDef["type"], number>> = { title: 280, checkbox: 100, number: 120, date: 160, created_time: 180, updated_time: 180 };
 
-export function TableView({ database, view, properties, records, readOnly, onUpdate, onCreate, onDelete, onUpdateView, canReorder }: {
+export function TableView({ database, view, properties, records, readOnly, onUpdate, onCreate, onDelete, onUpdateView, canReorder, onOpenRecord, calculations = {} }: {
+  calculations?: Record<string, string | number | null>;
+  onOpenRecord: (id: string, event?: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean }) => void;
   database: PageRow;
   view: DatabaseView;
   properties: PropertyDef[];
@@ -30,7 +34,6 @@ export function TableView({ database, view, properties, records, readOnly, onUpd
   canReorder: boolean;
 }) {
   const ws = useWorkspace();
-  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [widths, setWidths] = useState<Record<string, number>>({});
@@ -41,7 +44,7 @@ export function TableView({ database, view, properties, records, readOnly, onUpd
   }, [records, localOrder]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const widthOf = (p: PropertyDef) => widths[p.id] ?? view.columnWidths[p.id] ?? DEFAULT_WIDTH[p.type] ?? 180;
-  const total = properties.reduce((t, p) => t + widthOf(p), 0) + 32 + 36;
+  const total = properties.reduce((t, p) => t + widthOf(p), 0) + 48 + 36;
 
   const onRowDragEnd = async ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
@@ -80,8 +83,8 @@ export function TableView({ database, view, properties, records, readOnly, onUpd
       <div className="scroll-quiet overflow-x-auto px-4 sm:px-12">
         <div role="table" aria-label={`${database.title || "Database"} table`} aria-rowcount={rows.length + 1} style={{ minWidth: total }} className="text-[13.5px]">
           <div role="row" className="flex h-8 border-y border-line text-fg-2">
-            <div className="w-8 shrink-0" />
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onColDragEnd}>
+            <div role="columnheader" className="w-12 shrink-0"><span className="sr-only">Select and reorder</span></div>
+            <DndContext accessibility={dndA11y} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onColDragEnd}>
               <SortableContext items={properties.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
                 {properties.map((p) => (
                   <HeaderCell
@@ -101,17 +104,19 @@ export function TableView({ database, view, properties, records, readOnly, onUpd
               </SortableContext>
             </DndContext>
             {!readOnly && (
-              <AddProperty
-                databaseId={database._id}
-                trigger={
-                  <button type="button" aria-label="Add a property" className="grid w-9 shrink-0 place-items-center border-s border-line text-fg-3 hover:bg-hover">
-                    <Plus className="size-4" />
-                  </button>
-                }
-              />
+              <div role="columnheader" className="flex w-9 shrink-0 border-s border-line">
+                <AddProperty
+                  databaseId={database._id}
+                  trigger={
+                    <button type="button" aria-label="Add a property" className="grid w-full place-items-center text-fg-3 hover:bg-hover">
+                      <Plus className="size-4" />
+                    </button>
+                  }
+                />
+              </div>
             )}
           </div>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onRowDragEnd}>
+          <DndContext accessibility={dndA11y} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onRowDragEnd}>
             <SortableContext items={rows.map((r) => r._id)} strategy={verticalListSortingStrategy}>
               {rows.map((r) => (
                 <TableRow
@@ -125,23 +130,37 @@ export function TableView({ database, view, properties, records, readOnly, onUpd
                   selected={selected.has(r._id)}
                   onSelect={(v) => setSelected((s) => { const n = new Set(s); if (v) n.add(r._id); else n.delete(r._id); return n; })}
                   onUpdate={onUpdate}
-                  onOpen={() => router.push(`/p/${r._id}`)}
+                  onOpen={(e) => onOpenRecord(r._id, e)}
                   onDelete={() => onDelete([r._id])}
                   onDuplicate={() => ws.duplicatePage(r._id)}
                 />
               ))}
             </SortableContext>
           </DndContext>
+        </div>
+        <div style={{ minWidth: total }}>
           {!readOnly && (
             <button
               type="button"
               onClick={() => onCreate()}
-              className="flex h-8 w-full items-center gap-2 border-b border-line ps-10 text-start text-[13.5px] text-fg-3 hover:bg-hover hover:text-fg-2"
+              className="flex h-8 w-full items-center gap-2 border-b border-line ps-14 text-start text-[13.5px] text-fg-3 hover:bg-hover hover:text-fg-2"
             >
               <Plus className="size-3.5" /> New row
             </button>
           )}
-          <div className="flex h-8 items-center ps-10 text-[12px] text-fg-3">
+          <div role="group" aria-label="Column calculations" className="flex h-8 border-b border-line">
+            <div className="w-12 shrink-0" />
+            {properties.map((p) => (
+              <CalcCell key={p.id} prop={p} width={widthOf(p)} fn={view.calculations?.[p.id]} value={calculations[p.id]} readOnly={readOnly}
+                onChange={(fn) => {
+                  const next = { ...(view.calculations ?? {}) };
+                  if (fn) next[p.id] = fn;
+                  else delete next[p.id];
+                  onUpdateView({ calculations: next });
+                }} />
+            ))}
+          </div>
+          <div className="flex h-8 items-center ps-14 text-[12px] text-fg-3">
             {rows.length > 0 && !readOnly && (
               <label className="me-3 inline-flex items-center gap-1.5">
                 <input type="checkbox" checked={allSelected} onChange={(e) => setSelected(e.target.checked ? new Set(rows.map((r) => r._id)) : new Set())} className="accent-[var(--accent)]" aria-label="Select all rows" />
@@ -152,6 +171,51 @@ export function TableView({ database, view, properties, records, readOnly, onUpd
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const CALC_LABEL: Record<CalculationFn, string> = {
+  count_all: "Count all", count_values: "Count values", count_empty: "Count empty", count_unique: "Count unique values",
+  percent_empty: "Percent empty", percent_not_empty: "Percent not empty", sum: "Sum", average: "Average", median: "Median",
+  min: "Min", max: "Max", range: "Range", earliest: "Earliest date", latest: "Latest date",
+  checked: "Checked", unchecked: "Unchecked", percent_checked: "Percent checked",
+};
+function calcOptions(type: PropertyDef["type"]): CalculationFn[] {
+  const base: CalculationFn[] = ["count_all", "count_values", "count_empty", "count_unique", "percent_empty", "percent_not_empty"];
+  if (type === "number" || type === "formula" || type === "rollup") return [...base, "sum", "average", "median", "min", "max", "range"];
+  if (type === "date" || type === "created_time" || type === "updated_time") return [...base, "earliest", "latest"];
+  if (type === "checkbox") return ["count_all", "checked", "unchecked", "percent_checked"];
+  return base;
+}
+
+function CalcCell({ prop, width, fn, value, readOnly, onChange }: { prop: PropertyDef; width: number; fn?: CalculationFn; value: string | number | null | undefined; readOnly: boolean; onChange: (fn: CalculationFn | null) => void }) {
+  const shown = value === null || value === undefined ? "—" : typeof value === "number" ? `${value.toLocaleString("en")}${fn?.startsWith("percent") ? "%" : ""}` : value;
+  const label = fn ? (
+    <span className="flex min-w-0 items-center justify-end gap-1.5">
+      <span className="truncate text-[11.5px] uppercase tracking-wide text-fg-3">{CALC_LABEL[fn]}</span>
+      <span className="tabular-nums text-fg">{shown}</span>
+    </span>
+  ) : (
+    <span className="opacity-0 group-hover/calc:opacity-100">Calculate</span>
+  );
+  if (readOnly) return <div style={{ width }} className="flex shrink-0 items-center justify-end px-2 text-[12.5px]">{fn ? label : null}</div>;
+  return (
+    <div style={{ width }} className="group/calc flex shrink-0">
+      <Menu>
+        <MenuTrigger asChild>
+          <button type="button" aria-label={`Calculate ${prop.name}${fn ? `: ${CALC_LABEL[fn]} ${shown}` : ""}`} className="flex w-full items-center justify-end px-2 text-[12.5px] text-fg-3 hover:bg-hover focus-visible:[&_span]:opacity-100">
+            {label}
+          </button>
+        </MenuTrigger>
+        <MenuContent align="end">
+          <MenuItem onSelect={() => onChange(null)} hint={!fn ? "✓" : undefined}>None</MenuItem>
+          <MenuSeparator />
+          {calcOptions(prop.type).map((c) => (
+            <MenuItem key={c} onSelect={() => onChange(c)} hint={fn === c ? "✓" : undefined}>{CALC_LABEL[c]}</MenuItem>
+          ))}
+        </MenuContent>
+      </Menu>
     </div>
   );
 }
@@ -218,17 +282,24 @@ function TableRow({ record, properties, widthOf, databaseId, readOnly, canReorde
   selected: boolean;
   onSelect: (v: boolean) => void;
   onUpdate: (id: string, values: Record<string, unknown>) => void;
-  onOpen: () => void;
+  onOpen: (e?: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean }) => void;
   onDelete: () => void;
   onDuplicate: () => void;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: record._id, disabled: !canReorder });
   return (
     <div ref={setNodeRef} role="row" style={{ transform: CSS.Translate.toString(transform), transition }} className={cn("group/row relative flex min-h-8 border-b border-line", selected && "bg-accent-soft", isDragging && "z-10 bg-overlay shadow-pop")}>
-      <div className="flex w-8 shrink-0 items-center justify-end gap-0.5 pe-0.5 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 has-[:checked]:opacity-100 max-md:opacity-100">
-        {!readOnly && <input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} aria-label={`Select ${record.title || "row"}`} className="size-3.5 accent-[var(--accent)]" />}
+      <div role="cell" className="flex w-12 shrink-0 items-center justify-end gap-2 pe-1 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 has-[:checked]:opacity-100 max-md:opacity-100">
+        {!readOnly && (
+          <label className="relative grid size-6 shrink-0 cursor-pointer place-items-center">
+            <input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} aria-label={`Select ${record.title || "row"}`} className="peer absolute inset-0 size-6 cursor-pointer opacity-0" />
+            <span aria-hidden className="grid size-3.5 place-items-center rounded-[3px] shadow-[inset_0_0_0_1.5px_var(--line-strong)] peer-checked:bg-accent peer-checked:shadow-none peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--focus)]">
+              {selected && <Check className="size-2.5 text-accent-fg" strokeWidth={3.5} />}
+            </span>
+          </label>
+        )}
         {canReorder && (
-          <button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label="Drag to reorder row" className="grid h-5 w-3 cursor-grab place-items-center text-fg-3 active:cursor-grabbing max-md:hidden">
+          <button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label="Drag to reorder row" className="grid h-6 w-4 cursor-grab place-items-center text-fg-3 active:cursor-grabbing max-md:hidden">
             <GripVertical className="size-3.5" />
           </button>
         )}
@@ -239,7 +310,7 @@ function TableRow({ record, properties, widthOf, databaseId, readOnly, canReorde
             <div className="group/title flex min-w-0 flex-1 items-center">
               {record.icon && <PageIcon icon={record.icon} className="ms-2" />}
               <EditableValue prop={p} value={record.title} record={record} databaseId={databaseId} readOnly={readOnly} onSave={(v) => onUpdate(record._id, { [p.id]: v })} placeholder="Untitled" className="font-medium" />
-              <button type="button" onClick={onOpen} className="absolute end-1 top-1/2 inline-flex h-6 -translate-y-1/2 items-center gap-1 rounded bg-overlay px-1.5 text-[11.5px] font-medium text-fg-2 opacity-0 shadow-[0_0_0_1px_var(--line-strong)] hover:bg-surface-2 group-hover/row:opacity-100 focus-visible:opacity-100 max-md:opacity-100">
+              <button type="button" onClick={(e) => onOpen(e)} aria-label={`Open ${record.title || "row"}`} title="Open (⌘-click for full page)" className="absolute end-1 top-1/2 inline-flex h-6 -translate-y-1/2 items-center gap-1 rounded bg-overlay px-1.5 text-[11.5px] font-medium text-fg-2 opacity-0 shadow-[0_0_0_1px_var(--line-strong)] hover:bg-surface-2 group-hover/row:opacity-100 focus-visible:opacity-100 max-md:opacity-100">
                 <Maximize2 className="size-3" /> Open
               </button>
             </div>
@@ -249,19 +320,21 @@ function TableRow({ record, properties, widthOf, databaseId, readOnly, canReorde
         </div>
       ))}
       {!readOnly && (
+        <div role="cell" className="contents">
         <Menu>
           <MenuTrigger asChild>
-            <IconButton label="Row actions" size="xs" className="absolute -end-7 top-1.5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100">
+            <IconButton label="Row actions" size="xs" className="absolute -end-7 top-1 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100">
               <span className="text-xs">⋯</span>
             </IconButton>
           </MenuTrigger>
           <MenuContent align="end">
-            <MenuItem icon={<ArrowUpRight />} onSelect={onOpen}>Open as page</MenuItem>
+            <MenuItem icon={<ArrowUpRight />} onSelect={() => onOpen({ shiftKey: true })}>Open as full page</MenuItem>
             <MenuItem icon={<Copy />} onSelect={onDuplicate}>Duplicate</MenuItem>
             <MenuSeparator />
             <MenuItem icon={<Trash2 />} danger onSelect={onDelete}>Delete</MenuItem>
           </MenuContent>
         </Menu>
+        </div>
       )}
     </div>
   );

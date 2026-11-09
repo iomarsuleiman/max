@@ -29,7 +29,7 @@ function remember(icon: string) {
 
 /** Notion-style picker: every emoji (by category, searchable) and the full Lucide icon set in colors. */
 export function IconPicker({ trigger, onPick, onRemove }: { trigger: ReactNode; onPick: (icon: string) => void; onRemove?: () => void }) {
-  const [tab, setTab] = useState<"emoji" | "icons">("emoji");
+  const [tab, setTab] = useState<"emoji" | "icons">("icons");
   const [query, setQuery] = useState("");
   const [color, setColor] = useState<IconColor>(() => readLocal<IconColor>("icon-color", "default"));
   const [open, setOpen] = useState(false);
@@ -41,7 +41,7 @@ export function IconPicker({ trigger, onPick, onRemove }: { trigger: ReactNode; 
   return (
     <Popover open={open} onOpenChange={(o) => (setOpen(o), o && setQuery(""))} trigger={trigger} className="w-[min(408px,calc(100vw-24px))] p-0">
       <div className="flex items-center gap-1 border-b border-line px-2 pt-1.5">
-        {(["emoji", "icons"] as const).map((t) => (
+        {(["icons", "emoji"] as const).map((t) => (
           <button key={t} type="button" onClick={() => setTab(t)} className={cn("h-8 border-b-2 border-transparent px-2 text-[13px] text-fg-2 hover:text-fg", tab === t && "border-fg font-medium text-fg")}>
             {t === "emoji" ? "Emoji" : "Icons"}
           </button>

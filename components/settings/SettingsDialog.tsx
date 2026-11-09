@@ -16,6 +16,7 @@ import type { SettingsRow } from "@/lib/client/types";
 import { Avatar } from "@/components/workspace/Sidebar";
 import { notifyError, useWorkspace, type SettingsSection } from "@/components/workspace/context";
 import { download } from "@/components/page/PageOptions";
+import { SHORTCUTS } from "@/lib/client/shortcuts";
 
 const NAV: { id: SettingsSection; label: string; icon: ReactNode; group: "Account" | "Workspace" }[] = [
   { id: "account", label: "My account", icon: <User />, group: "Account" },
@@ -37,7 +38,12 @@ export function SettingsDialog() {
         <D.Overlay className="fixed inset-0 z-[60] bg-[var(--scrim)] [animation:max-fade_150ms_ease]" />
         <D.Content
           aria-describedby={undefined}
-          onOpenAutoFocus={(e) => e.preventDefault()}
+          tabIndex={-1}
+          onOpenAutoFocus={(e) => {
+            // Keep focus in the dialog (so Esc and Tab work) without jumping to the first button.
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).focus();
+          }}
           className="fixed start-1/2 top-1/2 z-[61] flex h-[min(720px,calc(100dvh-48px))] w-[min(1080px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-overlay shadow-dialog outline-none [animation:max-in_160ms_var(--ease)] rtl:translate-x-1/2 max-md:inset-0 max-md:h-dvh max-md:w-full max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:flex-col"
         >
           <D.Title className="sr-only">Settings</D.Title>
@@ -506,32 +512,22 @@ function DataSection() {
 /* ── Shortcuts & About ───────────────────────────────────────────────────── */
 
 function ShortcutsSection() {
-  const rows: [string, string][] = [
-    ["Search", "⌘ K"],
-    ["New page", "⌘ ⌥ N"],
-    ["Toggle sidebar", "⌘ \\"],
-    ["Settings", "⌘ ,"],
-    ["Duplicate block", "⌘ D"],
-    ["Move block up / down", "⌘ ⇧ ↑ / ↓"],
-    ["Move page in sidebar", "⌥ ⇧ ↑ / ↓"],
-    ["Nest / un-nest page in sidebar", "⌥ ⇧ → / ←"],
-    ["Rename page in sidebar", "F2"],
-    ["Bold / italic / underline", "⌘ B / I / U"],
-    ["Insert block", "/"],
-    ["Link a page", "@"],
-    ["Undo / redo", "⌘ Z / ⌘ ⇧ Z"],
-  ];
+  const groups = [...new Set(SHORTCUTS.map((s) => s.group))];
   return (
     <>
-      <Heading title="Keyboard shortcuts" description="On Windows and Linux, use Ctrl for ⌘ and Alt for ⌥." />
-      <dl className="divide-y divide-line">
-        {rows.map(([a, k]) => (
-          <div key={a} className="flex items-center justify-between py-2.5 text-[13.5px]">
-            <dt>{a}</dt>
-            <dd><Kbd className="px-1.5">{k}</Kbd></dd>
-          </div>
-        ))}
-      </dl>
+      <Heading title="Keyboard shortcuts" description="Everything in Max works from the keyboard. On Windows and Linux, use Ctrl for ⌘ and Alt for ⌥. Press ⌘/ any time to come back here." />
+      {groups.map((g) => (
+        <Group key={g} title={g}>
+          <dl>
+            {SHORTCUTS.filter((s) => s.group === g).map((s) => (
+              <div key={s.label} className="flex items-center justify-between gap-4 py-2 text-[13.5px]">
+                <dt>{s.label}</dt>
+                <dd className="shrink-0"><Kbd className="px-1.5">{s.keys}</Kbd></dd>
+              </div>
+            ))}
+          </dl>
+        </Group>
+      ))}
     </>
   );
 }

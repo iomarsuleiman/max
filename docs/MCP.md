@@ -34,7 +34,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `assets_createUploadUrl` | Start an upload | Write | Returns a short-lived URL. POST the file body to it (with its Content-Type), then call assets.register with the returned storageId. |
 | `assets_getUrl` | Get file URL | Read | Resolves a max-asset:// id to a URL the owner can load. |
 | `assets_list` | List files | Read | Uploaded files, optionally for one page, with total storage used. |
-| `assets_register` | Attach an uploaded file | Write | Registers an uploaded image on a page. Allowed: image/png, image/jpeg, image/webp, image/gif, image/avif, image/svg+xml, up to 20 MB. Returns a max-asset:// URL to use in image blocks. |
+| `assets_register` | Attach an uploaded file | Write | Registers an uploaded file on a page: images, PDFs, office documents, text, archives, audio and video (26 types), up to 50 MB. Returns a max-asset:// URL to use in image, file, audio or video blocks. |
 | `assets_remove` | Delete file | Write · needs `confirm: true` | Permanently deletes an uploaded file. Image blocks that use it will show as missing. |
 | `—` | Recent assistant activity | UI only | Operations performed by connected assistants (names and outcomes only, never note content). |
 | `batch` | Run several operations | Write | Runs up to 50 write operations in order as one transaction: if any fails, none are applied, and the error says which one failed. Each item is { op, args } using the same names and inputs as the individual tools. |
@@ -45,6 +45,11 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `blocks_insert` | Insert blocks | Write | Inserts blocks (or Markdown) before/after a block, as its first/last child, or at the start/end of the page. Returns the new block ids. |
 | `blocks_move` | Move blocks | Write | Moves blocks (keeping ids and children) before/after another block or into it as first/last child. |
 | `blocks_update` | Update block | Write | Changes a block's type (e.g. paragraph → heading), props (e.g. { level: 2 }, { checked: true }) and/or content (string or inline items with styles). Children are kept. |
+| `comments_add` | Add comment | Write | Adds a comment to a page, or to one block when blockId is given. |
+| `comments_delete` | Delete comment | Write · needs `confirm: true` | Permanently deletes a comment. Resolving keeps it instead. |
+| `comments_list` | List comments | Read | Comments on a page and its blocks, oldest first. Each block comment includes a short excerpt of the block it's on. Resolved comments are included only when asked. |
+| `comments_resolve` | Resolve or reopen comment | Write | Marks a comment as resolved (hidden by default) or reopens it. |
+| `comments_update` | Edit comment | Write | Changes a comment's text. |
 | `databases_create` | Create database | Write | Creates a personal database (a table of rows, each row is also a page) with Name, Status, Tags and Date properties and one table view. |
 | `databases_get` | Get database schema | Read | Returns a database's properties (with option ids/names) and saved views. |
 | `databases_list` | List databases | Read | Lists all live personal databases with row counts. |
@@ -56,6 +61,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `export_page` | Export page | Read | Exports one page as Markdown or Max JSON (database pages include their rows as a Markdown table). |
 | `gallery_install` | Add template from gallery | Write | Adds a built-in template to your workspace (at the top level or under parentId). Returns the new page id. |
 | `gallery_list` | List template gallery | Read | Built-in templates (video projects, tasks, meeting notes, reading list, content calendar, journal, weekly planner, wiki) that can be added with gallery.install. |
+| `graph_get` | Get the page graph | Read | Returns pages as nodes and their connections as edges: links and mentions in content (type link) and sub-page or database-row nesting (type parent). Pass pageId for a local graph around one page, with depth as the number of hops (1 to 4). Trashed pages and templates are left out. |
 | `import_bundle` | Import pages and databases | Write | Imports a tree of pages and databases at once (used for Notion exports). Items reference parents by key; database rows can be parents too. Property types: text, number, select, multi_select, status, checkbox, date, url, email, phone. |
 | `import_markdown` | Import Markdown | Write | Creates a page from Markdown. The first '# Heading' becomes the title unless a title is given. |
 | `import_maxExport` | Restore a Max export | Write | Imports a Max JSON export as new pages (new ids; links between imported pages are updated). Existing pages are not changed. |
@@ -98,6 +104,10 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `—` | Revoke access token | UI only | Revokes a token immediately. Assistants using it lose access. |
 | `trash_empty` | Empty trash | Write · needs `confirm: true` | Permanently deletes every page in the trash and its uploaded files. This cannot be undone. |
 | `trash_list` | List trash | Read | Pages in the trash (only the pages you trashed directly; their subpages come back with them). |
+| `versions_create` | Save a version now | Write | Keeps the page's current content in its history right away (for example before a big rewrite). |
+| `versions_get` | Get a page version | Read | Returns one earlier version's content as blocks and/or Markdown, to compare with the current page. |
+| `versions_list` | List page history | Read | Earlier versions of a page's content, newest first (time, revision, title, word count and whether an assistant made the change). The current content isn't included. |
+| `versions_restore` | Restore a page version | Write | Replaces the page's content with an earlier version. The current content is kept in history first, so a restore can itself be undone. Optionally restores the title too. |
 | `views_create` | Create view | Write | Adds a saved view (table, list or board) to a database. |
 | `views_delete` | Delete view | Write | Removes a saved view (rows are not affected). A database keeps at least one view. |
 | `views_move` | Reorder view | Write | Moves a view tab to a new position. |

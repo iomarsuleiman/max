@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, FileQuestion, Link2, Lock, Star } from "lucide-react";
+import { ArrowUpRight, FileQuestion, Link2, Lock, MessageSquare, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Notice, Skeleton, cn } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
@@ -25,7 +25,9 @@ import { PageOptions } from "./PageOptions";
 import { SaveStatus } from "./SaveStatus";
 import { ImageDetailsDialog } from "./ImageDetailsDialog";
 import { useDocumentSync } from "./useDocumentSync";
+import { CommentsPanel, requestComment, useCommentCount } from "./CommentsPanel";
 import { requestEditorFocus, takeEditorFocusRequest } from "@/lib/client/editorFocus";
+import { registerEditor } from "@/lib/client/saveFlush";
 
 const MaxEditor = dynamic(() => import("@/components/editor/MaxEditor"), {
   ssr: false,
@@ -34,7 +36,7 @@ const MaxEditor = dynamic(() => import("@/components/editor/MaxEditor"), {
 
 function EditorSkeleton() {
   return (
-    <div className="grid gap-3 py-2" aria-label="Loading content">
+    <div className="grid gap-3 py-2" role="status" aria-label="Loading content">
       <Skeleton className="w-11/12" />
       <Skeleton className="w-4/5" />
       <Skeleton className="w-2/3" />
@@ -42,10 +44,24 @@ function EditorSkeleton() {
   );
 }
 
-export function PageView({ pageId }: { pageId: string }) {
+export function PageView({ pageId, renderHeader }: { pageId: string; renderHeader?: (data: PageGetResult) => React.ReactNode }) {
+  const embedded = !!renderHeader;
   const ws = useWorkspace();
   const router = useRouter();
   const q = useOp<PageGetResult>("pages.get", { id: pageId });
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentFocus, setCommentFocus] = useState<{ blockId: string | null; nonce: number } | null>(null);
+  useEffect(() => {
+    const onComment = (e: Event) => {
+      const d = (e as CustomEvent<{ pageId: string; blockId: string | null; toggle?: boolean }>).detail;
+      if (d.pageId !== pageId) return;
+      if (d.toggle) return setCommentsOpen((o) => !o);
+      setCommentsOpen(true);
+      setCommentFocus({ blockId: d.blockId, nonce: Date.now() });
+    };
+    document.addEventListener("max:comment", onComment);
+    return () => document.removeEventListener("max:comment", onComment);
+  }, [pageId]);
   const page = q.data?.page;
   const isDatabase = page?.kind === "database";
   const doc = useOp<DocumentGetResult>("documents.get", page && !isDatabase ? { pageId } : "skip");
@@ -59,8 +75,16 @@ export function PageView({ pageId }: { pageId: string }) {
   }, [page, pageId, ws]);
 
   useEffect(() => {
-    if (page) document.title = `${page.icon ? page.icon + " " : ""}${pageTitle(page.title)} · Max`;
-  }, [page]);
+    if (page && !embedded) document.title = `${page.icon && !page.icon.startsWith("lucide:") ? page.icon + " " : ""}${pageTitle(page.title)} · Max`;
+  }, [page, embedded]);
+
+  // Keyboard shortcuts act on the open page (a peek takes precedence while it's open).
+  const { setActivePageId } = ws;
+  useEffect(() => {
+    if (embedded) return;
+    setActivePageId(pageId);
+    return () => setActivePageId(null);
+  }, [embedded, pageId, setActivePageId]);
 
   if (q.error) {
     return (
@@ -96,23 +120,29 @@ export function PageView({ pageId }: { pageId: string }) {
 
   const data = q.data;
   const readOnly = !!page.archivedAt || page.locked;
+  const commentsEnabled = !isDatabase && !page.isTemplate;
   const widthClass = page.fullWidth ? "max-w-none sm:px-24" : "max-w-[760px]";
   const crumbs = data.breadcrumbs.map((b) => ({ _id: b._id, title: b.title, icon: b.icon, kind: b.kind }));
 
   return (
     <>
-      <Topbar crumbs={crumbs}>
-        <PageTopbarActions page={page} saveSlotId={`save-${pageId}`} />
-      </Topbar>
-      <div className="min-h-0 flex-1 overflow-y-auto" id="page-scroll">
+      {renderHeader ? (
+        renderHeader(data)
+      ) : (
+        <Topbar crumbs={crumbs}>
+          <PageTopbarActions page={page} saveSlotId={`save-${pageId}`} onToggleComments={commentsEnabled ? () => setCommentsOpen((o) => !o) : undefined} />
+        </Topbar>
+      )}
+      <div className="flex min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto" id={embedded ? undefined : "page-scroll"}>
         {page.archivedAt && <TrashBanner data={data} />}
         {page.isTemplate && (
           <div className="bg-accent-soft px-4 py-2 text-center text-[13px] text-fg">
             You&apos;re editing a template. New {page.databaseId ? "rows" : "pages"} made from it copy this content. Use {"{{today}}"} to insert the date.
           </div>
         )}
-        <PageHeader page={page} readOnly={readOnly} widthClass={widthClass} onEnter={() => requestEditorFocus(pageId)} />
-        <div className={cn("mx-auto w-full px-4 pb-24 sm:px-12", widthClass)}>
+        <PageHeader page={page} readOnly={readOnly} widthClass={embedded ? "max-w-[760px]" : widthClass} onEnter={() => requestEditorFocus(pageId)} />
+        <div className={cn("mx-auto w-full px-4 pb-24 sm:px-12", embedded && !isDatabase ? "max-w-[760px]" : widthClass)}>
           {page.locked && !page.archivedAt && (
             <p className="mb-2 inline-flex items-center gap-1.5 text-[12.5px] text-fg-3">
               <Lock className="size-3.5" /> Locked. Unlock from the ⋯ menu to edit.
@@ -136,16 +166,25 @@ export function PageView({ pageId }: { pageId: string }) {
           {!isDatabase && data.children.length > 0 && <ChildPages pages={data.children} />}
         </div>
       </div>
+      {commentsEnabled && <CommentsPanel pageId={pageId} open={commentsOpen} onClose={() => setCommentsOpen(false)} focusBlock={commentFocus} />}
+      </div>
     </>
   );
 }
 
-function PageTopbarActions({ page, saveSlotId }: { page: PageGetResult["page"]; saveSlotId: string }) {
+export function PageTopbarActions({ page, saveSlotId, onToggleComments }: { page: PageGetResult["page"]; saveSlotId: string; onToggleComments?: () => void }) {
   const ws = useWorkspace();
   const fav = !!page.favoriteRank;
+  const commentCount = useCommentCount(page._id);
   return (
     <>
       <div id={saveSlotId} className="flex items-center" />
+      {onToggleComments && (
+        <button type="button" onClick={onToggleComments} aria-label={`Comments${commentCount ? `, ${commentCount} open` : ""}`} title="Comments (⌘⇧M)" className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[12.5px] text-fg-3 hover:bg-hover hover:text-fg-2">
+          <MessageSquare className="size-4" />
+          {commentCount > 0 && <span className="tabular-nums">{commentCount}</span>}
+        </button>
+      )}
       <span className="px-1 text-[12.5px] text-fg-3 max-lg:hidden">Edited {timeAgo(page.updatedAt)}</span>
       {!page.isTemplate && !page.archivedAt && (
         <IconButton label={fav ? "Remove from Favorites" : "Add to Favorites"} size="md" onClick={() => ws.toggleFavorite(page._id, !fav)}>
@@ -220,6 +259,26 @@ function Backlinks({ pageId }: { pageId: string }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** A database shown inside a page, like Notion's inline databases and linked views. */
+function InlineDatabase({ databaseId, readOnly }: { databaseId: string; readOnly: boolean }) {
+  const q = useOp<PageGetResult>("pages.get", { id: databaseId });
+  const ws = useWorkspace();
+  if (q.error) return <p className="py-2 text-[13px] text-fg-3">This database was deleted or moved to the trash.</p>;
+  if (!q.data) return <Skeleton className="h-24" />;
+  const db = q.data.page;
+  return (
+    <div className="w-full">
+      <button type="button" onClick={() => ws.openPage(db._id, { mode: "full" })} className="mb-1 flex items-center gap-1.5 rounded px-1 text-[17px] font-semibold text-fg hover:bg-hover">
+        <PageIcon icon={db.icon} kind="database" size={18} />
+        {pageTitle(db.title) === "Untitled" ? "Untitled database" : pageTitle(db.title)}
+      </button>
+      <div className="-mx-4 sm:-mx-12">
+        <DatabaseView database={db} readOnly={readOnly || !!db.archivedAt} />
+      </div>
     </div>
   );
 }
@@ -303,6 +362,31 @@ function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; 
     applyingRemote.current = false;
     sync.adopt(doc.revision);
   }, [doc.revision, doc.blocks, sync, sync.state]);
+
+  useEffect(() => registerEditor(pageId, () => sync.flush()), [pageId, sync]);
+
+  // Block ⋮⋮ → Comment, and ⌘⇧M with the cursor in a block, start a comment on that block.
+  useEffect(() => {
+    const onBlockComment = (e: Event) => {
+      const editor = editorRef.current;
+      const root = (editor?.prosemirrorView?.dom as HTMLElement | undefined)?.closest(".lx-editor");
+      const { blockId } = (e as CustomEvent<{ blockId: string }>).detail;
+      if (root && root.querySelector(`[data-id="${CSS.escape(blockId)}"]`)) requestComment(pageId, blockId);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey || e.key.toLowerCase() !== "m") return;
+      const editor = editorRef.current;
+      e.preventDefault();
+      if (editor?.isFocused()) requestComment(pageId, editor.getTextCursorPosition().block.id);
+      else document.dispatchEvent(new CustomEvent("max:comment", { detail: { pageId, blockId: null, toggle: true } }));
+    };
+    document.addEventListener("max:block-comment", onBlockComment);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("max:block-comment", onBlockComment);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [pageId]);
 
   useEffect(() => {
     const focus = () => {
@@ -416,6 +500,16 @@ function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; 
           }}
           pages={pages}
           navigate={(id) => router.push(`/p/${id}`)}
+          renderDatabase={(id, ro) => <InlineDatabase databaseId={id} readOnly={ro} />}
+          createDatabase={async () => {
+            try {
+              const { database } = await ws.call<{ database: { _id: string } }>("databases.create", { parentId: pageId, title: "" });
+              return database._id;
+            } catch (err) {
+              notifyError(err, "Couldn't create the database.");
+              return null;
+            }
+          }}
           density={ws.settings?.density}
           font={ws.settings?.font}
           smallText={smallText}

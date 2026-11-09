@@ -8,9 +8,12 @@ import * as documents from "./documents";
 import * as databases from "./databases";
 import * as templates from "./templates";
 import * as account from "./account";
+import * as versions from "./versions";
+import * as comments from "./comments";
+import * as graph from "./graph";
 
 const all: OpDef[] = [];
-for (const mod of [pages, documents, databases, templates, account]) {
+for (const mod of [pages, documents, databases, templates, account, versions, comments, graph]) {
   for (const value of Object.values(mod)) {
     if (value && typeof value === "object" && "name" in value && "run" in value && "input" in value) all.push(value as OpDef);
   }

@@ -13,11 +13,35 @@ export const LIMITS = {
   searchResults: 50,
   queryPage: 200,
   batchOperations: 50,
-  uploadBytes: 20 * 1024 * 1024,
+  uploadBytes: 50 * 1024 * 1024,
   tokens: 20,
 };
 
-export const UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/svg+xml"];
+export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/svg+xml"];
+/** Files Max stores: images, PDFs, office documents, text, archives, audio and video. */
+export const UPLOAD_TYPES = [
+  ...IMAGE_TYPES,
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/json",
+  "application/zip",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+];
 
 export async function allPages(ctx: OpContext): Promise<PageRow[]> {
   return ctx.db.list("pages", ctx.ownerId);
@@ -48,6 +72,25 @@ export const byRank = (a: { rank: string }, b: { rank: string }) => compareRank(
 /** Live (not archived) tree children of a parent, sorted. Database records are never tree children. */
 export function treeChildren(pages: PageRow[], parentId: string | null): PageRow[] {
   return pages.filter((p) => p.parentId === parentId && !p.databaseId && !p.archivedAt && !p.isTemplate).sort(byRank);
+}
+
+/** Ids of templates and everything inside them (subpages, database rows). They stay out of the tree, search and recents. */
+export function templateMembers(pages: PageRow[]): Set<string> {
+  const byId = new Map(pages.map((p) => [p._id, p]));
+  const out = new Set<string>();
+  for (const p of pages) {
+    let cur: PageRow | undefined = p;
+    let guard = 0;
+    while (cur && guard++ < 60) {
+      if (cur.isTemplate) {
+        out.add(p._id);
+        break;
+      }
+      const up: string | null = cur.parentId ?? cur.databaseId;
+      cur = up ? byId.get(up) : undefined;
+    }
+  }
+  return out;
 }
 
 export function descendants(pages: PageRow[], rootId: string): PageRow[] {

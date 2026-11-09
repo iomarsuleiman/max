@@ -2,12 +2,12 @@ import { z } from "zod";
 import { MaxError } from "../errors";
 import type { DatabaseView, FilterOperator, PageRow, PropertyDef, PropertyType, PropertyValue, SelectOption, ViewFilter, ViewSort } from "../types";
 import { defineOp, id, title, type OpContext } from "./define";
-import { allPages, byRank, cleanTitle, LIMITS, newPageRow, rankAt, requireDatabase, requirePage, summary } from "./helpers";
+import { allPages, byRank, cleanTitle, LIMITS, newPageRow, rankAt, requireDatabase, requirePage, summary, templateMembers } from "./helpers";
 import { insertDocument, pagesArchive, pagesCreate } from "./pages";
 import { TITLE_PROPERTY_ID, defaultView, shortId } from "./databaseDefaults";
 import { markdownToBlocks } from "../blocks";
 import { evaluateFormula, parseFormula, FormulaError, type FValue } from "../formula";
-import type { RollupFn } from "../types";
+import type { CalculationFn, RollupFn } from "../types";
 
 const PROPERTY_TYPES = ["text", "number", "select", "multi_select", "status", "checkbox", "date", "url", "email", "phone", "relation", "formula", "rollup", "created_time", "updated_time"] as const;
 const COLORS = ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"] as const;
@@ -123,6 +123,37 @@ async function applyValues(ctx: OpContext, db: PageRow, input: Record<string, un
 
 function recordView(r: PageRow) {
   return { ...summary(r), values: r.values ?? {} };
+}
+
+const CALC_FNS = ["count_all", "count_values", "count_empty", "count_unique", "percent_empty", "percent_not_empty", "sum", "average", "median", "min", "max", "range", "earliest", "latest", "checked", "unchecked", "percent_checked"] as const;
+
+/** A footer calculation over every row that matches the view (not just the loaded page). */
+export function calculate(fn: CalculationFn, prop: PropertyDef, rows: PageRow[]): string | number | null {
+  const values = rows.map((r) => (prop.type === "title" ? r.title : prop.type === "created_time" ? r.createdAt : prop.type === "updated_time" ? r.updatedAt : r.values?.[prop.id]));
+  const empty = (v: unknown) => v === null || v === undefined || v === "" || (Array.isArray(v) && !v.length);
+  const nums = values.filter((v): v is number => typeof v === "number" && Number.isFinite(v)).sort((a, b) => a - b);
+  const times = values.map((v) => (typeof v === "number" ? v : typeof v === "string" ? Date.parse(v) : NaN)).filter(Number.isFinite).sort((a, b) => a - b);
+  const pct = (n: number) => (rows.length ? Math.round((n / rows.length) * 1000) / 10 : 0);
+  const round = (n: number) => Math.round(n * 100) / 100;
+  switch (fn) {
+    case "count_all": return rows.length;
+    case "count_values": return values.filter((v) => !empty(v)).length;
+    case "count_empty": return values.filter(empty).length;
+    case "count_unique": return new Set(values.filter((v) => !empty(v)).flatMap((v) => (Array.isArray(v) ? v : [v])).map(String)).size;
+    case "percent_empty": return pct(values.filter(empty).length);
+    case "percent_not_empty": return pct(values.filter((v) => !empty(v)).length);
+    case "sum": return round(nums.reduce((a, b) => a + b, 0));
+    case "average": return nums.length ? round(nums.reduce((a, b) => a + b, 0) / nums.length) : null;
+    case "median": return nums.length ? (nums.length % 2 ? nums[(nums.length - 1) / 2] : round((nums[nums.length / 2 - 1] + nums[nums.length / 2]) / 2)) : null;
+    case "min": return nums.length ? nums[0] : null;
+    case "max": return nums.length ? nums[nums.length - 1] : null;
+    case "range": return nums.length ? round(nums[nums.length - 1] - nums[0]) : null;
+    case "earliest": return times.length ? new Date(times[0]).toISOString().slice(0, 10) : null;
+    case "latest": return times.length ? new Date(times[times.length - 1]).toISOString().slice(0, 10) : null;
+    case "checked": return values.filter((v) => v === true).length;
+    case "unchecked": return values.filter((v) => v !== true).length;
+    case "percent_checked": return pct(values.filter((v) => v === true).length);
+  }
 }
 
 const rollupInput = z.object({
@@ -241,7 +272,7 @@ export const databasesList = defineOp({
     const pages = await allPages(ctx);
     return {
       databases: pages
-        .filter((p) => p.kind === "database" && !p.archivedAt)
+        .filter((p) => p.kind === "database" && !p.archivedAt && !templateMembers(pages).has(p._id))
         .map((p) => ({ ...summary(p), recordCount: records(pages, p._id).length, properties: (p.properties ?? []).map((x) => ({ id: x.id, name: x.name, type: x.type })) })),
     };
   },
@@ -616,8 +647,14 @@ export const databasesQuery = defineOp({
     const start = input.cursor ?? 0;
     const limit = input.limit ?? 100;
     const page = rows.slice(start, start + limit);
+    const calculations: Record<string, string | number | null> = {};
+    for (const [propId, fn] of Object.entries(view?.calculations ?? {})) {
+      const prop = props.find((p) => p.id === propId);
+      if (prop) calculations[propId] = calculate(fn, prop, rows);
+    }
     return {
       records: page.map(recordView),
+      calculations,
       total: rows.length,
       unfilteredTotal: records(pages, db._id).length,
       nextCursor: start + limit < rows.length ? start + limit : null,
@@ -638,6 +675,8 @@ const viewPatch = z.object({
   groupByPropertyId: z.string().nullable().optional(),
   datePropertyId: z.string().nullable().optional(),
   cardPreview: z.enum(["cover", "none"]).optional(),
+  openPagesIn: z.enum(["side", "center", "full"]).optional(),
+  calculations: z.record(z.string(), z.enum(CALC_FNS)).optional(),
 });
 
 export const viewsCreate = defineOp({

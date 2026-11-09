@@ -66,6 +66,7 @@ export function inlineText(items: Inline[] = []): string {
       if (item.type === "text") return (item as InlineText).text;
       if (item.type === "link") return inlineText((item as InlineLink).content);
       if (item.type === "pageMention") return `@${(item as InlineMention).props.title ?? "page"}`;
+      if (item.type === "dateMention") return `@${String((item as { props?: { date?: string } }).props?.date ?? "")}`;
       return "";
     })
     .join("");
@@ -78,7 +79,7 @@ export function blockText(block: Block): string {
   }
   if (Array.isArray(c)) return inlineText(c);
   const p = block.props ?? {};
-  return [p.caption, p.alt, p.name, p.title]
+  return [p.caption, p.alt, p.name, p.title, p.url && block.type === "embed" ? p.url : undefined]
     .filter((x): x is string => typeof x === "string" && !!x)
     .join(" — ");
 }
@@ -107,7 +108,8 @@ export function referencedPageIds(blocks: Block[]): string[] {
   for (const { block } of walk(blocks)) {
     if (Array.isArray(block.content)) visitInline(block.content);
     else if (block.content?.type === "tableContent") block.content.rows.forEach((r) => r.cells.forEach((c) => visitInline(cellInlines(c))));
-    if (block.type === "pageLink" && typeof block.props?.pageId === "string") ids.add(block.props.pageId);
+    if ((block.type === "pageLink" || block.type === "databaseView") && typeof block.props?.pageId === "string") ids.add(block.props.pageId);
+    if (block.type === "databaseView" && typeof block.props?.databaseId === "string" && block.props.databaseId) ids.add(block.props.databaseId);
   }
   return [...ids];
 }
@@ -159,7 +161,7 @@ export function normalizeBlocks(input: unknown[], seen = new Set<string>()): Blo
 }
 
 const TEXT_PROPS = { textColor: "default", backgroundColor: "default", textAlignment: "left" };
-const NO_INLINE_TYPES = new Set(["image", "video", "audio", "file", "divider", "youtube", "pageLink", "diagram"]);
+const NO_INLINE_TYPES = new Set(["image", "video", "audio", "file", "divider", "youtube", "pageLink", "diagram", "bookmark", "toc", "embed", "databaseView", "columnList", "column"]);
 const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   paragraph: TEXT_PROPS,
   heading: { ...TEXT_PROPS, level: 1, isToggleable: false },
@@ -177,6 +179,15 @@ const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   youtube: { videoId: "", url: "", start: 0, end: 0, caption: "", title: "" },
   diagram: { text: "" },
   pageLink: { pageId: "" },
+  bookmark: { url: "", title: "" },
+  toc: {},
+  embed: { url: "" },
+  databaseView: { databaseId: "" },
+  columnList: {},
+  column: { width: 1 },
+  file: { backgroundColor: "default", name: "", url: "", caption: "" },
+  video: { textAlignment: "left", backgroundColor: "default", name: "", url: "", caption: "", showPreview: true },
+  audio: { backgroundColor: "default", name: "", url: "", caption: "", showPreview: true },
 };
 
 /* ── Markdown ────────────────────────────────────────────────────────────── */
@@ -204,6 +215,7 @@ function inlineToMarkdown(items: Inline[] = [], resolveTitle?: (id: string) => s
         const title = resolveTitle?.(m.props.pageId) ?? m.props.title ?? "Untitled";
         return `[${escapeMd(title)}](/p/${m.props.pageId})`;
       }
+      if (item.type === "dateMention") return `@${String((item as { props?: { date?: string } }).props?.date ?? "")}`;
       return "";
     })
     .join("");
@@ -260,6 +272,24 @@ export function blocksToMarkdown(blocks: Block[], resolveTitle?: (id: string) =>
           break;
         case "youtube":
           out.push(`https://www.youtube.com/watch?v=${block.props.videoId}`);
+          break;
+        case "embed":
+        case "bookmark":
+          if (block.props.url) out.push(`[${escapeMd(String(block.props.title || block.props.url))}](${block.props.url})`);
+          break;
+        case "file":
+        case "video":
+        case "audio":
+          if (block.props.url) out.push(`[${escapeMd(String(block.props.name || block.type))}](${block.props.url})`);
+          break;
+        case "databaseView": {
+          const id = String(block.props.databaseId);
+          if (id) out.push(`[${escapeMd(resolveTitle?.(id) ?? "Database")}](/p/${id})`);
+          break;
+        }
+        case "toc":
+        case "columnList":
+        case "column":
           break;
         case "pageLink": {
           const id = String(block.props.pageId);

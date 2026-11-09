@@ -240,6 +240,9 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .lx-editor .bn-inline-content { unicode-bidi: plaintext; text-align: start; }
 .lx-editor[data-readonly="true"] { cursor: default; }
 /* Page link block */
+.lx-editor a.mx-pagelink, .lx-editor a.mx-pagelink:visited { color: var(--fg); text-decoration: none; }
+.lx-editor a.mx-mention, .lx-editor a.mx-mention:visited { color: var(--fg); }
+.lx-editor .bn-inline-content a:not(.mx-mention) { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
 .mx-pagelink { display: flex; align-items: center; gap: 6px; width: 100%; padding: 3px 4px; margin-inline-start: -4px; border-radius: 4px; color: var(--fg); font-weight: 500; text-decoration: none; cursor: pointer; }
 .mx-pagelink:hover { background: var(--hover); }
 .mx-pagelink__icon { width: 22px; display: inline-grid; place-items: center; color: var(--fg-2); }
@@ -269,3 +272,26 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .bn-suggestion-menu [role="option"] > .bn-suggestion-menu-item { min-height: 0; padding: 0; }
 .bn-suggestion-menu [role="option"] > [data-position="left"] { padding: 0 !important; }
 .bn-suggestion-menu [role="option"] p, .bn-suggestion-menu [role="option"] .text-base, .bn-suggestion-menu [role="option"] .text-xs { margin: 0; }
+/* To-do checkboxes: a 24px touch target that looks like a 14px box (WCAG 2.2 target size). */
+.lx-editor .bn-block-content[data-content-type="checkListItem"] > div > input {
+  appearance: none; -webkit-appearance: none; width: 24px; height: 24px; margin: -5px 3px -5px -5px; flex: none;
+  border: 5px solid transparent; border-radius: 8px; background-clip: content-box; cursor: pointer;
+  outline: 1.5px solid var(--line-strong); outline-offset: -6.5px; transition: background-color 80ms ease;
+}
+.lx-editor .bn-block-content[data-content-type="checkListItem"] > div > input:checked {
+  background-color: var(--accent); outline-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  background-size: 10px; background-repeat: no-repeat; background-position: center;
+}
+.lx-editor .bn-block-content[data-content-type="checkListItem"] > div > input:focus-visible { outline: 2px solid var(--focus); }
+.lx-callout__icon { min-width: 24px; min-height: 24px; }
+
+/* Embeds, inline databases and date mentions */
+.mx-embed { width: 100%; margin: 0; display: grid; gap: 4px; }
+.mx-embed { position: relative; }
+.mx-embed iframe { width: 100%; height: auto; aspect-ratio: calc(1 / var(--aspect, 0.5625)); min-height: 120px; border: 0; border-radius: 8px; background: var(--surface-2); }
+.mx-embed figcaption { font-size: 12px; color: var(--fg-3); }
+.mx-embed figcaption a { color: inherit; }
+.mx-inline-db { width: 100%; cursor: default; }
+.mx-inline-db section { padding-top: 0 !important; }
+.mx-date { display: inline-flex; padding: 0 3px; border-radius: 4px; color: var(--fg-2); background: var(--hover); font-size: 0.95em; white-space: nowrap; }

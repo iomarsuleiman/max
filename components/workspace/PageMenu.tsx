@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowLeftToLine, ArrowRightToLine, ArrowUp, Copy, CornerUpRight, ExternalLink, Link2, PenLine, Star, StarOff, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeftToLine, ArrowRightToLine, ArrowUp, Copy, CornerUpRight, ExternalLink, Link2, PanelRight, PenLine, RectangleHorizontal, Star, StarOff, Trash2 } from "lucide-react";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui";
 import type { PageSummary } from "@/lib/client/types";
 import { useWorkspace } from "./context";
@@ -35,11 +35,11 @@ export function PageMenu({
         <MenuItem icon={<Link2 />} onSelect={() => ws.copyLink(page._id)}>
           Copy link
         </MenuItem>
-        <MenuItem icon={<Copy />} onSelect={() => ws.duplicatePage(page._id)} shortcut="⌘D">
+        <MenuItem icon={<Copy />} onSelect={() => ws.duplicatePage(page._id)} shortcut="⌘⇧D">
           Duplicate
         </MenuItem>
         {onRename && (
-          <MenuItem icon={<PenLine />} onSelect={onRename} shortcut="⌘⇧R">
+          <MenuItem icon={<PenLine />} onSelect={onRename} shortcut="F2">
             Rename
           </MenuItem>
         )}
@@ -64,6 +64,12 @@ export function PageMenu({
           </>
         )}
         <MenuSeparator />
+        <MenuItem icon={<PanelRight />} onSelect={() => ws.openPage(page._id, { mode: "side" })}>
+          Open in side peek
+        </MenuItem>
+        <MenuItem icon={<RectangleHorizontal />} onSelect={() => ws.openPage(page._id, { mode: "center" })}>
+          Open in center peek
+        </MenuItem>
         <MenuItem icon={<ExternalLink />} onSelect={() => window.open(`/p/${page._id}`, "_blank", "noopener")}>
           Open in new tab
         </MenuItem>

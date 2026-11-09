@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, ChevronDown, Columns3, Copy, FileText, LayoutGrid, LayoutTemplate, List, MoreHorizontal, Pencil, Plus, Table2, Trash2 } from "lucide-react";
+import { Calendar, ChevronDown, Columns3, Copy, FileText, LayoutGrid, LayoutTemplate, List, Maximize2, MoreHorizontal, PanelRight, Pencil, Plus, RectangleHorizontal, Table2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Skeleton, cn, confirmAction } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
@@ -58,9 +58,11 @@ export function DatabaseView({ database, readOnly }: { database: PageRow; readOn
       notifyError(err);
     }
   };
+  const openRecord = (id: string, event?: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean }) =>
+    ws.openPage(id, { mode: view.openPagesIn ?? "side", list: (db.query.data?.records ?? []).map((r) => r._id), event });
   const newRow = async (templateId?: string) => {
     const id = await db.createRecord({}, { templateId });
-    if (id) router.push(`/p/${id}`);
+    if (id) openRecord(id);
   };
 
   const filtered = view.filters.length > 0 || !!debounced;
@@ -74,12 +76,14 @@ export function DatabaseView({ database, readOnly }: { database: PageRow; readOn
     onUpdate: db.updateRecord,
     onCreate: (values?: Record<string, unknown>, opts?: { index?: number }) => db.createRecord(values, opts),
     onUpdateView: db.updateView,
+    onOpenRecord: openRecord,
   };
 
   return (
     <section aria-label={`${pageTitle(database.title)} database`} className="pt-2">
       <div className="flex flex-wrap items-center gap-1 border-b border-line px-4 sm:px-12">
-        <div role="tablist" aria-label="Views" className="scroll-quiet -mb-px flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+        <div className="scroll-quiet -mb-px flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+          <div role="tablist" aria-label="Views" className="flex items-center gap-0.5">
           {db.views.map((v) => {
             const Icon = VIEW_ICON[v.type] ?? Table2;
             const active = v.id === view.id;
@@ -89,18 +93,28 @@ export function DatabaseView({ database, readOnly }: { database: PageRow; readOn
                   <Icon className="size-3.5" />
                   {v.name}
                 </button>
-                {active && !readOnly && <ViewMenu database={database} view={v} canDelete={db.views.length > 1} onDeleted={() => selectView(db.views.find((x) => x.id !== v.id)!.id)} onDuplicate={async () => {
-                  try {
-                    const { view: nv } = await ws.call<{ view: View }>("views.create", { databaseId: database._id, name: `${v.name} (copy)`, type: v.type });
-                    await ws.call("views.update", { databaseId: database._id, viewId: nv.id, patch: { filters: v.filters, sorts: v.sorts, hiddenPropertyIds: v.hiddenPropertyIds, propertyOrder: v.propertyOrder, groupByPropertyId: v.groupByPropertyId ?? null, datePropertyId: v.datePropertyId ?? null } });
-                    selectView(nv.id);
-                  } catch (err) {
-                    notifyError(err);
-                  }
-                }} />}
+
               </div>
             );
           })}
+          </div>
+          {!readOnly && (
+            <ViewMenu
+              database={database}
+              view={view}
+              canDelete={db.views.length > 1}
+              onDeleted={() => selectView(db.views.find((x) => x.id !== view.id)!.id)}
+              onDuplicate={async () => {
+                try {
+                  const { view: nv } = await ws.call<{ view: View }>("views.create", { databaseId: database._id, name: `${view.name} (copy)`, type: view.type });
+                  await ws.call("views.update", { databaseId: database._id, viewId: nv.id, patch: { filters: view.filters, sorts: view.sorts, hiddenPropertyIds: view.hiddenPropertyIds, propertyOrder: view.propertyOrder, groupByPropertyId: view.groupByPropertyId ?? null, datePropertyId: view.datePropertyId ?? null, openPagesIn: view.openPagesIn } });
+                  selectView(nv.id);
+                } catch (err) {
+                  notifyError(err);
+                }
+              }}
+            />
+          )}
           {!readOnly && (
             <Menu>
               <MenuTrigger asChild>
@@ -193,7 +207,7 @@ export function DatabaseView({ database, readOnly }: { database: PageRow; readOn
           </EmptyState>
         ) : (
           <>
-            {view.type === "table" && <TableView {...common} onDelete={db.deleteRecords} canReorder={!view.sorts.length && !debounced} />}
+            {view.type === "table" && <TableView {...common} onDelete={db.deleteRecords} canReorder={!view.sorts.length && !debounced} calculations={(data as { calculations?: Record<string, string | number | null> }).calculations} />}
             {view.type === "board" && <BoardView {...common} />}
             {view.type === "list" && <ListView {...common} />}
             {view.type === "gallery" && <GalleryView {...common} />}
@@ -256,6 +270,16 @@ function ViewMenu({ database, view, canDelete, onDeleted, onDuplicate }: { datab
             </MenuItem>
           );
         })}
+        <MenuLabel>Open pages in</MenuLabel>
+        {([
+          ["side", "Side peek", <PanelRight key="s" />],
+          ["center", "Center peek", <RectangleHorizontal key="c" />],
+          ["full", "Full page", <Maximize2 key="f" />],
+        ] as const).map(([mode, label, icon]) => (
+          <MenuItem key={mode} icon={icon} hint={(view.openPagesIn ?? "side") === mode ? "✓" : undefined} onSelect={() => ws.call("views.update", { databaseId: database._id, viewId: view.id, patch: { openPagesIn: mode } }).catch((e) => notifyError(e))}>
+            {label}
+          </MenuItem>
+        ))}
         <MenuSeparator />
         <MenuItem icon={<Copy />} onSelect={onDuplicate}>
           Duplicate view

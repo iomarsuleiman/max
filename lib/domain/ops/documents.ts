@@ -16,8 +16,9 @@ import {
 } from "../blocks";
 import type { DocumentRow } from "../types";
 import { defineOp, id, type OpContext } from "./define";
-import { allPages, assertWritable, breadcrumbs, descendants, LIMITS, requirePage, summary } from "./helpers";
+import { allPages, assertWritable, breadcrumbs, descendants, LIMITS, requirePage, summary, templateMembers } from "./helpers";
 import { insertDocument } from "./pages";
+import { snapshotBeforeWrite } from "./versions";
 
 async function loadDocument(ctx: OpContext, pageId: string): Promise<DocumentRow> {
   const doc = (await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: pageId }))[0];
@@ -44,6 +45,7 @@ async function writeContent(ctx: OpContext, pageId: string, blocks: Block[], bas
     throw new MaxError("LIMIT", "This page is too large to save (about 900 KB of content). Split it into subpages.", { bytes: content.length });
   }
   if (content === doc.content) return { revision: doc.revision, updatedAt: doc.updatedAt, unchanged: true };
+  await snapshotBeforeWrite(ctx, page, doc);
   const text = documentText(blocks);
   const revision = doc.revision + 1;
   await ctx.db.patch("documents", doc._id, { content, text, wordCount: countWords(text), revision, updatedAt: ctx.now });
@@ -405,7 +407,9 @@ export const searchQuery = defineOp({
   async run(ctx, { query, kind = "all", titleOnly, inside, limit = 20 }) {
     const q = query.trim().toLowerCase();
     if (!q) return { results: [], total: 0 };
-    const pages = (await allPages(ctx)).filter((p) => !p.archivedAt && !p.isTemplate);
+    const everything = await allPages(ctx);
+    const hidden = templateMembers(everything);
+    const pages = everything.filter((p) => !p.archivedAt && !hidden.has(p._id));
     const docs = titleOnly ? [] : await ctx.db.list("documents", ctx.ownerId);
     const textByPage = new Map(docs.map((d) => [d.pageId, d.text]));
     let scope: Set<string> | null = null;

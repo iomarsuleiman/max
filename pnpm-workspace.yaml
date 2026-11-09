@@ -1,0 +1,2 @@
+patchedDependencies:
+  '@blocknote/core@0.55.0': patches/@blocknote__core@0.55.0.patch

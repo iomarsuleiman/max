@@ -15,7 +15,9 @@ import {
 import { createReactBlockSpec, createReactInlineContentSpec, ResizableFileBlockWrapper, SourceBlockWithPreview, useEditorChange, useResolveUrl } from "@blocknote/react";
 import { codeBlockOptions } from "@blocknote/code-block";
 import { AlertTriangle, FileText, Globe, Image as ImageIcon, Info, Lightbulb, Link2, ListTree, Octagon, PlayCircle, Sheet, Star, StickyNote, Video } from "lucide-react";
+import { withMultiColumn } from "@blocknote/xl-multi-column";
 import Diagram from "./Diagram";
+import { EMBED_PROVIDERS, toEmbed } from "./embeds";
 import { PageIcon } from "@/components/workspace/PageIcon";
 import { isolatedBlock } from "./EditorErrorBoundary";
 import { formatTimestamp, normalizeLink, parseTimestamp, parseYouTube } from "./policy";
@@ -37,8 +39,9 @@ export interface EditorBridgeValue {
   pages: Map<string, PageRef>;
   navigate: (pageId: string) => void;
   editImage: (blockId: string) => void;
+  renderDatabase: (databaseId: string, readOnly: boolean) => React.ReactNode;
 }
-export const EditorBridge = createContext<EditorBridgeValue>({ pages: new Map(), navigate: () => {}, editImage: () => {} });
+export const EditorBridge = createContext<EditorBridgeValue>({ pages: new Map(), navigate: () => {}, editImage: () => {}, renderDatabase: () => null });
 
 const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
@@ -426,9 +429,118 @@ export const PageMention = createReactInlineContentSpec(
   },
 );
 
+/* ── Embed (allow-listed services) ────────────────────────────────────────── */
+
+export const EmbedBlock = createIsolatedBlockSpec(
+  { type: "embed", content: "none", propSchema: { url: { default: "" } } },
+  {
+    render: function EmbedRender({ block, editor }) {
+      const [value, setValue] = useState("");
+      const [error, setError] = useState("");
+      const embed = block.props.url ? toEmbed(block.props.url) : null;
+      if (!embed) {
+        if (!editor.isEditable) return <div className="lx-embed-empty" contentEditable={false}><Globe size={18} aria-hidden /> Embed</div>;
+        return (
+          <form
+            className="lx-embed-input"
+            contentEditable={false}
+            onKeyDown={stop}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!toEmbed(value)) return setError(`Paste a link from ${EMBED_PROVIDERS}. For other sites, use a web bookmark.`);
+              editor.updateBlock(block, { props: { url: value.trim() } });
+            }}
+          >
+            <Globe size={18} aria-hidden />
+            <input type="url" inputMode="url" placeholder="Paste a link to embed and press Enter" aria-label="Link to embed" value={value} onChange={(e) => (setValue(e.target.value), setError(""))} />
+            {error && <span role="alert" className="lx-embed-input__error">{error}</span>}
+          </form>
+        );
+      }
+      return (
+        <figure className="mx-embed" contentEditable={false} style={{ ["--aspect" as string]: String(embed.aspect) }}>
+          <iframe
+            src={embed.src}
+            title={`${embed.provider} embed`}
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation allow-forms"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+          <figcaption>
+            <a href={block.props.url} target="_blank" rel="noreferrer noopener">{embed.provider}</a>
+          </figcaption>
+        </figure>
+      );
+    },
+  },
+);
+
+/* ── Inline database (or a linked view of one) ───────────────────────────── */
+
+export const DatabaseBlock = createIsolatedBlockSpec(
+  { type: "databaseView", content: "none", propSchema: { databaseId: { default: "" } } },
+  {
+    render: function DatabaseBlockRender({ block, editor }) {
+      const bridge = useContext(EditorBridge);
+      if (!block.props.databaseId) {
+        return (
+          <div className="lx-embed-input" contentEditable={false} onKeyDown={stop}>
+            <Sheet size={18} aria-hidden />
+            <span className="text-[13px]">Choose a database to show here:</span>
+            <select
+              aria-label="Database"
+              defaultValue=""
+              disabled={!editor.isEditable}
+              onChange={(e) => e.target.value && editor.updateBlock(block, { props: { databaseId: e.target.value } })}
+              className="h-7 rounded-md bg-surface-2 px-1.5 text-[13px]"
+            >
+              <option value="" disabled>Select…</option>
+              {[...bridge.pages.entries()].filter(([, p]) => p.kind === "database").map(([id, p]) => <option key={id} value={id}>{p.title || "Untitled"}</option>)}
+            </select>
+          </div>
+        );
+      }
+      return (
+        <div className="mx-inline-db" contentEditable={false} onKeyDown={stop} onPaste={(e) => e.stopPropagation()} onCopy={(e) => e.stopPropagation()}>
+          {bridge.renderDatabase(block.props.databaseId, !editor.isEditable)}
+        </div>
+      );
+    },
+  },
+);
+
+/* ── Date mention (@today) ───────────────────────────────────────────────── */
+
+export function formatMentionDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff === -1) return "Yesterday";
+  return d.toLocaleDateString("en", { month: "long", day: "numeric", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+}
+
+export const DateMention = createReactInlineContentSpec(
+  { type: "dateMention", propSchema: { date: { default: "" } }, content: "none" },
+  {
+    render: function DateChip({ inlineContent }) {
+      return (
+        <time className="mx-date" dateTime={inlineContent.props.date} title={inlineContent.props.date}>
+          @{formatMentionDate(inlineContent.props.date)}
+        </time>
+      );
+    },
+  },
+);
+
 /* ── Schema ──────────────────────────────────────────────────────────────── */
 
-export const maxSchema = BlockNoteSchema.create({
+export const maxSchema = withMultiColumn(BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     heading: createHeadingBlockSpec({ levels: [1, 2, 3], allowToggleHeadings: true }),
@@ -441,9 +553,11 @@ export const maxSchema = BlockNoteSchema.create({
     pageLink: PageLinkBlock(),
     bookmark: BookmarkBlock(),
     toc: TocBlock(),
+    embed: EmbedBlock(),
+    databaseView: DatabaseBlock(),
   },
-  inlineContentSpecs: { ...defaultInlineContentSpecs, pageMention: PageMention },
-});
+  inlineContentSpecs: { ...defaultInlineContentSpecs, pageMention: PageMention, dateMention: DateMention },
+}));
 
 export type MaxSchema = typeof maxSchema;
 export type MaxEditorType = typeof maxSchema.BlockNoteEditor;

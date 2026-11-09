@@ -28,6 +28,7 @@ import {
   Sun,
   Trash2,
   X,
+  Waypoints,
 } from "lucide-react";
 import { toast } from "sonner";
 import { IconButton, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Popover, Skeleton, cn } from "@/components/ui";
@@ -94,7 +95,8 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
         <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
         <NavLink href="/home" icon={<Home />} label="Home" />
         <NavLink href="/templates" icon={<LayoutTemplate />} label="Templates" />
-        <NavButton icon={<Download />} label="Import" onClick={() => ws.setImportOpen(true)} />
+        <NavLink href="/graph" icon={<Waypoints />} label="Graph view" />
+        <NavButton icon={<Download />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
       </nav>
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
@@ -242,7 +244,7 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
               ))}
             </MenuSubContent>
           </MenuSub>
-          <MenuItem icon={<Download />} onSelect={() => ws.setImportOpen(true)}>
+          <MenuItem icon={<Download />} onSelect={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))}>
             Import
           </MenuItem>
           {ws.identity.signOut && (
@@ -364,7 +366,7 @@ function PagesSection() {
   }
   if (!ws.tree) {
     return (
-      <div className="grid gap-2 px-2 py-1.5" aria-label="Loading pages">
+      <div className="grid gap-2 px-2 py-1.5" role="status" aria-label="Loading pages">
         <Skeleton className="h-3.5 w-3/4" />
         <Skeleton className="h-3.5 w-1/2" />
         <Skeleton className="h-3.5 w-2/3" />

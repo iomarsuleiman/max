@@ -2,7 +2,7 @@
 
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { getDefaultReactSlashMenuItems, type DefaultReactSuggestionItem } from "@blocknote/react";
-import { AtSign, FilePlus2, Globe, Lightbulb, ListTree, Network, PlayCircle, Sigma } from "lucide-react";
+import { AppWindow, AtSign, FilePlus2, Globe, Lightbulb, Link2, ListTree, Network, PlayCircle, Sheet, Sigma } from "lucide-react";
 import type { MaxEditorType } from "./blocks";
 
 /**
@@ -10,8 +10,8 @@ import type { MaxEditorType } from "./blocks";
  * them, plus Max blocks, with fuzzy search over titles and aliases (English and Arabic keyboards).
  */
 
-/** File types without a storage path in Max yet (images are supported). */
-export const UNSUPPORTED_SLASH_KEYS = new Set(["audio", "file", "video"]);
+/** Every BlockNote block can be stored, including files, audio and video. */
+export const UNSUPPORTED_SLASH_KEYS = new Set<string>();
 
 type SlashGroup = "basic" | "headings" | "pages" | "media" | "advanced" | "other";
 const ORDER: SlashGroup[] = ["basic", "pages", "headings", "media", "advanced", "other"];
@@ -20,7 +20,7 @@ const LABELS: Record<SlashGroup, string> = { basic: "Basic blocks", headings: "H
 const defaultGroups: Record<string, SlashGroup> = {
   paragraph: "basic", bullet_list: "basic", numbered_list: "basic", check_list: "basic", toggle_list: "basic", quote: "basic", divider: "basic",
   heading: "headings", heading_2: "headings", heading_3: "headings", toggle_heading: "headings", toggle_heading_2: "headings", toggle_heading_3: "headings",
-  image: "media",
+  image: "media", video: "media", audio: "media", file: "media",
   table: "advanced", code_block: "advanced",
   emoji: "other",
 };
@@ -36,14 +36,18 @@ const defaultAliases: Record<string, string[]> = {
 };
 
 /** Notion's order: the blocks people reach for most come first. */
-const PREFERRED = ["paragraph", "check_list", "bullet_list", "numbered_list", "toggle_list", "quote", "callout", "divider", "page", "link_page", "heading", "heading_2", "heading_3", "toggle_heading", "toggle_heading_2", "toggle_heading_3", "image", "youtube", "bookmark", "table", "code_block", "toc", "equation", "diagram"];
+const PREFERRED = ["paragraph", "check_list", "bullet_list", "numbered_list", "toggle_list", "quote", "callout", "divider", "two_columns", "three_columns", "page", "link_page", "database_inline", "database_linked", "heading", "heading_2", "heading_3", "toggle_heading", "toggle_heading_2", "toggle_heading_3", "image", "video", "audio", "file", "youtube", "embed", "bookmark", "table", "code_block", "toc", "equation", "diagram"];
 
 export interface MaxSlashItem extends DefaultReactSuggestionItem {
   key: string;
   slashGroup: SlashGroup;
 }
 
-export function maxSlashItems(editor: MaxEditorType, actions: { createSubpage: () => void; linkPage: () => void }): MaxSlashItem[] {
+export function maxSlashItems(
+  editor: MaxEditorType,
+  columnItems: (DefaultReactSuggestionItem & { key?: string })[],
+  actions: { createSubpage: () => void; linkPage: () => void; createDatabase: () => void; linkDatabase: () => void },
+): MaxSlashItem[] {
   const base = (getDefaultReactSlashMenuItems(editor) as (DefaultReactSuggestionItem & { key: string })[])
     .filter((item) => !UNSUPPORTED_SLASH_KEYS.has(item.key))
     .map((item): MaxSlashItem => {
@@ -65,6 +69,13 @@ export function maxSlashItems(editor: MaxEditorType, actions: { createSubpage: (
     item("diagram", "advanced", "Diagram", "Flowcharts and more with Mermaid", ["mermaid", "flowchart", "chart", "graph", "مخطط"], <Network size={18} />, insert("diagram")),
     item("youtube", "media", "YouTube", "Embed a video, or just the useful part", ["video", "yt", "embed", "فيديو"], <PlayCircle size={18} />, insert("youtube")),
     item("bookmark", "media", "Web bookmark", "A card that links to a website", ["link", "url", "web", "رابط"], <Globe size={18} />, insert("bookmark")),
+    item("embed", "media", "Embed", "Figma, Maps, Docs, Loom, Spotify and more", ["iframe", "figma", "maps", "loom", "vimeo", "spotify", "codepen", "تضمين"], <AppWindow size={18} />, insert("embed")),
+    item("database_inline", "pages", "Database – inline", "A table, board or calendar inside this page", ["table", "database", "board", "قاعدة بيانات"], <Sheet size={18} />, actions.createDatabase),
+    item("database_linked", "pages", "Linked view of database", "Show an existing database here", ["linked", "view", "database"], <Link2 size={18} />, actions.linkDatabase),
+    ...columnItems.map((c, i) => {
+      const n = /three|3/i.test(`${c.key ?? ""} ${c.title}`) ? 3 : 2;
+      return { ...c, key: c.key ?? `columns_${i}`, slashGroup: "basic" as SlashGroup, group: LABELS.basic, aliases: [...(c.aliases ?? []), `${n} columns`, `${n} cols`, "columns", "layout", "side by side", "أعمدة"] };
+    }),
   ];
   const all = [...base, ...extra];
   const rank = (k: string) => {

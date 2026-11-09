@@ -16,8 +16,8 @@
   --line: oklch(0.905 0.005 85);
   --line-strong: oklch(0.84 0.006 85);
   --fg: oklch(0.24 0.01 260);
-  --fg-2: oklch(0.45 0.008 260);
-  --fg-3: oklch(0.56 0.007 260);
+  --fg-2: oklch(0.42 0.008 260);
+  --fg-3: oklch(0.5 0.008 260);
   --hover: oklch(0.24 0.01 260 / 0.055);
   --pressed: oklch(0.24 0.01 260 / 0.09);
   --accent: oklch(0.52 0.1 250);
@@ -75,7 +75,7 @@
   --line-strong: oklch(0.36 0.007 260);
   --fg: oklch(0.94 0.004 260);
   --fg-2: oklch(0.76 0.007 260);
-  --fg-3: oklch(0.63 0.007 260);
+  --fg-3: oklch(0.68 0.007 260);
   --hover: oklch(0.94 0.004 260 / 0.065);
   --pressed: oklch(0.94 0.004 260 / 0.1);
   --accent: oklch(0.7 0.1 250);
@@ -235,3 +235,16 @@
 .cover-gradient-5 { background: linear-gradient(135deg, oklch(0.32 0.03 260), oklch(0.45 0.05 250)); }
 .cover-gradient-6 { background: linear-gradient(135deg, oklch(0.9 0.02 85), oklch(0.82 0.03 70)); }
 .dark .cover-gradient-1, .dark .cover-gradient-2, .dark .cover-gradient-3, .dark .cover-gradient-4, .dark .cover-gradient-6 { filter: brightness(0.55) saturate(0.9); }
+
+/* Print and "Save as PDF": just the page, full width, light colors. */
+@media print {
+  @page { margin: 18mm 16mm; }
+  :root, .dark { color-scheme: light; --canvas: #fff; --fg: #111; --fg-2: #333; --fg-3: #555; --line: #ddd; --surface-2: #f4f4f4; --overlay: #fff; }
+  body { background: #fff; }
+  aside[aria-label="Sidebar"], header, [aria-label="Comments"], [data-sonner-toaster], .bn-side-menu, .lx-side-menu, button[aria-label="Open navigation"],
+  [aria-label="Add icon"], [aria-label="Change icon"], .nextjs-toast, nextjs-portal { display: none !important; }
+  main, #page-scroll, .h-dvh { height: auto !important; overflow: visible !important; }
+  #page-scroll > div { max-width: none !important; }
+  .lx-editor .bn-editor { padding-bottom: 0 !important; min-height: 0 !important; }
+  a { color: inherit; }
+}

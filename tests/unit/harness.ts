@@ -17,5 +17,9 @@ export function setup() {
       const ctx = { db, storage, ownerId, now: clock, source };
       return db.transaction(() => execute(op, args, ctx)) as Promise<T>;
     };
-  return { db, files, storage, as };
+  /** Moves the clock forward (e.g. past the 10-minute history interval). */
+  const advance = (ms: number) => {
+    clock += ms;
+  };
+  return { db, files, storage, as, advance };
 }
