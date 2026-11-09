@@ -40,7 +40,7 @@ async function download(url, file) {
 }
 
 async function metCollection(c) {
-  const search = await json(`${MET}/search?hasImages=true&isPublicDomain=true&departmentId=${c.departmentId}&q=${encodeURIComponent(c.query)}`);
+  const search = await json(`${MET.replace(/\/v1$/, "/v1.1")}/search?hasImages=true&isPublicDomain=true&departmentId=${c.departmentId}&q=${encodeURIComponent(c.query)}&limit=80`);
   const items = [];
   for (const id of (search.objectIDs ?? []).slice(0, 80)) {
     if (items.length >= PER_COLLECTION) break;

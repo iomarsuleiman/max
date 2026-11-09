@@ -1,1 +1,326 @@
-{"collections":[]}
+{
+  "fetchedAt": "2026-11-09T18:53:59.261Z",
+  "collections": [
+    {
+      "name": "The Met Museum",
+      "items": [
+        {
+          "value": "cover:met-437519",
+          "label": "A River Landscape",
+          "creator": "Théodore Rousseau",
+          "source": "https://www.metmuseum.org/art/collection/search/437519",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437102",
+          "label": "Landscape with a Cottage",
+          "creator": "Pieter de Molijn",
+          "source": "https://www.metmuseum.org/art/collection/search/437102",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-439844",
+          "label": "Heroic Landscape with Rainbow",
+          "creator": "Joseph Anton Koch",
+          "source": "https://www.metmuseum.org/art/collection/search/439844",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435973",
+          "label": "Italian Landscape",
+          "creator": "Camille Corot",
+          "source": "https://www.metmuseum.org/art/collection/search/435973",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-438640",
+          "label": "Mountainous Landscape at Vicovaro",
+          "creator": "Simon Denis",
+          "source": "https://www.metmuseum.org/art/collection/search/438640",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437039",
+          "label": "Classical Landscape with Figures",
+          "creator": "Henri Mauperché",
+          "source": "https://www.metmuseum.org/art/collection/search/437039",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437191",
+          "label": "Landscape at Sunset",
+          "creator": "Aert van der Neer",
+          "source": "https://www.metmuseum.org/art/collection/search/437191",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436830",
+          "label": "A Panoramic Landscape with a Country Estate",
+          "creator": "Philips Koninck",
+          "source": "https://www.metmuseum.org/art/collection/search/436830",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437545",
+          "label": "Landscape with a Village in the Distance",
+          "creator": "Jacob van Ruisdael",
+          "source": "https://www.metmuseum.org/art/collection/search/437545",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435857",
+          "label": "Landscape with a Cave",
+          "creator": "Théodore Caruelle d'Aligny",
+          "source": "https://www.metmuseum.org/art/collection/search/435857",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437657",
+          "label": "Landscape at Saint-Ouen",
+          "creator": "Georges Seurat",
+          "source": "https://www.metmuseum.org/art/collection/search/437657",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436229",
+          "label": "Imaginary Landscape",
+          "creator": "Gaspard Dughet",
+          "source": "https://www.metmuseum.org/art/collection/search/436229",
+          "license": "Public domain (The Met Open Access, CC0)"
+        }
+      ]
+    },
+    {
+      "name": "Japanese prints",
+      "items": [
+        {
+          "value": "cover:japanese-prints-57805",
+          "label": "Random Sketches by Hokusai, Volume 12",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/57805",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-37193",
+          "label": "Seaside Village in Winter, from Hokusai’s Album of Realistic Pictures (Hokusai s",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/37193",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-54303",
+          "label": "Basket of Flowers with Bamboo Blind",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/54303",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-40011",
+          "label": "Album of Sketches by Katsushika Hokusai and His Disciples",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/40011",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-54435",
+          "label": "Still Life: Double Cherry-Blossom Branch, Telescope, Sweet Fish, and Tissue Case",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/54435",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-54433",
+          "label": "Mystical Bird (Karyōbinga)",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/54433",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-57833",
+          "label": "Random Sketches by Hokusai",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/57833",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-45816",
+          "label": "Gamecocks",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/45816",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-54305",
+          "label": "Rooster, Hen and Chicken with Spiderwort",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/54305",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-44634",
+          "label": "Drunken Asaina",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/44634",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-37189",
+          "label": "The Sumo Wrestlers Takaneyama Yoichiemon and Sendagawa Kichigorō",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/37189",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-36492",
+          "label": "Storm below Mount Fuji (Sanka no haku u), from the series Thirty-six Views of Mo",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/36492",
+          "license": "Public domain (The Met Open Access, CC0)"
+        }
+      ]
+    },
+    {
+      "name": "NASA Archive",
+      "items": [
+        {
+          "value": "cover:nasa-gsfc-20171208-archive-e001282",
+          "label": "NASA Google+ Hangout: 'Earthrise' A New Visualization - 45th Anniversary of Apol",
+          "creator": "GSFC",
+          "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e001282",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as13-60-8588",
+          "label": "Photograph of Earth taken from Apollo 13 spacecraft during transearth journey",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as13-60-8588",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as4-01-750",
+          "label": "Atlantic Ocean, Antarctica as seen from the Apollo 4 unmanned spacecraft",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as4-01-750",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-ast-32-2675",
+          "label": "American Apollo spacecraft as seen from Soviet Soyuz spacecraft in orbit",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/AST-32-2675",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-ast-32-2691",
+          "label": "American Apollo spacecraft as seen from Soviet Soyuz spacecraft in orbit",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/AST-32-2691",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-ast-32-2695",
+          "label": "American Apollo spacecraft as seen from Soviet Soyuz spacecraft in orbit",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/AST-32-2695",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-ast-32-2686",
+          "label": "American Apollo spacecraft as seen from Soviet Soyuz spacecraft in orbit",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/ast-32-2686",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as4-01-410",
+          "label": "Brazil, Atlantic Ocean, Africa, Sahara & Antarctica seen from Apollo 4",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as4-01-410",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as17-148-22742",
+          "label": "View of the Earth seen by the Apollo 17 crew traveling toward the moon",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as17-148-22742",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as10-34-5026",
+          "label": "Apollo 10 view of the Earth",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as10-34-5026",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as11-36-5337",
+          "label": "View of Earth taken by Apollo 11 crewmembers",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as11-36-5337",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as12-50-7362",
+          "label": "View of the Earth seen from the Apollo 12 spacecraft",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as12-50-7362",
+          "license": "Public domain (NASA media usage guidelines)"
+        }
+      ]
+    },
+    {
+      "name": "James Webb Telescope",
+      "items": [
+        {
+          "value": "cover:webb-carina-nebula",
+          "label": "James Webb Space Telescope NIRCam Image of the “Cosmic Cliffs” in Carina Nebula",
+          "creator": "STScI (Webb)",
+          "source": "https://images.nasa.gov/details/carina_nebula",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:webb-nhq202207120012",
+          "label": "JWST’s First Full-Color Images",
+          "creator": "HQ",
+          "source": "https://images.nasa.gov/details/NHQ202207120012",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:webb-nhq202207120010",
+          "label": "JWST’s First Full-Color Images",
+          "creator": "HQ",
+          "source": "https://images.nasa.gov/details/NHQ202207120010",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:webb-nhq202207120021",
+          "label": "JWST’s First Full-Color Images",
+          "creator": "HQ",
+          "source": "https://images.nasa.gov/details/NHQ202207120021",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:webb-pia25790",
+          "label": "Three of NASA's Infrared Telescopes",
+          "creator": "JPL",
+          "source": "https://images.nasa.gov/details/PIA25790",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:webb-southern-ring-nebula",
+          "label": "James Webb Space Telescope Southern Ring Nebula (NIRCam and MIRI Images Side by ",
+          "creator": "STScI",
+          "source": "https://images.nasa.gov/details/southern_ring_nebula",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:webb-pia25433",
+          "label": "The Eagle Nebula Observed by WISE",
+          "creator": "JPL",
+          "source": "https://images.nasa.gov/details/PIA25433",
+          "license": "Public domain (NASA media usage guidelines)"
+        }
+      ]
+    }
+  ]
+}
