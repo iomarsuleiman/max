@@ -149,23 +149,7 @@ export default function MaxEditor(props: MaxEditorProps) {
 
   const dir = props.dir === "auto" || !props.dir ? undefined : props.dir;
 
-  // BlockNote's to-do checkboxes have no names; give each one its item's text for screen readers.
   const rootRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const label = () => {
-      root.querySelectorAll<HTMLInputElement>('[data-content-type="checkListItem"] > div > input[type="checkbox"]').forEach((input) => {
-        const text = input.closest(".bn-block-content")?.querySelector(".bn-inline-content")?.textContent?.trim();
-        const name = text ? `Done: ${text.slice(0, 80)}` : "Done";
-        if (input.getAttribute("aria-label") !== name) input.setAttribute("aria-label", name);
-      });
-    };
-    label();
-    const observer = new MutationObserver(label);
-    observer.observe(root, { childList: true, subtree: true, characterData: true });
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <EditorBridge.Provider value={bridge}>

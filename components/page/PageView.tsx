@@ -35,7 +35,7 @@ const MaxEditor = dynamic(() => import("@/components/editor/MaxEditor"), {
 
 function EditorSkeleton() {
   return (
-    <div className="grid gap-3 py-2" aria-label="Loading content">
+    <div className="grid gap-3 py-2" role="status" aria-label="Loading content">
       <Skeleton className="w-11/12" />
       <Skeleton className="w-4/5" />
       <Skeleton className="w-2/3" />

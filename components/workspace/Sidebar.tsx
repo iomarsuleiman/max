@@ -364,7 +364,7 @@ function PagesSection() {
   }
   if (!ws.tree) {
     return (
-      <div className="grid gap-2 px-2 py-1.5" aria-label="Loading pages">
+      <div className="grid gap-2 px-2 py-1.5" role="status" aria-label="Loading pages">
         <Skeleton className="h-3.5 w-3/4" />
         <Skeleton className="h-3.5 w-1/2" />
         <Skeleton className="h-3.5 w-2/3" />
