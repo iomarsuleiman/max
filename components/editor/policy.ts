@@ -32,21 +32,22 @@ export const isLinkAllowed = (href: string): boolean => normalizeLink(href) !== 
 
 /* ── Uploads ──────────────────────────────────────────────────────────────── */
 
-export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/svg+xml"] as const;
-export const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+import { LIMITS, UPLOAD_TYPES } from "@/lib/domain/ops/helpers";
+
 export type UploadProblem = "empty" | "type" | "size";
 
-export function checkImage(file: { type: string; size: number }): UploadProblem | null {
+/** Same rules as the server (assets.register): known file types up to 50 MB. */
+export function checkFile(file: { type: string; size: number }): UploadProblem | null {
   if (!file.size) return "empty";
-  if (!(IMAGE_TYPES as readonly string[]).includes(file.type.toLowerCase())) return "type";
-  if (file.size > IMAGE_MAX_BYTES) return "size";
+  if (!UPLOAD_TYPES.includes(file.type.toLowerCase())) return "type";
+  if (file.size > LIMITS.uploadBytes) return "size";
   return null;
 }
 
 export const uploadProblemCopy: Record<UploadProblem, (name: string) => string> = {
-  empty: (name) => `“${name}” is empty. Choose the image file again.`,
-  type: (name) => `“${name}” isn't a PNG, JPEG, WebP, GIF, AVIF or SVG image. Convert it and upload it again.`,
-  size: (name) => `“${name}” is larger than 20 MB. Compress or resize it, then upload it again.`,
+  empty: (name) => `“${name}” is empty. Choose the file again.`,
+  type: (name) => `“${name}” isn't a file type Max stores (images, PDFs, office documents, text, ZIP, audio or video).`,
+  size: (name) => `“${name}” is larger than 50 MB. Compress or split it, then upload it again.`,
 };
 
 /* ── Content normalization before save ───────────────────────────────────── */

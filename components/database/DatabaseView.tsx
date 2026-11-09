@@ -207,7 +207,7 @@ export function DatabaseView({ database, readOnly }: { database: PageRow; readOn
           </EmptyState>
         ) : (
           <>
-            {view.type === "table" && <TableView {...common} onDelete={db.deleteRecords} canReorder={!view.sorts.length && !debounced} />}
+            {view.type === "table" && <TableView {...common} onDelete={db.deleteRecords} canReorder={!view.sorts.length && !debounced} calculations={(data as { calculations?: Record<string, string | number | null> }).calculations} />}
             {view.type === "board" && <BoardView {...common} />}
             {view.type === "list" && <ListView {...common} />}
             {view.type === "gallery" && <GalleryView {...common} />}

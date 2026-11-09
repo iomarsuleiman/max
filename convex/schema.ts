@@ -67,6 +67,18 @@ export default defineSchema({
   })
     .index("by_owner", ["ownerId"])
     .index("by_hash", ["hash"]),
+  comments: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    blockId: v.union(v.string(), v.null()),
+    body: v.string(),
+    resolvedAt: v.union(v.number(), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    source: v.string(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"]),
   versions: defineTable({
     ownerId: v.string(),
     pageId: v.string(),

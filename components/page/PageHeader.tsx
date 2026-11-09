@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, SmilePlus } from "lucide-react";
+import { ImagePlus, MessageSquare, SmilePlus } from "lucide-react";
+import { requestComment } from "./CommentsPanel";
 import { cn } from "@/components/ui";
 import { useUploader } from "@/lib/client/upload";
 import type { PageRow } from "@/lib/client/types";
@@ -91,6 +92,11 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
                 }
                 onPick={(e) => update({ icon: e })}
               />
+            )}
+            {page.kind === "page" && !page.isTemplate && (
+              <button type="button" onClick={() => requestComment(page._id)} className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] text-fg-3 hover:bg-hover hover:text-fg-2">
+                <MessageSquare className="size-4" /> Add comment
+              </button>
             )}
             {!cover && (
               <CoverPicker

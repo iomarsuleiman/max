@@ -47,5 +47,11 @@ test.describe("accessibility (axe, WCAG 2.2 AA)", () => {
 
     await page.goto("/trash");
     await audit(page, "trash");
+
+    await page.goto("/graph");
+    await page.getByRole("img", { name: /Graph of/ }).waitFor();
+    await page.getByRole("button", { name: "Graph settings" }).click();
+    await page.getByRole("button", { name: "Pages as a list" }).click();
+    await audit(page, "graph");
   });
 });

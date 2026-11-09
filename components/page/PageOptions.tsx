@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHistory } from "./PageHistory";
+import { LocalGraphDialog } from "@/components/graph/LocalGraphDialog";
 import {
   Copy,
   CornerUpRight,
@@ -18,8 +19,7 @@ import {
   Trash2,
   Type,
   MoveHorizontal,
-  Unlock,
-} from "lucide-react";
+  Unlock, Printer, Waypoints } from "lucide-react";
 import { toast } from "sonner";
 import { IconButton, Menu, MenuCheckItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Switch } from "@/components/ui";
 import { useRead } from "@/lib/client/data";
@@ -40,6 +40,7 @@ export function download(filename: string, content: string, type: string) {
 
 export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: number }) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [graphOpen, setGraphOpen] = useState(false);
   const ws = useWorkspace();
   const read = useRead();
   const router = useRouter();
@@ -74,6 +75,7 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
       if (pageId !== page._id) return;
       if (action === "history" && page.kind === "page") setHistoryOpen(true);
       if (action === "export") void exportAs("markdown");
+      if (action === "graph") setGraphOpen(true);
     };
     document.addEventListener("max:page-action", onAction);
     return () => document.removeEventListener("max:page-action", onAction);
@@ -136,12 +138,18 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
               Page history
             </MenuItem>
           )}
+          <MenuItem icon={<Waypoints />} onSelect={() => setGraphOpen(true)}>
+            Local graph
+          </MenuItem>
           <MenuSeparator />
           <MenuItem icon={<Download />} onSelect={() => exportAs("markdown")}>
             Export as Markdown
           </MenuItem>
           <MenuItem icon={<FileCode2 />} onSelect={() => exportAs("json")}>
             Export as JSON
+          </MenuItem>
+          <MenuItem icon={<Printer />} onSelect={() => setTimeout(() => window.print(), 50)} shortcut="⌘P">
+            Print or save as PDF
           </MenuItem>
           <MenuSeparator />
           <MenuItem icon={<Trash2 />} danger onSelect={() => ws.archivePage(page._id)}>
@@ -155,6 +163,7 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
           </div>
         </MenuContent>
       </Menu>
+      <LocalGraphDialog pageId={page._id} open={graphOpen} onOpenChange={setGraphOpen} />
       {page.kind === "page" && <PageHistory pageId={page._id} open={historyOpen} onOpenChange={setHistoryOpen} />}
     </>
   );

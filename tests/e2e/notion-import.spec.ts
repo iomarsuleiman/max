@@ -34,7 +34,7 @@ test("a Notion export comes across like a duplicate", async ({ page }) => {
 
   // Database: typed columns and rows.
   await tree.getByRole("link", { name: "Video Tracker" }).last().click();
-  await expect(page.getByRole("columnheader")).toHaveText(["Name", "Stage", "Platform", "Publish Date", "Views", "Published", "Link"]);
+  await expect(page.getByRole("columnheader").filter({ hasText: /\S/ })).toHaveText(["Select and reorder", "Name", "Stage", "Platform", "Publish Date", "Views", "Published", "Link"]);
   await expect(page.getByRole("row")).toHaveCount(4);
   const trailer = page.getByRole("row").filter({ hasText: "Launch trailer" });
   await expect(trailer).toContainText("Editing");
@@ -42,9 +42,10 @@ test("a Notion export comes across like a duplicate", async ({ page }) => {
   await expect(trailer).toContainText("1,250");
   await expect(page.getByRole("row").filter({ hasText: "Behind the scenes" })).toContainText("TikTok");
 
-  // Row page keeps its content.
+  // Row page opens in a side peek and keeps its content.
   await trailer.getByRole("button", { name: "Open" }).click();
-  await expect(page.getByLabel("Page title")).toHaveValue("Launch trailer");
-  await expect(page.locator(".bn-editor")).toContainText("Open on the empty studio");
-  await expect(page.locator(".bn-editor")).toContainText("Color grade");
+  const peek = page.getByRole("dialog", { name: "Side peek" });
+  await expect(peek.getByLabel("Page title")).toHaveValue("Launch trailer");
+  await expect(peek.locator(".bn-editor")).toContainText("Open on the empty studio");
+  await expect(peek.locator(".bn-editor")).toContainText("Color grade");
 });

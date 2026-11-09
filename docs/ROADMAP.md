@@ -18,10 +18,8 @@ The full plan lives in Notion ("Max — Complete MVP Architecture, Build Stages 
 
 - Run `pnpm covers:fetch` to add public-domain cover collections.
 - Measure performance budgets on the deployed app and tune.
-- Page version history (snapshots per page).
-- Column layouts in the editor.
 - Real-device keyboard and screen-reader passes (iOS Safari, Android Chrome, VoiceOver, TalkBack).
 
 ## Out of scope
 
-Collaboration, sharing, teams, comments, public pages and billing. Max is a private, single-owner workspace.
+Collaboration, sharing, teams, public pages, AI features and billing. Max is a private, single-owner workspace (comments are private notes to yourself).

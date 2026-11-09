@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, FileQuestion, Link2, Lock, Star } from "lucide-react";
+import { ArrowUpRight, FileQuestion, Link2, Lock, MessageSquare, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Notice, Skeleton, cn } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
@@ -25,6 +25,7 @@ import { PageOptions } from "./PageOptions";
 import { SaveStatus } from "./SaveStatus";
 import { ImageDetailsDialog } from "./ImageDetailsDialog";
 import { useDocumentSync } from "./useDocumentSync";
+import { CommentsPanel, requestComment, useCommentCount } from "./CommentsPanel";
 import { requestEditorFocus, takeEditorFocusRequest } from "@/lib/client/editorFocus";
 import { registerEditor } from "@/lib/client/saveFlush";
 
@@ -48,6 +49,19 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
   const ws = useWorkspace();
   const router = useRouter();
   const q = useOp<PageGetResult>("pages.get", { id: pageId });
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentFocus, setCommentFocus] = useState<{ blockId: string | null; nonce: number } | null>(null);
+  useEffect(() => {
+    const onComment = (e: Event) => {
+      const d = (e as CustomEvent<{ pageId: string; blockId: string | null; toggle?: boolean }>).detail;
+      if (d.pageId !== pageId) return;
+      if (d.toggle) return setCommentsOpen((o) => !o);
+      setCommentsOpen(true);
+      setCommentFocus({ blockId: d.blockId, nonce: Date.now() });
+    };
+    document.addEventListener("max:comment", onComment);
+    return () => document.removeEventListener("max:comment", onComment);
+  }, [pageId]);
   const page = q.data?.page;
   const isDatabase = page?.kind === "database";
   const doc = useOp<DocumentGetResult>("documents.get", page && !isDatabase ? { pageId } : "skip");
@@ -106,6 +120,7 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
 
   const data = q.data;
   const readOnly = !!page.archivedAt || page.locked;
+  const commentsEnabled = !isDatabase && !page.isTemplate;
   const widthClass = page.fullWidth ? "max-w-none sm:px-24" : "max-w-[760px]";
   const crumbs = data.breadcrumbs.map((b) => ({ _id: b._id, title: b.title, icon: b.icon, kind: b.kind }));
 
@@ -115,9 +130,10 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
         renderHeader(data)
       ) : (
         <Topbar crumbs={crumbs}>
-          <PageTopbarActions page={page} saveSlotId={`save-${pageId}`} />
+          <PageTopbarActions page={page} saveSlotId={`save-${pageId}`} onToggleComments={commentsEnabled ? () => setCommentsOpen((o) => !o) : undefined} />
         </Topbar>
       )}
+      <div className="flex min-h-0 flex-1">
       <div className="min-h-0 flex-1 overflow-y-auto" id={embedded ? undefined : "page-scroll"}>
         {page.archivedAt && <TrashBanner data={data} />}
         {page.isTemplate && (
@@ -150,16 +166,25 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
           {!isDatabase && data.children.length > 0 && <ChildPages pages={data.children} />}
         </div>
       </div>
+      {commentsEnabled && <CommentsPanel pageId={pageId} open={commentsOpen} onClose={() => setCommentsOpen(false)} focusBlock={commentFocus} />}
+      </div>
     </>
   );
 }
 
-export function PageTopbarActions({ page, saveSlotId }: { page: PageGetResult["page"]; saveSlotId: string }) {
+export function PageTopbarActions({ page, saveSlotId, onToggleComments }: { page: PageGetResult["page"]; saveSlotId: string; onToggleComments?: () => void }) {
   const ws = useWorkspace();
   const fav = !!page.favoriteRank;
+  const commentCount = useCommentCount(page._id);
   return (
     <>
       <div id={saveSlotId} className="flex items-center" />
+      {onToggleComments && (
+        <button type="button" onClick={onToggleComments} aria-label={`Comments${commentCount ? `, ${commentCount} open` : ""}`} title="Comments (⌘⇧M)" className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[12.5px] text-fg-3 hover:bg-hover hover:text-fg-2">
+          <MessageSquare className="size-4" />
+          {commentCount > 0 && <span className="tabular-nums">{commentCount}</span>}
+        </button>
+      )}
       <span className="px-1 text-[12.5px] text-fg-3 max-lg:hidden">Edited {timeAgo(page.updatedAt)}</span>
       {!page.isTemplate && !page.archivedAt && (
         <IconButton label={fav ? "Remove from Favorites" : "Add to Favorites"} size="md" onClick={() => ws.toggleFavorite(page._id, !fav)}>
@@ -234,6 +259,26 @@ function Backlinks({ pageId }: { pageId: string }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** A database shown inside a page, like Notion's inline databases and linked views. */
+function InlineDatabase({ databaseId, readOnly }: { databaseId: string; readOnly: boolean }) {
+  const q = useOp<PageGetResult>("pages.get", { id: databaseId });
+  const ws = useWorkspace();
+  if (q.error) return <p className="py-2 text-[13px] text-fg-3">This database was deleted or moved to the trash.</p>;
+  if (!q.data) return <Skeleton className="h-24" />;
+  const db = q.data.page;
+  return (
+    <div className="w-full">
+      <button type="button" onClick={() => ws.openPage(db._id, { mode: "full" })} className="mb-1 flex items-center gap-1.5 rounded px-1 text-[17px] font-semibold text-fg hover:bg-hover">
+        <PageIcon icon={db.icon} kind="database" size={18} />
+        {pageTitle(db.title) === "Untitled" ? "Untitled database" : pageTitle(db.title)}
+      </button>
+      <div className="-mx-4 sm:-mx-12">
+        <DatabaseView database={db} readOnly={readOnly || !!db.archivedAt} />
+      </div>
     </div>
   );
 }
@@ -319,6 +364,29 @@ function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; 
   }, [doc.revision, doc.blocks, sync, sync.state]);
 
   useEffect(() => registerEditor(pageId, () => sync.flush()), [pageId, sync]);
+
+  // Block ⋮⋮ → Comment, and ⌘⇧M with the cursor in a block, start a comment on that block.
+  useEffect(() => {
+    const onBlockComment = (e: Event) => {
+      const editor = editorRef.current;
+      const root = (editor?.prosemirrorView?.dom as HTMLElement | undefined)?.closest(".lx-editor");
+      const { blockId } = (e as CustomEvent<{ blockId: string }>).detail;
+      if (root && root.querySelector(`[data-id="${CSS.escape(blockId)}"]`)) requestComment(pageId, blockId);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey || e.key.toLowerCase() !== "m") return;
+      const editor = editorRef.current;
+      e.preventDefault();
+      if (editor?.isFocused()) requestComment(pageId, editor.getTextCursorPosition().block.id);
+      else document.dispatchEvent(new CustomEvent("max:comment", { detail: { pageId, blockId: null, toggle: true } }));
+    };
+    document.addEventListener("max:block-comment", onBlockComment);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("max:block-comment", onBlockComment);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [pageId]);
 
   useEffect(() => {
     const focus = () => {
@@ -432,6 +500,16 @@ function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; 
           }}
           pages={pages}
           navigate={(id) => router.push(`/p/${id}`)}
+          renderDatabase={(id, ro) => <InlineDatabase databaseId={id} readOnly={ro} />}
+          createDatabase={async () => {
+            try {
+              const { database } = await ws.call<{ database: { _id: string } }>("databases.create", { parentId: pageId, title: "" });
+              return database._id;
+            } catch (err) {
+              notifyError(err, "Couldn't create the database.");
+              return null;
+            }
+          }}
           density={ws.settings?.density}
           font={ws.settings?.font}
           smallText={smallText}

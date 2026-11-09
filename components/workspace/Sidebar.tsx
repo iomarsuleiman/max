@@ -28,6 +28,7 @@ import {
   Sun,
   Trash2,
   X,
+  Waypoints,
 } from "lucide-react";
 import { toast } from "sonner";
 import { IconButton, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Popover, Skeleton, cn } from "@/components/ui";
@@ -94,6 +95,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
         <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
         <NavLink href="/home" icon={<Home />} label="Home" />
         <NavLink href="/templates" icon={<LayoutTemplate />} label="Templates" />
+        <NavLink href="/graph" icon={<Waypoints />} label="Graph view" />
         <NavButton icon={<Download />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
       </nav>
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4">

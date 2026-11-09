@@ -302,6 +302,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
         if (key === "i") return run(() => (setImportAsTemplates(false), setImportOpen(true)));
         if (key === "h") return run(() => router.push("/home"));
         if (key === "t") return run(() => router.push("/templates"));
+        if (key === "g") return run(() => router.push("/graph"));
       }
       if (!current) return;
       const page = pages.get(current);
@@ -315,6 +316,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
         if (key === "backspace" || key === "delete") return run(() => void archivePage(current));
       }
       if (e.altKey && !e.shiftKey && (key === "l" || e.code === "KeyL")) return run(() => copyLink(current));
+      if (e.altKey && !e.shiftKey && (key === "g" || e.code === "KeyG")) return run(() => document.dispatchEvent(new CustomEvent("max:page-action", { detail: { pageId: current, action: "graph" } })));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -15,7 +15,7 @@ import {
 import { SuggestionMenu } from "@blocknote/core/extensions";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/shadcn";
-import { Plus } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import { PageIcon } from "@/components/workspace/PageIcon";
 import { EditorBridge, maxSchema, type EditorBridgeValue, type MaxEditorType } from "./blocks";
 import { focusEditorEnd, isBlankEditorTarget } from "./focusEnd";
@@ -24,7 +24,10 @@ import { MaxSideMenuController, runBlockAction } from "./sideMenu";
 import { announce } from "./announce";
 import { fromEditorCodeLanguages, toEditorCodeLanguages } from "./codeLanguages";
 import { blockDropTarget, handleBlockDrop } from "./dragFeedback";
-import { checkImage, isBlockNoteClipboard, isLinkAllowed, normalizeEditorLinks, parseYouTube, sanitizeClipboardHtml, uploadProblemCopy } from "./policy";
+import * as locales from "@blocknote/core/locales";
+import { getMultiColumnSlashMenuItems, locales as multiColumnLocales } from "@blocknote/xl-multi-column";
+import { formatMentionDate } from "./blocks";
+import { checkFile, isBlockNoteClipboard, isLinkAllowed, normalizeEditorLinks, parseYouTube, sanitizeClipboardHtml, uploadProblemCopy } from "./policy";
 
 export interface MaxEditorProps {
   initialContent: unknown[];
@@ -38,6 +41,10 @@ export interface MaxEditorProps {
   createSubpage: () => Promise<{ id: string; title: string } | null>;
   pages: EditorBridgeValue["pages"];
   navigate: (pageId: string) => void;
+  /** Renders an inline database (or linked view) inside the page. */
+  renderDatabase?: EditorBridgeValue["renderDatabase"];
+  /** Creates a database inside this page for "/Database – inline". */
+  createDatabase?: () => Promise<string | null>;
   density?: "comfortable" | "compact";
   font?: "default" | "serif" | "mono";
   smallText?: boolean;
@@ -69,12 +76,13 @@ export default function MaxEditor(props: MaxEditorProps) {
 
   const editor = useCreateBlockNote({
     schema: maxSchema,
+    dictionary: { ...locales.en, multi_column: multiColumnLocales.en } as never,
     domAttributes: { editor: { "aria-label": "Page content", "aria-multiline": "true" } },
     initialContent: languages.blocks.length ? (languages.blocks as never) : undefined,
     uploadFile: async (file: File) => {
-      const problem = checkImage(file);
+      const problem = checkFile(file);
       if (problem) {
-        const message = uploadProblemCopy[problem](file.name || "image");
+        const message = uploadProblemCopy[problem](file.name || "file");
         propsRef.current.onNotice(message, "error");
         throw new Error(message);
       }
@@ -117,12 +125,22 @@ export default function MaxEditor(props: MaxEditorProps) {
   }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bridge = useMemo<EditorBridgeValue>(
-    () => ({ pages: props.pages, navigate: (id) => propsRef.current.navigate(id), editImage: (id) => propsRef.current.onEditImage(id, editor) }),
+    () => ({
+      pages: props.pages,
+      navigate: (id) => propsRef.current.navigate(id),
+      editImage: (id) => propsRef.current.onEditImage(id, editor),
+      renderDatabase: (id, readOnly) => propsRef.current.renderDatabase?.(id, readOnly) ?? null,
+    }),
     [props.pages, editor],
   );
 
   const slashItems = () =>
-    maxSlashItems(editor, {
+    maxSlashItems(editor, getMultiColumnSlashMenuItems(editor) as never, {
+      createDatabase: async () => {
+        const id = await propsRef.current.createDatabase?.();
+        if (id) insertOrUpdateBlockForSlashMenu(editor, { type: "databaseView", props: { databaseId: id } } as never);
+      },
+      linkDatabase: () => insertOrUpdateBlockForSlashMenu(editor, { type: "databaseView", props: { databaseId: "" } } as never),
       createSubpage: async () => {
         const page = await propsRef.current.createSubpage();
         if (!page) return;
@@ -136,7 +154,21 @@ export default function MaxEditor(props: MaxEditorProps) {
 
   const mentionItems = (query: string) => {
     const q = normalizeSearch(query);
-    return [...propsRef.current.pages.entries()]
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const now = new Date();
+    const dates: [string, Date][] = [["today", now], ["tomorrow", new Date(now.getTime() + 86_400_000)], ["yesterday", new Date(now.getTime() - 86_400_000)], ["next week", new Date(now.getTime() + 7 * 86_400_000)]];
+    const typed = query.trim() && /\d/.test(query) ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(query.trim()) ? `${query.trim()}T00:00:00` : `${query} ${/\d{4}/.test(query) ? "" : now.getFullYear()}`) : null;
+    const dateItems = [
+      ...(typed && !Number.isNaN(typed.getTime()) ? [["date", typed] as [string, Date]] : []),
+      ...dates.filter(([label]) => !q || label.startsWith(q)),
+    ].map(([, d]) => ({
+      title: formatMentionDate(iso(d)),
+      subtext: d.toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+      icon: <CalendarDays size={16} />,
+      group: "Date",
+      onItemClick: () => editor.insertInlineContent([{ type: "dateMention", props: { date: iso(d) } } as never, " "]),
+    }));
+    const pageItems = [...propsRef.current.pages.entries()]
       .filter(([, p]) => !q || normalizeSearch(p.title || "untitled").includes(q))
       .slice(0, 12)
       .map(([id, p]) => ({
@@ -145,6 +177,7 @@ export default function MaxEditor(props: MaxEditorProps) {
         group: "Link to page",
         onItemClick: () => editor.insertInlineContent([{ type: "pageMention", props: { pageId: id, title: p.title } } as never, " "]),
       }));
+    return [...pageItems, ...dateItems];
   };
 
   const dir = props.dir === "auto" || !props.dir ? undefined : props.dir;

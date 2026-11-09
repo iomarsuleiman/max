@@ -11,13 +11,16 @@ Live at **[max.chaos.fail](https://max.chaos.fail)** once deployed (see [docs/SE
 ## What's inside
 
 - **Pages inside pages.** A sidebar tree with drag handles to reorder and nest, keyboard moves (⌥⇧ + arrows), favorites, recents, a trash you can restore from, and a "Move to…" picker.
-- **The Chaos block editor.** Headings, to-dos, toggles, toggle headings, callouts, quotes, tables, code with highlighting, math (KaTeX), Mermaid diagrams, images with alt text, YouTube with watch ranges, web bookmarks, table of contents, page links and `@` mentions. Gutter handles to drag blocks, `/` command menu, Markdown shortcuts, safe paste from Word, Google Docs and Notion.
+- **The Chaos block editor.** Headings, to-dos, toggles, toggle headings, callouts, quotes, tables, code with highlighting, math (KaTeX), Mermaid diagrams, images with alt text, YouTube with watch ranges, web bookmarks, table of contents, page links, `@` page and date mentions, multi-column layouts, inline and linked databases, embeds (Figma, Loom, Vimeo, Maps, CodePen and more) and file, audio and video uploads up to 50 MB. Gutter handles to drag blocks, `/` command menu, Markdown shortcuts, safe paste from Word, Google Docs and Notion.
+- **Page history and comments.** Snapshots every 10 minutes and before every assistant edit or restore, with a preview and one-click restore. Private comments on a page or on a block, resolve and reopen, highlighted blocks.
+- **Graph view.** An Obsidian-style graph of every page and how they link, with a local graph per page, an animated replay of your workspace growing, hover previews, search, filters, forces you can tune and a keyboard-friendly list.
+- **Peek and shortcuts.** Open rows and pages in a side peek or a center peek (per database view), step through rows with ⌥↑/⌥↓, and keyboard shortcuts for every action (⌘/ lists them).
 - **Reliable saving.** Truthful status (Saving, Saved, Offline, Not saved, Changed elsewhere), drafts kept on the device until the server confirms, recovery after refresh or crash, retries with backoff, and revision checks so nothing silently overwrites newer edits.
-- **Personal databases.** Table, board, list, gallery and calendar views; text, number, select, multi-select, status, checkbox, date, URL, email, phone, relation, formula, rollup, created and edited time; filters, sorts, search, hidden and reordered columns, resizable columns, drag to reorder rows, drag cards between board columns and calendar days, row templates.
+- **Personal databases.** Table, board, list, gallery and calendar views; text, number, select, multi-select, status, checkbox, date, URL, email, phone, relation, formula, rollup, created and edited time; filters, sorts, search, column calculations (sum, average, count, percent checked and more), hidden and reordered columns, resizable columns, drag to reorder rows, drag cards between board columns and calendar days, row templates.
 - **Templates.** A gallery (video projects, tasks, meeting notes, reading list, content calendar, journal, weekly planner, wiki) plus your own page and row templates with `{{today}}` placeholders.
-- **Import and export.** Notion "Markdown & CSV" exports (pages, nesting, databases with inferred column types, rows, row content, links and images), Markdown files and Max backups. Export everything as Markdown (.zip) or JSON.
-- **Assistants (MCP).** 70 tools that mirror every UI action, sharing one service layer and permission checks with the app. OAuth for ChatGPT and Claude, personal access tokens for other clients, confirmations for destructive actions and an activity log.
-- **Made to be used every day.** Light and dark themes (OKLCH tokens tuned separately), emoji and Lucide icons in ten colors, covers, fonts, density, full-width pages, RTL and mixed English/Arabic text, keyboard shortcuts, mobile drawer, and a settings window for account, preferences, editor, sidebar, connections and data.
+- **Import and export.** Notion "Markdown & CSV" exports (pages, nesting, databases with inferred column types, rows, row content, links that become page mentions, and images), optionally as templates, Markdown files and Max backups. Export everything as Markdown (.zip) or JSON.
+- **Assistants (MCP).** 82 tools that mirror every UI action (pages, content, databases, templates, history, comments, the graph and more), sharing one service layer and permission checks with the app. OAuth for ChatGPT and Claude, personal access tokens for other clients, confirmations for destructive actions and an activity log.
+- **Made to be used every day.** Light and dark themes (OKLCH tokens tuned separately), emoji and Lucide icons in ten colors, covers, fonts, density, full-width pages, RTL and mixed English/Arabic text, keyboard shortcuts, WCAG 2.2 AA checks in CI, print or save as PDF, mobile drawer, and a settings window for account, preferences, editor, sidebar, connections and data.
 
 ## Quick start (local mode, no accounts needed)
 
@@ -63,6 +66,6 @@ tests/unit · e2e     Vitest domain tests and Playwright journeys
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE). The editor is adapted from the Chaos project (same license). Third-party libraries keep their own licenses. The Max logo is not covered by the code license; see [assets/README.md](assets/README.md).
+[AGPL-3.0-or-later](LICENSE). The editor is adapted from the Chaos project (same license). Third-party libraries keep their own licenses; the multi-column editor package (`@blocknote/xl-multi-column`) is GPL-3.0, which is compatible with AGPL-3.0. The Max logo is not covered by the code license; see [assets/README.md](assets/README.md).
 
 Max is independent and not affiliated with or endorsed by Notion.

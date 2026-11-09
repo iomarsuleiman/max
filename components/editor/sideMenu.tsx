@@ -5,7 +5,7 @@ import {
   blockTypeSelectItems, BlockColorsItem, SideMenuController, TableColumnHeaderItem, TableRowHeaderItem,
   useBlockNoteEditor, useComponentsContext, useDictionary, useExtension, useExtensionState, usePortalElement,
 } from "@blocknote/react";
-import { ArrowDown, ArrowUp, Copy, CopyPlus, GripVertical, Palette, Plus, Repeat2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, CopyPlus, GripVertical, MessageSquare, Palette, Plus, Repeat2, Trash2 } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
 import type { MaxEditorType } from "./blocks";
 import { blockDragEnded, blockDragStarted } from "./dragFeedback";
@@ -130,6 +130,7 @@ function DragHandle() {
         <TurnIntoItem label={t.turnInto} />
         <ActionItem kind="duplicate" icon={<CopyPlus size={16} aria-hidden />} shortcut="Ctrl+D">{t.duplicate}</ActionItem>
         <ActionItem kind="copy" icon={<Copy size={16} aria-hidden />}>{t.copy}</ActionItem>
+        <CommentItem />
         <ActionItem kind="up" icon={<ArrowUp size={16} aria-hidden />} shortcut="Ctrl+Shift+↑">{t.moveUp}</ActionItem>
         <ActionItem kind="down" icon={<ArrowDown size={16} aria-hidden />} shortcut="Ctrl+Shift+↓">{t.moveDown}</ActionItem>
         <BlockColorsItem><Palette size={16} aria-hidden /><span className="lx-block-menu__label">{t.colors}</span></BlockColorsItem>
@@ -139,6 +140,24 @@ function DragHandle() {
         <ActionItem kind="delete" icon={<Trash2 size={16} aria-hidden />} shortcut="Del">{t.delete}</ActionItem>
       </Components.Generic.Menu.Dropdown>
     </Components.Generic.Menu.Root>
+  );
+}
+
+/** Starts a comment on this block (the page shows its comments panel). */
+function CommentItem() {
+  const Components = useComponentsContext()!;
+  const editor = useBlockNoteEditor() as unknown as MaxEditorType;
+  const block = useExtensionState(SideMenuExtension, { editor: editor as never, selector: (state) => state?.block });
+  if (!block) return null;
+  return (
+    <Components.Generic.Menu.Item
+      className="bn-menu-item lx-block-menu__item"
+      icon={<MessageSquare size={16} aria-hidden />}
+      onClick={() => document.dispatchEvent(new CustomEvent("max:block-comment", { detail: { blockId: block.id } }))}
+    >
+      <span className="lx-block-menu__label">Comment</span>
+      <kbd className="lx-block-menu__kbd" aria-hidden>⌘⇧M</kbd>
+    </Components.Generic.Menu.Item>
   );
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog as D } from "radix-ui";
 import { useConvexAuth } from "convex/react";
@@ -11,10 +11,19 @@ import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
 import { SearchDialog } from "./SearchDialog";
-import { SettingsDialog } from "@/components/settings/SettingsDialog";
-import { MoveDialog } from "./MoveDialog";
-import { ImportDialog } from "@/components/import/ImportDialog";
-import { PeekHost } from "./Peek";
+import dynamic from "next/dynamic";
+
+// Heavy dialogs load on first use and stay mounted afterwards, so closing still animates.
+const SettingsDialog = dynamic(() => import("@/components/settings/SettingsDialog").then((m) => m.SettingsDialog), { ssr: false });
+const MoveDialog = dynamic(() => import("./MoveDialog").then((m) => m.MoveDialog), { ssr: false });
+const ImportDialog = dynamic(() => import("@/components/import/ImportDialog").then((m) => m.ImportDialog), { ssr: false });
+const PeekHost = dynamic(() => import("./Peek").then((m) => m.PeekHost), { ssr: false });
+
+function useEverTrue(flag: boolean) {
+  const [ever, setEver] = useState(flag);
+  if (flag && !ever) setEver(true);
+  return ever || flag;
+}
 
 function Splash({ message = "Opening your workspace…" }: { message?: string }) {
   return (
@@ -115,10 +124,23 @@ function Frame({ children }: { children: ReactNode }) {
         {children}
       </main>
       <SearchDialog />
-      <SettingsDialog />
-      <MoveDialog />
-      <ImportDialog />
-      <PeekHost />
+      <LazyDialogs />
     </div>
+  );
+}
+
+function LazyDialogs() {
+  const ws = useWorkspace();
+  const settings = useEverTrue(!!ws.settingsSection);
+  const move = useEverTrue(!!ws.moveTarget);
+  const importer = useEverTrue(ws.importOpen);
+  const peek = useEverTrue(!!ws.peek);
+  return (
+    <>
+      {settings && <SettingsDialog />}
+      {move && <MoveDialog />}
+      {importer && <ImportDialog />}
+      {peek && <PeekHost />}
+    </>
   );
 }

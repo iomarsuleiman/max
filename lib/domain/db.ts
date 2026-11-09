@@ -32,7 +32,9 @@ export type IndexedField<T extends TableName> = T extends "pages"
         ? "key"
         : T extends "versions"
           ? "pageId"
-          : never;
+          : T extends "comments"
+            ? "pageId"
+            : never;
 
 export interface Storage {
   /** URL the browser can POST a file body to. */

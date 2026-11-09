@@ -185,7 +185,7 @@ export const accountDeleteAllData = defineOp({
   input: z.object({ confirm }),
   async run(ctx) {
     let removed = 0;
-    for (const table of ["documents", "versions", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
+    for (const table of ["documents", "versions", "comments", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
       for (const row of await ctx.db.list(table, ctx.ownerId)) {
         await ctx.db.delete(table, row._id);
         removed++;
@@ -278,7 +278,7 @@ export const assetsRegister = defineOp({
   name: "assets.register",
   kind: "mutation",
   title: "Attach an uploaded file",
-  description: `Registers an uploaded image on a page. Allowed: ${UPLOAD_TYPES.join(", ")}, up to 20 MB. Returns a max-asset:// URL to use in image blocks.`,
+  description: `Registers an uploaded file on a page: images, PDFs, office documents, text, archives, audio and video (${UPLOAD_TYPES.length} types), up to 50 MB. Returns a max-asset:// URL to use in image, file, audio or video blocks.`,
   input: z.object({
     storageId: z.string().min(1),
     pageId: id.nullable().optional(),
@@ -291,11 +291,11 @@ export const assetsRegister = defineOp({
     const remove = () => ctx.storage?.remove(input.storageId).catch(() => undefined);
     if (!UPLOAD_TYPES.includes(input.type.toLowerCase())) {
       await remove();
-      throw new MaxError("VALIDATION", `"${input.name}" isn't a supported image (PNG, JPEG, WebP, GIF, AVIF or SVG).`);
+      throw new MaxError("VALIDATION", `"${input.name}" isn't a supported file type. Max stores images, PDFs, office documents, text, ZIP archives, audio and video.`);
     }
     if (input.size > LIMITS.uploadBytes) {
       await remove();
-      throw new MaxError("LIMIT", `"${input.name}" is larger than 20 MB. Compress or resize it, then upload again.`);
+      throw new MaxError("LIMIT", `"${input.name}" is larger than 50 MB. Compress it or split it, then upload again.`);
     }
     if (input.pageId) await requirePage(ctx, input.pageId);
     const assetId = await ctx.db.insert("assets", {

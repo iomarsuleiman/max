@@ -13,11 +13,35 @@ export const LIMITS = {
   searchResults: 50,
   queryPage: 200,
   batchOperations: 50,
-  uploadBytes: 20 * 1024 * 1024,
+  uploadBytes: 50 * 1024 * 1024,
   tokens: 20,
 };
 
-export const UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/svg+xml"];
+export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/svg+xml"];
+/** Files Max stores: images, PDFs, office documents, text, archives, audio and video. */
+export const UPLOAD_TYPES = [
+  ...IMAGE_TYPES,
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/json",
+  "application/zip",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+];
 
 export async function allPages(ctx: OpContext): Promise<PageRow[]> {
   return ctx.db.list("pages", ctx.ownerId);

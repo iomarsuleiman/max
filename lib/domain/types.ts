@@ -79,6 +79,25 @@ export interface ViewSort {
   direction: "asc" | "desc";
 }
 
+export type CalculationFn =
+  | "count_all"
+  | "count_values"
+  | "count_empty"
+  | "count_unique"
+  | "percent_empty"
+  | "percent_not_empty"
+  | "sum"
+  | "average"
+  | "median"
+  | "min"
+  | "max"
+  | "range"
+  | "earliest"
+  | "latest"
+  | "checked"
+  | "unchecked"
+  | "percent_checked";
+
 export type ViewType = "table" | "board" | "list" | "gallery" | "calendar";
 
 export interface DatabaseView {
@@ -87,6 +106,8 @@ export interface DatabaseView {
   type: ViewType;
   /** Calendar views: the date property that places rows on days. */
   datePropertyId?: string | null;
+  /** Footer calculations per property (table views), e.g. { views: "sum" }. */
+  calculations?: Record<string, CalculationFn>;
   /** How rows open from this view, like Notion: side peek, center peek, or full page. */
   openPagesIn?: "side" | "center" | "full";
   /** Gallery views: show the page cover/first image. */
@@ -205,6 +226,20 @@ export interface AuditRow {
 
 export type Source = "ui" | "mcp";
 
+/** A personal note on a page or on one of its blocks (Max has no collaborators: comments are for you). */
+export interface CommentRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  /** Null for a comment on the whole page. */
+  blockId: string | null;
+  body: string;
+  resolvedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+  source: Source;
+}
+
 /** A saved earlier state of a page's content (page history). */
 export interface VersionRow {
   _id: string;
@@ -240,6 +275,7 @@ export interface Tables {
   audit: AuditRow;
   idempotency: IdempotencyRow;
   versions: VersionRow;
+  comments: CommentRow;
 }
 
 export type TableName = keyof Tables;

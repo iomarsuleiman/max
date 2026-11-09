@@ -6,7 +6,7 @@ import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable,
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowUpRight, Check, GripVertical, Maximize2, Plus, Trash2, Copy } from "lucide-react";
 import { IconButton, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, cn } from "@/components/ui";
-import type { DatabaseView, PageRow, PropertyDef } from "@/lib/domain/types";
+import type { CalculationFn, DatabaseView, PageRow, PropertyDef } from "@/lib/domain/types";
 import type { RecordView } from "@/lib/client/types";
 import { useWorkspace } from "@/components/workspace/context";
 import { EditableValue } from "./cells";
@@ -19,7 +19,8 @@ const dndA11y = typeof document !== "undefined" ? { container: document.body } :
 
 const DEFAULT_WIDTH: Partial<Record<PropertyDef["type"], number>> = { title: 280, checkbox: 100, number: 120, date: 160, created_time: 180, updated_time: 180 };
 
-export function TableView({ database, view, properties, records, readOnly, onUpdate, onCreate, onDelete, onUpdateView, canReorder, onOpenRecord }: {
+export function TableView({ database, view, properties, records, readOnly, onUpdate, onCreate, onDelete, onUpdateView, canReorder, onOpenRecord, calculations = {} }: {
+  calculations?: Record<string, string | number | null>;
   onOpenRecord: (id: string, event?: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean }) => void;
   database: PageRow;
   view: DatabaseView;
@@ -147,6 +148,18 @@ export function TableView({ database, view, properties, records, readOnly, onUpd
               <Plus className="size-3.5" /> New row
             </button>
           )}
+          <div role="group" aria-label="Column calculations" className="flex h-8 border-b border-line">
+            <div className="w-12 shrink-0" />
+            {properties.map((p) => (
+              <CalcCell key={p.id} prop={p} width={widthOf(p)} fn={view.calculations?.[p.id]} value={calculations[p.id]} readOnly={readOnly}
+                onChange={(fn) => {
+                  const next = { ...(view.calculations ?? {}) };
+                  if (fn) next[p.id] = fn;
+                  else delete next[p.id];
+                  onUpdateView({ calculations: next });
+                }} />
+            ))}
+          </div>
           <div className="flex h-8 items-center ps-14 text-[12px] text-fg-3">
             {rows.length > 0 && !readOnly && (
               <label className="me-3 inline-flex items-center gap-1.5">
@@ -158,6 +171,51 @@ export function TableView({ database, view, properties, records, readOnly, onUpd
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const CALC_LABEL: Record<CalculationFn, string> = {
+  count_all: "Count all", count_values: "Count values", count_empty: "Count empty", count_unique: "Count unique values",
+  percent_empty: "Percent empty", percent_not_empty: "Percent not empty", sum: "Sum", average: "Average", median: "Median",
+  min: "Min", max: "Max", range: "Range", earliest: "Earliest date", latest: "Latest date",
+  checked: "Checked", unchecked: "Unchecked", percent_checked: "Percent checked",
+};
+function calcOptions(type: PropertyDef["type"]): CalculationFn[] {
+  const base: CalculationFn[] = ["count_all", "count_values", "count_empty", "count_unique", "percent_empty", "percent_not_empty"];
+  if (type === "number" || type === "formula" || type === "rollup") return [...base, "sum", "average", "median", "min", "max", "range"];
+  if (type === "date" || type === "created_time" || type === "updated_time") return [...base, "earliest", "latest"];
+  if (type === "checkbox") return ["count_all", "checked", "unchecked", "percent_checked"];
+  return base;
+}
+
+function CalcCell({ prop, width, fn, value, readOnly, onChange }: { prop: PropertyDef; width: number; fn?: CalculationFn; value: string | number | null | undefined; readOnly: boolean; onChange: (fn: CalculationFn | null) => void }) {
+  const shown = value === null || value === undefined ? "—" : typeof value === "number" ? `${value.toLocaleString("en")}${fn?.startsWith("percent") ? "%" : ""}` : value;
+  const label = fn ? (
+    <span className="flex min-w-0 items-center justify-end gap-1.5">
+      <span className="truncate text-[11.5px] uppercase tracking-wide text-fg-3">{CALC_LABEL[fn]}</span>
+      <span className="tabular-nums text-fg">{shown}</span>
+    </span>
+  ) : (
+    <span className="opacity-0 group-hover/calc:opacity-100">Calculate</span>
+  );
+  if (readOnly) return <div style={{ width }} className="flex shrink-0 items-center justify-end px-2 text-[12.5px]">{fn ? label : null}</div>;
+  return (
+    <div style={{ width }} className="group/calc flex shrink-0">
+      <Menu>
+        <MenuTrigger asChild>
+          <button type="button" aria-label={`Calculate ${prop.name}${fn ? `: ${CALC_LABEL[fn]} ${shown}` : ""}`} className="flex w-full items-center justify-end px-2 text-[12.5px] text-fg-3 hover:bg-hover focus-visible:[&_span]:opacity-100">
+            {label}
+          </button>
+        </MenuTrigger>
+        <MenuContent align="end">
+          <MenuItem onSelect={() => onChange(null)} hint={!fn ? "✓" : undefined}>None</MenuItem>
+          <MenuSeparator />
+          {calcOptions(prop.type).map((c) => (
+            <MenuItem key={c} onSelect={() => onChange(c)} hint={fn === c ? "✓" : undefined}>{CALC_LABEL[c]}</MenuItem>
+          ))}
+        </MenuContent>
+      </Menu>
     </div>
   );
 }
