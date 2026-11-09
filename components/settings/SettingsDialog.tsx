@@ -8,7 +8,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { zipSync, strToU8 } from "fflate";
 import { ArrowDown, ArrowUp, Bot, Check, Copy, Database, Download, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Settings2, Trash2, Upload, User, X } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Field, IconButton, Input, Kbd, Notice, Segmented, SettingRow, Skeleton, Switch, cn, confirmAction } from "@/components/ui";
+import { Button, Field, IconButton, Input, Kbd, Notice, Segmented, Select, SettingRow, Skeleton, Switch, cn, confirmAction } from "@/components/ui";
+import { PageIcon } from "@/components/workspace/PageIcon";
 import { useOp, useRead } from "@/lib/client/data";
 import { bytes, dateTime, pageTitle, timeAgo } from "@/lib/client/format";
 import { APP_URL, CLOUD, REPO_URL, VERSION } from "@/lib/config";
@@ -232,22 +233,20 @@ function PreferencesSection() {
           <Switch label="Full width for new pages" checked={s.defaultFullWidth} onCheckedChange={(v) => set("defaultFullWidth", v)} />
         </SettingRow>
         <SettingRow title="Home page" description="Any page can be your home page. It opens when you start Max and with ⌘⇧H." htmlFor="home-page">
-          <select
+          <Select
             id="home-page"
+            label="Home page"
+            className="w-[220px]"
             value={s.homePageId ?? ""}
-            onChange={(e) => set("homePageId", e.target.value || null, e.target.value ? "Home page set" : "Home page cleared")}
-            className="h-8 max-w-[220px] rounded-md bg-surface px-2 text-[13px] text-fg shadow-[0_0_0_1px_var(--line-strong)] outline-none focus-visible:shadow-[0_0_0_2px_var(--focus)]"
-          >
-            <option value="">None (open the last page)</option>
-            {(ws.tree ?? [])
-              .filter((p) => p.kind === "page")
-              .sort((a, b) => pageTitle(a.title).localeCompare(pageTitle(b.title)))
-              .map((p) => (
-                <option key={p._id} value={p._id}>
-                  {pageTitle(p.title)}
-                </option>
-              ))}
-          </select>
+            onChange={(id) => set("homePageId", id || null, id ? "Home page set" : "Home page cleared")}
+            options={[
+              { value: "", label: "None (open the last page)" },
+              ...(ws.tree ?? [])
+                .filter((p) => p.kind === "page")
+                .sort((a, b) => pageTitle(a.title).localeCompare(pageTitle(b.title), undefined, { numeric: true }))
+                .map((p) => ({ value: p._id, label: pageTitle(p.title), icon: <PageIcon icon={p.icon} kind={p.kind} size={15} /> })),
+            ]}
+          />
         </SettingRow>
         {!s.homePageId && (
           <SettingRow title="Open on start" description="Without a home page, Max opens one of these.">

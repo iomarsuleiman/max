@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { Select } from "@/components/ui";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import {
@@ -489,16 +490,16 @@ export const DatabaseBlock = createIsolatedBlockSpec(
           <div className="lx-embed-input" contentEditable={false} onKeyDown={stop}>
             <Sheet size={18} aria-hidden />
             <span className="text-[13px]">Choose a database to show here:</span>
-            <select
-              aria-label="Database"
-              defaultValue=""
+            <Select
+              label="Database"
+              size="sm"
+              variant="filled"
+              value=""
+              placeholder="Select…"
               disabled={!editor.isEditable}
-              onChange={(e) => e.target.value && editor.updateBlock(block, { props: { databaseId: e.target.value } })}
-              className="h-7 rounded-md bg-surface-2 px-1.5 text-[13px]"
-            >
-              <option value="" disabled>Select…</option>
-              {[...bridge.pages.entries()].filter(([, p]) => p.kind === "database").map(([id, p]) => <option key={id} value={id}>{p.title || "Untitled"}</option>)}
-            </select>
+              onChange={(id) => id && editor.updateBlock(block, { props: { databaseId: id } })}
+              options={[...bridge.pages.entries()].filter(([, p]) => p.kind === "database").map(([id, p]) => ({ value: id, label: p.title || "Untitled", icon: <PageIcon icon={p.icon} kind="database" size={15} /> }))}
+            />
           </div>
         );
       }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { Button, IconButton, cn } from "@/components/ui";
+import { Button, IconButton, Select, cn } from "@/components/ui";
 import type { DatabaseView, PageRow, PropertyDef, SelectOption } from "@/lib/domain/types";
 import type { RecordView } from "@/lib/client/types";
 import { pageTitle } from "@/lib/client/format";
@@ -77,9 +77,7 @@ export function BoardView({ onOpenRecord, database, view, properties, records, r
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
       <div className="flex items-center gap-2 px-4 pb-2 text-[12.5px] text-fg-3 sm:px-12">
         Grouped by
-        <select aria-label="Group by" value={group.id} disabled={readOnly} onChange={(e) => onUpdateView({ groupByPropertyId: e.target.value })} className="h-6 rounded bg-surface-2 px-1.5 text-[12.5px] text-fg">
-          {groupable.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <Select label="Group by" size="sm" variant="filled" value={group.id} disabled={readOnly} onChange={(id) => onUpdateView({ groupByPropertyId: id })} options={groupable.map((p) => ({ value: p.id, label: p.name }))} />
       </div>
       <div className="scroll-quiet flex gap-3 overflow-x-auto px-4 pb-4 sm:px-12">
         {columns.map((opt) => {
@@ -252,9 +250,7 @@ export function CalendarView({ onOpenRecord, properties, records, readOnly, onCr
         <h3 className="text-[15px] font-semibold">{month.toLocaleDateString("en", { month: "long", year: "numeric" })}</h3>
         <div className="ms-auto flex items-center gap-1">
           {dateProps.length > 1 && (
-            <select aria-label="Date property" value={dateProp.id} onChange={(e) => onUpdateView({ datePropertyId: e.target.value })} className="h-7 rounded bg-surface-2 px-1.5 text-[12.5px]">
-              {dateProps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <Select label="Date property" size="sm" variant="filled" value={dateProp.id} onChange={(id) => onUpdateView({ datePropertyId: id })} options={dateProps.map((p) => ({ value: p.id, label: p.name }))} />
           )}
           <IconButton label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ChevronLeft className="size-4 flip-rtl" /></IconButton>
           <Button size="xs" variant="ghost" onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>Today</Button>

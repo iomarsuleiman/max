@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, EyeOff, Filter, GripVertical, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Input, Popover, PopoverClose, Textarea, confirmAction, cn } from "@/components/ui";
+import { Button, Input, Popover, PopoverClose, Select, Textarea, confirmAction, cn } from "@/components/ui";
 import type { DatabaseView, PropertyDef, PropertyType, RollupFn, SelectOption } from "@/lib/domain/types";
 import { useOp } from "@/lib/client/data";
 import type { PageSummary } from "@/lib/client/types";
@@ -79,12 +79,13 @@ export function PropertyMenu({ databaseId, prop, properties, view, trigger, onSo
           onBlur={() => name.trim() && name !== prop.name && update({ name: name.trim() })}
         />
         {prop.type !== "title" && (
-          <label className="grid gap-1 text-[12px] text-fg-3">
-            Type
-            <select
+          <div className="grid gap-1 text-[12px] text-fg-3">
+            <span aria-hidden>Type</span>
+            <Select
+              label="Type"
               value={prop.type}
-              onChange={async (e) => {
-                const next = e.target.value as PropertyType;
+              options={ADDABLE_TYPES.map((t) => ({ value: t, label: TYPE_META[t].label, icon: <PropIcon type={t} /> }))}
+              onChange={async (next: PropertyType) => {
                 if (next === "relation") return toast.error("Add a new Relation property instead of converting this one.");
                 if (next === "rollup") return toast.error("Add a new Rollup property so you can choose what to summarize.");
                 const ok = await confirmAction({
@@ -94,25 +95,23 @@ export function PropertyMenu({ databaseId, prop, properties, view, trigger, onSo
                 });
                 if (ok) void update({ type: next }, `Changed to ${TYPE_META[next].label}`);
               }}
-              className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]"
-            >
-              {ADDABLE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_META[t].label}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
         )}
         {prop.type === "number" && (
-          <label className="grid gap-1 text-[12px] text-fg-3">
-            Number format
-            <select value={prop.numberFormat ?? "number"} onChange={(e) => update({ numberFormat: e.target.value })} className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]">
-              <option value="number">Number</option>
-              <option value="percent">Percent</option>
-              <option value="currency">Currency (USD)</option>
-            </select>
-          </label>
+          <div className="grid gap-1 text-[12px] text-fg-3">
+            <span aria-hidden>Number format</span>
+            <Select
+              label="Number format"
+              value={prop.numberFormat ?? "number"}
+              onChange={(v) => update({ numberFormat: v })}
+              options={[
+                { value: "number", label: "Number" },
+                { value: "percent", label: "Percent" },
+                { value: "currency", label: "Currency (USD)" },
+              ]}
+            />
+          </div>
         )}
         {prop.type === "formula" && (
           <div className="grid gap-1">
@@ -247,25 +246,18 @@ function RollupSettings({ databaseId, prop, properties, onSave }: { databaseId: 
   if (!relations.length) return <p className="text-[12.5px] text-fg-3">Add a Relation property first; a rollup summarizes the related rows.</p>;
   return (
     <div className="grid gap-2 text-[12px] text-fg-3">
-      <label className="grid gap-1">
-        Relation
-        <select value={rel} onChange={(e) => setRel(e.target.value)} className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]">
-          {relations.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-        </select>
-      </label>
-      <label className="grid gap-1">
-        Property
-        <select value={targetProp} onChange={(e) => setTargetProp(e.target.value)} className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]">
-          <option value="">Choose…</option>
-          {target.data?.properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      </label>
-      <label className="grid gap-1">
-        Calculate
-        <select value={fn} onChange={(e) => setFn(e.target.value as RollupFn)} className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]">
-          {ROLLUP_FNS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-        </select>
-      </label>
+      <div className="grid gap-1">
+        <span aria-hidden>Relation</span>
+        <Select label="Relation" value={rel} onChange={setRel} options={relations.map((r) => ({ value: r.id, label: r.name }))} />
+      </div>
+      <div className="grid gap-1">
+        <span aria-hidden>Property</span>
+        <Select label="Property" value={targetProp} onChange={setTargetProp} options={(target.data?.properties ?? []).map((p) => ({ value: p.id, label: p.name, icon: <PropIcon type={p.type} /> }))} />
+      </div>
+      <div className="grid gap-1">
+        <span aria-hidden>Calculate</span>
+        <Select label="Calculate" value={fn} onChange={(v) => setFn(v as RollupFn)} options={ROLLUP_FNS.map((f) => ({ value: f.value, label: f.label }))} />
+      </div>
       <Button size="sm" variant="primary" disabled={!rel || !targetProp} onClick={() => onSave({ relationPropertyId: rel, targetPropertyId: targetProp, fn })}>
         Save rollup
       </Button>
@@ -317,13 +309,15 @@ export function AddProperty({ databaseId, trigger }: { databaseId: string; trigg
           <p className="flex items-center gap-1.5 text-[12px] text-fg-3"><PropIcon type={type} /> {TYPE_META[type].label}</p>
           <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={TYPE_META[type].label} aria-label="Property name" onKeyDown={(e) => e.stopPropagation()} />
           {type === "relation" && (
-            <label className="grid gap-1 text-[12px] text-fg-3">
-              Related database
-              <select value={relationDb} onChange={(e) => setRelationDb(e.target.value)} className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]">
-                <option value="">This database</option>
-                {dbs.filter((d) => d._id !== databaseId).map((d) => <option key={d._id} value={d._id}>{pageTitle(d.title)}</option>)}
-              </select>
-            </label>
+            <div className="grid gap-1 text-[12px] text-fg-3">
+              <span aria-hidden>Related database</span>
+              <Select
+                label="Related database"
+                value={relationDb}
+                onChange={setRelationDb}
+                options={[{ value: "", label: "This database" }, ...dbs.filter((d) => d._id !== databaseId).map((d) => ({ value: d._id, label: pageTitle(d.title) }))]}
+              />
+            </div>
           )}
           {type === "rollup" ? (
             <RollupCreate databaseId={databaseId} name={name} onDone={() => (setOpen(false), setType(null), setName(""))} />
@@ -351,16 +345,9 @@ function RollupCreate({ databaseId, name, onDone }: { databaseId: string; name: 
   if (schema.data && !relations.length) return <p className="text-[12.5px] text-fg-3">Add a Relation property first. A rollup summarizes values from related rows.</p>;
   return (
     <div className="grid gap-2 text-[12px] text-fg-3">
-      <select aria-label="Relation" value={rel || relations[0]?.id || ""} onChange={(e) => setRel(e.target.value)} className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]">
-        {relations.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-      </select>
-      <select aria-label="Property to summarize" value={tp} onChange={(e) => setTp(e.target.value)} className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]">
-        <option value="">Property to summarize…</option>
-        {target.data?.properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
-      <select aria-label="Calculation" value={fn} onChange={(e) => setFn(e.target.value as RollupFn)} className="h-8 rounded-md bg-overlay px-2 text-[13.5px] text-fg shadow-[0_0_0_1px_var(--line-strong)]">
-        {ROLLUP_FNS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-      </select>
+      <Select label="Relation" value={rel || relations[0]?.id || ""} onChange={setRel} options={relations.map((r) => ({ value: r.id, label: r.name }))} />
+      <Select label="Property to summarize" placeholder="Property to summarize…" value={tp} onChange={setTp} options={(target.data?.properties ?? []).map((p) => ({ value: p.id, label: p.name, icon: <PropIcon type={p.type} /> }))} />
+      <Select label="Calculation" value={fn} onChange={(v) => setFn(v as RollupFn)} options={ROLLUP_FNS.map((f) => ({ value: f.value, label: f.label }))} />
       <Button
         size="sm"
         variant="primary"
