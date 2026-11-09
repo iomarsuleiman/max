@@ -94,7 +94,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
         <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
         <NavLink href="/home" icon={<Home />} label="Home" />
         <NavLink href="/templates" icon={<LayoutTemplate />} label="Templates" />
-        <NavButton icon={<Download />} label="Import" onClick={() => ws.setImportOpen(true)} />
+        <NavButton icon={<Download />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
       </nav>
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
@@ -242,7 +242,7 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
               ))}
             </MenuSubContent>
           </MenuSub>
-          <MenuItem icon={<Download />} onSelect={() => ws.setImportOpen(true)}>
+          <MenuItem icon={<Download />} onSelect={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))}>
             Import
           </MenuItem>
           {ws.identity.signOut && (

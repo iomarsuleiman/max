@@ -67,6 +67,19 @@ export default defineSchema({
   })
     .index("by_owner", ["ownerId"])
     .index("by_hash", ["hash"]),
+  versions: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    revision: v.number(),
+    title: v.string(),
+    content: v.string(),
+    wordCount: v.number(),
+    at: v.number(),
+    source: v.string(),
+    reason: v.string(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"]),
   idempotency: defineTable({ ownerId: v.string(), key: v.string(), op: v.string(), result: v.string(), at: v.number() })
     .index("by_owner", ["ownerId"])
     .index("by_owner_key", ["ownerId", "key"]),

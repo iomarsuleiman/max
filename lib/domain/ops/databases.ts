@@ -2,7 +2,7 @@ import { z } from "zod";
 import { MaxError } from "../errors";
 import type { DatabaseView, FilterOperator, PageRow, PropertyDef, PropertyType, PropertyValue, SelectOption, ViewFilter, ViewSort } from "../types";
 import { defineOp, id, title, type OpContext } from "./define";
-import { allPages, byRank, cleanTitle, LIMITS, newPageRow, rankAt, requireDatabase, requirePage, summary } from "./helpers";
+import { allPages, byRank, cleanTitle, LIMITS, newPageRow, rankAt, requireDatabase, requirePage, summary, templateMembers } from "./helpers";
 import { insertDocument, pagesArchive, pagesCreate } from "./pages";
 import { TITLE_PROPERTY_ID, defaultView, shortId } from "./databaseDefaults";
 import { markdownToBlocks } from "../blocks";
@@ -241,7 +241,7 @@ export const databasesList = defineOp({
     const pages = await allPages(ctx);
     return {
       databases: pages
-        .filter((p) => p.kind === "database" && !p.archivedAt)
+        .filter((p) => p.kind === "database" && !p.archivedAt && !templateMembers(pages).has(p._id))
         .map((p) => ({ ...summary(p), recordCount: records(pages, p._id).length, properties: (p.properties ?? []).map((x) => ({ id: x.id, name: x.name, type: x.type })) })),
     };
   },
@@ -638,6 +638,7 @@ const viewPatch = z.object({
   groupByPropertyId: z.string().nullable().optional(),
   datePropertyId: z.string().nullable().optional(),
   cardPreview: z.enum(["cover", "none"]).optional(),
+  openPagesIn: z.enum(["side", "center", "full"]).optional(),
 });
 
 export const viewsCreate = defineOp({

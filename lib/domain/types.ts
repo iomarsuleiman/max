@@ -87,6 +87,8 @@ export interface DatabaseView {
   type: ViewType;
   /** Calendar views: the date property that places rows on days. */
   datePropertyId?: string | null;
+  /** How rows open from this view, like Notion: side peek, center peek, or full page. */
+  openPagesIn?: "side" | "center" | "full";
   /** Gallery views: show the page cover/first image. */
   cardPreview?: "cover" | "none";
   filters: ViewFilter[];
@@ -203,6 +205,22 @@ export interface AuditRow {
 
 export type Source = "ui" | "mcp";
 
+/** A saved earlier state of a page's content (page history). */
+export interface VersionRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  /** The document revision this snapshot captured. */
+  revision: number;
+  title: string;
+  content: string;
+  wordCount: number;
+  /** When this state was current (its last edit). */
+  at: number;
+  source: Source;
+  reason: "edit" | "assistant" | "before-restore" | "manual";
+}
+
 /** Remembers the result of a write sent with an idempotency key, so a retry doesn't apply it twice. */
 export interface IdempotencyRow {
   _id: string;
@@ -221,6 +239,7 @@ export interface Tables {
   tokens: TokenRow;
   audit: AuditRow;
   idempotency: IdempotencyRow;
+  versions: VersionRow;
 }
 
 export type TableName = keyof Tables;

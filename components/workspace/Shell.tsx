@@ -14,6 +14,7 @@ import { SearchDialog } from "./SearchDialog";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { MoveDialog } from "./MoveDialog";
 import { ImportDialog } from "@/components/import/ImportDialog";
+import { PeekHost } from "./Peek";
 
 function Splash({ message = "Opening your workspace…" }: { message?: string }) {
   return (
@@ -117,6 +118,7 @@ function Frame({ children }: { children: ReactNode }) {
       <SettingsDialog />
       <MoveDialog />
       <ImportDialog />
+      <PeekHost />
     </div>
   );
 }

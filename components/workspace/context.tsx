@@ -50,7 +50,19 @@ interface WorkspaceValue {
   setMoveTarget: (id: string | null) => void;
   importOpen: boolean;
   setImportOpen: (open: boolean) => void;
+  importAsTemplates: boolean;
+  setImportAsTemplates: (v: boolean) => void;
+  /** Opens a page in side peek, center peek or full page (⌘/Ctrl-click always opens full page). */
+  openPage: (id: string, opts?: { mode?: PeekMode; list?: string[]; event?: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean } }) => void;
+  peek: { id: string; mode: "side" | "center" } | null;
+  peekList: string[];
+  closePeek: () => void;
+  /** The page the keyboard shortcuts act on: the peeked page, else the open page. */
+  activePageId: string | null;
+  setActivePageId: (id: string | null) => void;
 }
+
+export type PeekMode = "side" | "center" | "full";
 
 const Ctx = createContext<WorkspaceValue | null>(null);
 
@@ -142,6 +154,36 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   const [searchOpen, setSearchOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [importAsTemplates, setImportAsTemplates] = useState(false);
+  const [peekList, setPeekList] = useState<string[]>([]);
+  const [activePageId, setActivePageId] = useState<string | null>(null);
+  const peekParam = params.get("peek");
+  const peek = peekParam ? { id: peekParam, mode: (params.get("pm") === "center" ? "center" : "side") as "side" | "center" } : null;
+  const openPage = useCallback<WorkspaceValue["openPage"]>(
+    (id, { mode = "full", list, event } = {}) => {
+      if (event?.metaKey || event?.ctrlKey) {
+        window.open(`/p/${id}`, "_blank", "noopener");
+        return;
+      }
+      if (mode === "full" || event?.shiftKey) {
+        router.push(`/p/${id}`);
+        return;
+      }
+      if (list) setPeekList(list);
+      const sp = new URLSearchParams(params.toString());
+      sp.set("peek", id);
+      sp.set("pm", mode);
+      router.push(`${pathname}?${sp.toString()}`, { scroll: false });
+    },
+    [params, pathname, router],
+  );
+  const closePeek = useCallback(() => {
+    const sp = new URLSearchParams(params.toString());
+    sp.delete("peek");
+    sp.delete("pm");
+    const q = sp.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  }, [params, pathname, router]);
 
   const settingsParam = params.get("settings") as SettingsSection | null;
   const settingsSection = settingsParam && SECTIONS.includes(settingsParam) ? settingsParam : null;
@@ -235,27 +277,48 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
       .catch(() => toast.error("Couldn't copy. Your browser blocked clipboard access."));
   }, []);
 
-  // Global shortcuts.
+  // Global shortcuts (the full list lives in lib/client/shortcuts.ts).
+  const shortcutState = useRef({ byId, activePageId: null as string | null });
+  shortcutState.current = { byId, activePageId: peekParam ?? activePageId };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === "k") {
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      const { byId: pages, activePageId: current } = shortcutState.current;
+      const run = (fn: () => void) => {
         e.preventDefault();
-        setSearchOpen(true);
-      } else if (mod && e.key === "\\") {
-        e.preventDefault();
-        setSidebarOpen(!sidebarOpen);
-      } else if (mod && e.altKey && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        void createPage();
-      } else if (mod && e.key === ",") {
-        e.preventDefault();
-        openSettings("preferences");
+        fn();
+      };
+      if (!e.shiftKey && !e.altKey && key === "k" && !window.getSelection()?.toString()) return run(() => setSearchOpen(true));
+      if (key === "\\") return run(() => setSidebarOpen(!sidebarOpen));
+      if (e.altKey && (key === "n" || e.code === "KeyN")) return run(() => void createPage());
+      if (!e.shiftKey && key === ",") return run(() => openSettings("preferences"));
+      if (!e.shiftKey && key === "/") return run(() => openSettings("shortcuts"));
+      if (!e.shiftKey && !e.altKey && key === "[") return run(() => router.back());
+      if (!e.shiftKey && !e.altKey && key === "]") return run(() => router.forward());
+      if (e.shiftKey && !e.altKey) {
+        if (key === "l") return run(() => void updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }));
+        if (key === "i") return run(() => (setImportAsTemplates(false), setImportOpen(true)));
+        if (key === "h") return run(() => router.push("/home"));
+        if (key === "t") return run(() => router.push("/templates"));
       }
+      if (!current) return;
+      const page = pages.get(current);
+      if (e.shiftKey && !e.altKey) {
+        if (key === "u") return run(() => (page?.parentId ? router.push(`/p/${page.parentId}`) : router.push("/home")));
+        if (key === "f") return run(() => void toggleFavorite(current, !page?.favoriteRank));
+        if (key === "d") return run(() => void duplicatePage(current));
+        if (key === "p") return run(() => setMoveTarget(current));
+        if (key === "y") return run(() => document.dispatchEvent(new CustomEvent("max:page-action", { detail: { pageId: current, action: "history" } })));
+        if (key === "e") return run(() => document.dispatchEvent(new CustomEvent("max:page-action", { detail: { pageId: current, action: "export" } })));
+        if (key === "backspace" || key === "delete") return run(() => void archivePage(current));
+      }
+      if (e.altKey && !e.shiftKey && (key === "l" || e.code === "KeyL")) return run(() => copyLink(current));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [createPage, openSettings, setSidebarOpen, sidebarOpen]);
+  }, [archivePage, copyLink, createPage, duplicatePage, openSettings, router, setSidebarOpen, sidebarOpen, toggleFavorite, updateSettings]);
 
   const value: WorkspaceValue = {
     tree: tree.data?.pages,
@@ -285,6 +348,14 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
     setMoveTarget,
     importOpen,
     setImportOpen,
+    importAsTemplates,
+    setImportAsTemplates,
+    openPage,
+    peek,
+    peekList,
+    closePeek,
+    activePageId: peek?.id ?? activePageId,
+    setActivePageId,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

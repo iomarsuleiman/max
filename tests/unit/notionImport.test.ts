@@ -67,3 +67,44 @@ describe("Notion import", () => {
     expect(rows.records.map((r: any) => r.title)).toEqual(["Trailer", "BTS"]);
   });
 });
+
+describe("Notion import fidelity", () => {
+  it("turns page links into page blocks and mentions", async () => {
+    const id = (n: number) => String(n).padStart(32, "b");
+    const entries = [
+      file(`Home ${id(1)}.md`, `# Home\n\n[Child](Home%20${id(1)}/Child%20${id(2)}.md)\n\nSee [Child](Home%20${id(1)}/Child%20${id(2)}.md) for more.`),
+      file(`Home ${id(1)}/Child ${id(2)}.md`, "# Child\n\nHello"),
+    ];
+    const { items } = await buildNotionBundle(entries);
+    const { as } = setup();
+    const call = as("alice");
+    await call("import.bundle", { items });
+    const tree = (await call("pages.tree")).pages;
+    const home = tree.find((p: any) => p.title === "Home");
+    const child = tree.find((p: any) => p.title === "Child");
+    const { blocks } = await call("documents.get", { pageId: home._id });
+    expect(blocks[0]).toMatchObject({ type: "pageLink", props: { pageId: child._id } });
+    expect(blocks[1].content).toEqual(expect.arrayContaining([expect.objectContaining({ type: "pageMention", props: expect.objectContaining({ pageId: child._id }) })]));
+  });
+
+  it("imports duplicated Notion templates as Max templates, databases included", async () => {
+    const { items } = await buildNotionBundle([
+      file(`Weekly Review ${"c".repeat(32)}.md`, "# Weekly Review\n\n## Wins\n\n- \n\n[Habits](Weekly%20Review%20" + "c".repeat(32) + "/Habits%20" + "d".repeat(32) + ".csv)"),
+      file(`Weekly Review ${"c".repeat(32)}/Habits ${"d".repeat(32)}.csv`, "Name,Done\nRead,No\nRun,Yes\n"),
+    ]);
+    const { as } = setup();
+    const call = as("alice");
+    await call("import.bundle", { items, asTemplates: true });
+    expect((await call("pages.tree")).pages).toHaveLength(0);
+    const { templates } = await call("templates.list", {});
+    expect(templates.map((t: any) => t.title)).toEqual(["Weekly Review"]);
+    const { id } = await call("templates.apply", { templateId: templates[0]._id });
+    const made = await call("pages.get", { id });
+    expect(made.children.map((c: any) => c.title)).toEqual(["Habits"]);
+    const rows = await call("databases.query", { databaseId: made.children[0]._id });
+    expect(rows.records.map((r: any) => r.title)).toEqual(["Read", "Run"]);
+    // Using it again makes a second, independent copy.
+    await call("templates.apply", { templateId: templates[0]._id });
+    expect((await call("pages.tree")).pages.filter((p: any) => p.title === "Weekly Review")).toHaveLength(2);
+  });
+});

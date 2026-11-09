@@ -17,6 +17,7 @@ import {
   rankAt,
   requirePage,
   summary,
+  templateMembers,
   treeChildren,
   upsertSettings,
 } from "./helpers";
@@ -32,7 +33,8 @@ export const pagesTree = defineOp({
   input: z.object({}),
   async run(ctx) {
     const pages = await allPages(ctx);
-    const live = pages.filter((p) => !p.archivedAt && !p.databaseId && !p.isTemplate);
+    const hidden = templateMembers(pages);
+    const live = pages.filter((p) => !p.archivedAt && !p.databaseId && !hidden.has(p._id));
     return { pages: live.sort(byRank).map(summary) };
   },
 });
@@ -100,7 +102,7 @@ export const pagesRecents = defineOp({
     const pages = await allPages(ctx);
     return {
       pages: pages
-        .filter((p) => p.lastOpenedAt && !p.archivedAt && !p.isTemplate)
+        .filter((p) => p.lastOpenedAt && !p.archivedAt && !templateMembers(pages).has(p._id))
         .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0))
         .slice(0, limit)
         .map(summary),
@@ -447,6 +449,7 @@ export const trashList = defineOp({
 async function removePageCompletely(ctx: OpContext, page: PageRow) {
   const docs = await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: page._id });
   for (const d of docs) await ctx.db.delete("documents", d._id);
+  for (const v of await ctx.db.list("versions", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("versions", v._id);
   const assets = await ctx.db.list("assets", ctx.ownerId, { field: "pageId", value: page._id });
   for (const a of assets) {
     await ctx.storage?.remove(a.storageId).catch(() => undefined);

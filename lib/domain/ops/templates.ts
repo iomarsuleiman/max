@@ -95,15 +95,49 @@ export const templatesApply = defineOp({
       newId = await ctx.db.insert("pages", row);
     } else {
       if (parentId) await requirePage(ctx, parentId);
-      const row = newPageRow(ctx, { parentId, title: filledTitle, icon: tpl.icon, cover: tpl.cover, fullWidth: tpl.fullWidth, rank: rankAt(treeChildren(pages, parentId), index) });
+      const row = newPageRow(ctx, {
+        parentId,
+        kind: tpl.kind,
+        title: filledTitle,
+        icon: tpl.icon,
+        cover: tpl.cover,
+        fullWidth: tpl.fullWidth,
+        rank: rankAt(treeChildren(pages, parentId), index),
+        ...(tpl.kind === "database" ? { properties: tpl.properties, views: tpl.views } : {}),
+      });
       newId = await ctx.db.insert("pages", row);
     }
     await copyDocument(ctx, templateId, newId, true);
-    // Subpages of a template come along.
     const map = new Map([[templateId, newId]]);
-    for (const child of descendants(pages, templateId).filter((p) => !p.archivedAt && p.parentId)) {
+    // Subpages of a template come along; a database template brings its rows (and their own templates).
+    const byId = new Map(pages.map((p) => [p._id, p]));
+    const depth = (p: PageRow) => {
+      let d = 0;
+      let cur: PageRow | undefined = p;
+      while (cur && cur._id !== templateId && d < 60) {
+        const up: string | null = cur.parentId ?? cur.databaseId;
+        cur = up ? byId.get(up) : undefined;
+        d++;
+      }
+      return d;
+    };
+    // Parents (and databases) are copied before what's inside them.
+    const family = descendants(pages, templateId)
+      .filter((p) => !p.archivedAt)
+      .sort((a, b) => depth(a) - depth(b));
+    for (const child of family) {
       const { _id, ...rest } = child;
-      const cid = await ctx.db.insert("pages", { ...rest, parentId: map.get(child.parentId!) ?? newId, isTemplate: false, databaseId: null, createdAt: ctx.now, updatedAt: ctx.now, lastOpenedAt: null, favoriteRank: null });
+      const asRow = !!child.databaseId && !child.parentId;
+      const cid = await ctx.db.insert("pages", {
+        ...rest,
+        parentId: asRow ? null : (map.get(child.parentId!) ?? newId),
+        databaseId: asRow ? (map.get(child.databaseId!) ?? newId) : null,
+        isTemplate: asRow ? child.isTemplate : false,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+        lastOpenedAt: null,
+        favoriteRank: null,
+      });
       map.set(_id, cid);
       await copyDocument(ctx, _id, cid, true);
     }

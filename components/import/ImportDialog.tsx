@@ -84,12 +84,12 @@ export function ImportDialog() {
         let firstId: string | undefined;
         for (const [i, part] of parts.entries()) {
           setProgress(`Creating pages (${i + 1} of ${parts.length})…`);
-          const res = await ws.call<{ rootIds: string[]; keys: Record<string, string> }>("import.bundle", { items: part, existing: Object.fromEntries(Object.entries(keys).filter(([k]) => part.some((p) => p.parentKey === k) || true)) });
+          const res = await ws.call<{ rootIds: string[]; keys: Record<string, string> }>("import.bundle", { items: part, existing: keys, asTemplates: ws.importAsTemplates });
           Object.assign(keys, res.keys);
           firstId ??= res.rootIds.find(Boolean);
         }
-        setResult({ ...report, firstId });
-        toast.success("Import finished");
+        setResult({ ...report, firstId: ws.importAsTemplates ? undefined : firstId });
+        toast.success(ws.importAsTemplates ? "Imported as templates" : "Import finished");
       } else if (source === "markdown") {
         let firstId: string | undefined;
         let n = 0;
@@ -124,7 +124,11 @@ export function ImportDialog() {
       title="Import"
       description="Bring pages in from Notion, Markdown files, or a Max backup. Imported pages are added; nothing existing changes."
       footer={
-        result?.firstId ? (
+        result && ws.importAsTemplates ? (
+          <Button variant="primary" onClick={() => (ws.setImportOpen(false), router.push("/templates"), reset())}>
+            Open Templates
+          </Button>
+        ) : result?.firstId ? (
           <Button variant="primary" onClick={() => (ws.setImportOpen(false), router.push(`/p/${result.firstId}`), reset())}>
             Open imported pages
           </Button>
@@ -157,6 +161,15 @@ export function ImportDialog() {
           {source === "markdown" && <p>Choose one or more .md files. Each becomes a page; a leading “# Heading” becomes its title.</p>}
           {source === "max" && <p>Choose a JSON backup exported from Max (Settings → Data &amp; export). Pages are added as copies with new links.</p>}
         </div>
+        {source === "notion" && (
+          <label className="flex items-start gap-2.5 text-[13px]">
+            <input type="checkbox" checked={ws.importAsTemplates} onChange={(e) => ws.setImportAsTemplates(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
+            <span>
+              <span className="font-medium text-fg">Import as templates</span>
+              <span className="block text-fg-3">For Notion templates you duplicated: top-level pages and databases go to Templates, ready to use again and again. (Notion doesn&apos;t export a database&apos;s own row templates, so recreate those from its New ▾ menu.)</span>
+            </span>
+          </label>
+        )}
         <input ref={input} type="file" className="sr-only" accept={accept} multiple={source === "markdown"} onChange={(e) => e.target.files?.length && run(e.target.files)} />
         <Button variant="primary" icon={<Upload className="size-4" />} pending={busy} onClick={() => input.current?.click()}>
           {source === "notion" ? "Choose Notion export (.zip)" : source === "markdown" ? "Choose Markdown files" : "Choose backup (.json)"}

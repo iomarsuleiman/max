@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LayoutTemplate, Pencil, Plus } from "lucide-react";
+import { Download, LayoutTemplate, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, Segmented, Skeleton } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
@@ -60,8 +60,11 @@ export function TemplatesPage() {
           <p className="mt-1 text-[14px] text-fg-2">Start from a ready-made setup, or save any page as your own template from its ⋯ menu.</p>
 
           <section className="mt-8" aria-label="Your templates">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[13px] font-medium text-fg-3">Your templates</h2>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="me-auto text-[13px] font-medium text-fg-3">Your templates</h2>
+              <Button size="sm" variant="ghost" icon={<Download className="size-3.5" />} onClick={() => (ws.setImportAsTemplates(true), ws.setImportOpen(true))}>
+                Import from Notion
+              </Button>
               <Button
                 size="sm"
                 icon={<Plus className="size-3.5" />}

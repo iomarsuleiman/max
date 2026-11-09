@@ -26,6 +26,7 @@ import { SaveStatus } from "./SaveStatus";
 import { ImageDetailsDialog } from "./ImageDetailsDialog";
 import { useDocumentSync } from "./useDocumentSync";
 import { requestEditorFocus, takeEditorFocusRequest } from "@/lib/client/editorFocus";
+import { registerEditor } from "@/lib/client/saveFlush";
 
 const MaxEditor = dynamic(() => import("@/components/editor/MaxEditor"), {
   ssr: false,
@@ -42,7 +43,8 @@ function EditorSkeleton() {
   );
 }
 
-export function PageView({ pageId }: { pageId: string }) {
+export function PageView({ pageId, renderHeader }: { pageId: string; renderHeader?: (data: PageGetResult) => React.ReactNode }) {
+  const embedded = !!renderHeader;
   const ws = useWorkspace();
   const router = useRouter();
   const q = useOp<PageGetResult>("pages.get", { id: pageId });
@@ -59,8 +61,16 @@ export function PageView({ pageId }: { pageId: string }) {
   }, [page, pageId, ws]);
 
   useEffect(() => {
-    if (page) document.title = `${page.icon ? page.icon + " " : ""}${pageTitle(page.title)} · Max`;
-  }, [page]);
+    if (page && !embedded) document.title = `${page.icon && !page.icon.startsWith("lucide:") ? page.icon + " " : ""}${pageTitle(page.title)} · Max`;
+  }, [page, embedded]);
+
+  // Keyboard shortcuts act on the open page (a peek takes precedence while it's open).
+  const { setActivePageId } = ws;
+  useEffect(() => {
+    if (embedded) return;
+    setActivePageId(pageId);
+    return () => setActivePageId(null);
+  }, [embedded, pageId, setActivePageId]);
 
   if (q.error) {
     return (
@@ -101,18 +111,22 @@ export function PageView({ pageId }: { pageId: string }) {
 
   return (
     <>
-      <Topbar crumbs={crumbs}>
-        <PageTopbarActions page={page} saveSlotId={`save-${pageId}`} />
-      </Topbar>
-      <div className="min-h-0 flex-1 overflow-y-auto" id="page-scroll">
+      {renderHeader ? (
+        renderHeader(data)
+      ) : (
+        <Topbar crumbs={crumbs}>
+          <PageTopbarActions page={page} saveSlotId={`save-${pageId}`} />
+        </Topbar>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto" id={embedded ? undefined : "page-scroll"}>
         {page.archivedAt && <TrashBanner data={data} />}
         {page.isTemplate && (
           <div className="bg-accent-soft px-4 py-2 text-center text-[13px] text-fg">
             You&apos;re editing a template. New {page.databaseId ? "rows" : "pages"} made from it copy this content. Use {"{{today}}"} to insert the date.
           </div>
         )}
-        <PageHeader page={page} readOnly={readOnly} widthClass={widthClass} onEnter={() => requestEditorFocus(pageId)} />
-        <div className={cn("mx-auto w-full px-4 pb-24 sm:px-12", widthClass)}>
+        <PageHeader page={page} readOnly={readOnly} widthClass={embedded ? "max-w-[760px]" : widthClass} onEnter={() => requestEditorFocus(pageId)} />
+        <div className={cn("mx-auto w-full px-4 pb-24 sm:px-12", embedded && !isDatabase ? "max-w-[760px]" : widthClass)}>
           {page.locked && !page.archivedAt && (
             <p className="mb-2 inline-flex items-center gap-1.5 text-[12.5px] text-fg-3">
               <Lock className="size-3.5" /> Locked. Unlock from the ⋯ menu to edit.
@@ -140,7 +154,7 @@ export function PageView({ pageId }: { pageId: string }) {
   );
 }
 
-function PageTopbarActions({ page, saveSlotId }: { page: PageGetResult["page"]; saveSlotId: string }) {
+export function PageTopbarActions({ page, saveSlotId }: { page: PageGetResult["page"]; saveSlotId: string }) {
   const ws = useWorkspace();
   const fav = !!page.favoriteRank;
   return (
@@ -303,6 +317,8 @@ function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; 
     applyingRemote.current = false;
     sync.adopt(doc.revision);
   }, [doc.revision, doc.blocks, sync, sync.state]);
+
+  useEffect(() => registerEditor(pageId, () => sync.flush()), [pageId, sync]);
 
   useEffect(() => {
     const focus = () => {

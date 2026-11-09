@@ -20,6 +20,7 @@ import {
   requirePage,
   sha256,
   summary,
+  templateMembers,
   treeChildren,
   upsertSettings,
 } from "./helpers";
@@ -146,7 +147,8 @@ export const workspaceOverview = defineOp({
   input: z.object({}),
   async run(ctx) {
     const [pages, docs] = await Promise.all([allPages(ctx), ctx.db.list("documents", ctx.ownerId)]);
-    const live = pages.filter((p) => !p.archivedAt && !p.isTemplate);
+    const hidden = templateMembers(pages);
+    const live = pages.filter((p) => !p.archivedAt && !hidden.has(p._id));
     const liveIds = new Set(live.map((p) => p._id));
     const words = docs.filter((d) => liveIds.has(d.pageId)).reduce((t, d) => t + (d.wordCount ?? 0), 0);
     const day = 86_400_000;
@@ -183,7 +185,7 @@ export const accountDeleteAllData = defineOp({
   input: z.object({ confirm }),
   async run(ctx) {
     let removed = 0;
-    for (const table of ["documents", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
+    for (const table of ["documents", "versions", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
       for (const row of await ctx.db.list(table, ctx.ownerId)) {
         await ctx.db.delete(table, row._id);
         removed++;
@@ -355,6 +357,44 @@ export const assetsRemove = defineOp({
 
 /* ── Export & import ─────────────────────────────────────────────────────── */
 
+type AnyInline = { type: string; href?: string; content?: AnyInline[]; text?: string; props?: Record<string, unknown> };
+type AnyBlock = { type: string; props: Record<string, unknown>; content?: unknown; children: AnyBlock[]; id: string };
+
+/**
+ * Turns links between imported pages into what Notion showed: a link alone on its line becomes a
+ * page block, a link inside text becomes an @-mention. Links to pages not imported yet are kept.
+ */
+export function relinkImported(blocks: AnyBlock[], resolve: (key: string) => string | undefined): AnyBlock[] {
+  const textOf = (items: AnyInline[] = []): string => items.map((i) => i.text ?? textOf(i.content)).join("");
+  const inline = (items: AnyInline[]): AnyInline[] =>
+    items.map((item) => {
+      if (item.type !== "link" || !item.href?.startsWith("max-import://")) return item;
+      let key = item.href.slice("max-import://".length);
+      try {
+        key = decodeURIComponent(key);
+      } catch {}
+      const target = resolve(key);
+      return target ? { type: "pageMention", props: { pageId: target, title: textOf(item.content) } } : item;
+    });
+  const visit = (list: AnyBlock[]): AnyBlock[] =>
+    list.map((b) => {
+      const next = { ...b, children: visit(b.children ?? []) };
+      if (Array.isArray(b.content)) {
+        const content = inline(b.content as AnyInline[]);
+        const meaningful = content.filter((c) => !(c.type === "text" && !c.text?.trim()));
+        if (b.type === "paragraph" && !next.children.length && meaningful.length === 1 && meaningful[0].type === "pageMention") {
+          return { id: b.id, type: "pageLink", props: { pageId: meaningful[0].props!.pageId }, children: [] } as AnyBlock;
+        }
+        next.content = content;
+      } else if (b.content && typeof b.content === "object" && (b.content as { type?: string }).type === "tableContent") {
+        const t = b.content as { rows: { cells: unknown[] }[] };
+        next.content = { ...t, rows: t.rows.map((r) => ({ ...r, cells: r.cells.map((c) => (Array.isArray(c) ? inline(c as AnyInline[]) : { ...(c as object), content: inline(((c as { content?: AnyInline[] }).content ?? []) as AnyInline[]) })) })) };
+      }
+      return next;
+    });
+  return visit(blocks);
+}
+
 function safeFileName(title: string) {
   return (title || "Untitled").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").trim().slice(0, 80) || "Untitled";
 }
@@ -496,9 +536,10 @@ export const importBundle = defineOp({
   input: z.object({
     items: z.array(bundleItem).min(1).max(5000),
     parentId: id.nullable().optional(),
+    asTemplates: z.boolean().optional().describe("Import the top-level pages as templates (they appear under Templates instead of the sidebar)."),
     existing: z.record(z.string(), z.string()).optional().describe("Keys already imported in earlier chunks, mapped to their page ids."),
   }),
-  async run(ctx, { items, parentId = null, existing = {} }) {
+  async run(ctx, { items, parentId = null, existing = {}, asTemplates = false }) {
     if (parentId) await requirePage(ctx, parentId);
     const pages = await allPages(ctx);
     if (pages.length + items.length > LIMITS.pagesPerAccount) throw new MaxError("LIMIT", "This import would go past your page limit.");
@@ -539,7 +580,8 @@ export const importBundle = defineOp({
         : undefined;
       const row = newPageRow(ctx, {
         kind: item.database ? "database" : "page",
-        parentId: parent ?? null,
+        parentId: asTemplates && !item.parentKey ? null : (parent ?? null),
+        isTemplate: asTemplates && !item.parentKey,
         title: cleanTitle(item.title),
         icon: item.icon ?? null,
         rank,
@@ -571,11 +613,8 @@ export const importBundle = defineOp({
       // Earlier chunks may link to pages created in this one.
       const doc = (await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: pageId }))[0];
       if (!doc || !doc.content.includes("max-import://")) continue;
-      const content = doc.content.replace(/max-import:\/\/([^"\\)\s]+)/g, (m, key: string) => {
-        const target = ids.get(decodeURIComponent(key));
-        return target ? `/p/${target}` : m;
-      });
-      await ctx.db.patch("documents", doc._id, { content });
+      const content = JSON.stringify(relinkImported(parseContent(doc.content), (key) => ids.get(key)));
+      if (content !== doc.content) await ctx.db.patch("documents", doc._id, { content });
     }
     return { created, rootIds: items.filter((i) => !i.parentKey).map((i) => ids.get(i.key)), keys: Object.fromEntries([...ids].filter(([, v]) => createdIds.has(v))) };
   },

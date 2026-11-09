@@ -23,7 +23,15 @@ interface ViewProps {
   onUpdate: (id: string, values: Record<string, unknown>) => void;
   onCreate: (values?: Record<string, unknown>) => Promise<string | null>;
   onUpdateView: (patch: Partial<DatabaseView>) => void;
+  onOpenRecord: (id: string, event?: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean }) => void;
 }
+
+/** Plain clicks open the row per the view's setting; ⌘/Ctrl-click and middle-click keep the link's default. */
+const openHandler = (open: ViewProps["onOpenRecord"], id: string) => (e: React.MouseEvent) => {
+  if (e.metaKey || e.ctrlKey || e.button !== 0) return;
+  e.preventDefault();
+  open(id, e);
+};
 
 function CardProps({ properties, record }: { properties: PropertyDef[]; record: RecordView }) {
   const shown = properties.filter((p) => p.type !== "title" && record.values[p.id] !== null && record.values[p.id] !== undefined && record.values[p.id] !== "" && !(Array.isArray(record.values[p.id]) && !(record.values[p.id] as unknown[]).length));
@@ -41,7 +49,7 @@ function CardProps({ properties, record }: { properties: PropertyDef[]; record: 
 
 /* ── Board ───────────────────────────────────────────────────────────────── */
 
-export function BoardView({ database, view, properties, records, readOnly, onUpdate, onCreate, onUpdateView }: ViewProps) {
+export function BoardView({ onOpenRecord, database, view, properties, records, readOnly, onUpdate, onCreate, onUpdateView }: ViewProps) {
   const router = useRouter();
   const groupable = properties.filter((p) => p.type === "status" || p.type === "select");
   const group = properties.find((p) => p.id === view.groupByPropertyId) ?? groupable[0];
@@ -86,7 +94,7 @@ export function BoardView({ database, view, properties, records, readOnly, onUpd
               <div className="grid gap-1.5">
                 {items.map((r) => (
                   <BoardCard key={r._id} id={r._id} disabled={readOnly}>
-                    <Link href={`/p/${r._id}`} className="block rounded-lg bg-overlay p-2.5 shadow-[0_0_0_1px_var(--line),0_1px_2px_oklch(0_0_0/0.04)] hover:bg-surface-2" onClick={(e) => e.defaultPrevented && e.preventDefault()}>
+                    <Link href={`/p/${r._id}`} className="block rounded-lg bg-overlay p-2.5 shadow-[0_0_0_1px_var(--line),0_1px_2px_oklch(0_0_0/0.04)] hover:bg-surface-2" onClick={openHandler(onOpenRecord, r._id)}>
                       <div className="flex items-start gap-1.5 text-[13.5px] font-medium text-fg">
                         {r.icon && <PageIcon icon={r.icon} />}
                         <span className="min-w-0 break-words">{pageTitle(r.title)}</span>
@@ -100,7 +108,7 @@ export function BoardView({ database, view, properties, records, readOnly, onUpd
                     type="button"
                     onClick={async () => {
                       const id = await onCreate(opt ? { [group.id]: opt.id } : {});
-                      if (id) router.push(`/p/${id}`);
+                      if (id) onOpenRecord(id);
                     }}
                     className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] text-fg-3 hover:bg-hover hover:text-fg-2"
                   >
@@ -137,14 +145,14 @@ function BoardCard({ id, disabled, children }: { id: string; disabled: boolean; 
 
 /* ── List ────────────────────────────────────────────────────────────────── */
 
-export function ListView({ properties, records, readOnly, onCreate }: ViewProps) {
+export function ListView({ onOpenRecord, properties, records, readOnly, onCreate }: ViewProps) {
   const router = useRouter();
   return (
     <div className="px-4 sm:px-12">
       <ul className="grid border-t border-line">
         {records.map((r) => (
           <li key={r._id} className="border-b border-line">
-            <Link href={`/p/${r._id}`} className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-1 py-1.5 hover:bg-hover">
+            <Link href={`/p/${r._id}`} onClick={openHandler(onOpenRecord, r._id)} className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-1 py-1.5 hover:bg-hover">
               <span className="flex min-w-0 flex-1 items-center gap-2 text-[14px] font-medium text-fg">
                 <PageIcon icon={r.icon} />
                 <span className="truncate">{pageTitle(r.title)}</span>
@@ -161,7 +169,7 @@ export function ListView({ properties, records, readOnly, onCreate }: ViewProps)
         ))}
       </ul>
       {!readOnly && (
-        <button type="button" onClick={async () => { const id = await onCreate(); if (id) router.push(`/p/${id}`); }} className="mt-1 flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] text-fg-3 hover:bg-hover hover:text-fg-2">
+        <button type="button" onClick={async () => { const id = await onCreate(); if (id) onOpenRecord(id); }} className="mt-1 flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] text-fg-3 hover:bg-hover hover:text-fg-2">
           <Plus className="size-3.5" /> New
         </button>
       )}
@@ -171,12 +179,12 @@ export function ListView({ properties, records, readOnly, onCreate }: ViewProps)
 
 /* ── Gallery ─────────────────────────────────────────────────────────────── */
 
-export function GalleryView({ properties, records, readOnly, onCreate, view }: ViewProps) {
+export function GalleryView({ onOpenRecord, properties, records, readOnly, onCreate, view }: ViewProps) {
   const router = useRouter();
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3 px-4 sm:px-12">
       {records.map((r) => (
-        <Link key={r._id} href={`/p/${r._id}`} className="overflow-hidden rounded-lg bg-overlay shadow-[0_0_0_1px_var(--line),0_1px_2px_oklch(0_0_0/0.04)] transition-colors hover:bg-surface-2">
+        <Link key={r._id} href={`/p/${r._id}`} onClick={openHandler(onOpenRecord, r._id)} className="overflow-hidden rounded-lg bg-overlay shadow-[0_0_0_1px_var(--line),0_1px_2px_oklch(0_0_0/0.04)] transition-colors hover:bg-surface-2">
           {view.cardPreview !== "none" && <CoverView cover={r.cover} className="h-28 w-full" />}
           <div className="p-2.5">
             <div className="flex items-center gap-1.5 text-[13.5px] font-medium text-fg">
@@ -188,7 +196,7 @@ export function GalleryView({ properties, records, readOnly, onCreate, view }: V
         </Link>
       ))}
       {!readOnly && (
-        <button type="button" onClick={async () => { const id = await onCreate(); if (id) router.push(`/p/${id}`); }} className="grid min-h-40 place-items-center rounded-lg text-[13px] text-fg-3 shadow-[0_0_0_1px_var(--line)] hover:bg-hover hover:text-fg-2">
+        <button type="button" onClick={async () => { const id = await onCreate(); if (id) onOpenRecord(id); }} className="grid min-h-40 place-items-center rounded-lg text-[13px] text-fg-3 shadow-[0_0_0_1px_var(--line)] hover:bg-hover hover:text-fg-2">
           <span className="inline-flex items-center gap-1.5"><Plus className="size-4" /> New</span>
         </button>
       )}
@@ -200,7 +208,7 @@ export function GalleryView({ properties, records, readOnly, onCreate, view }: V
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-export function CalendarView({ properties, records, readOnly, onCreate, onUpdate, view, onUpdateView }: ViewProps) {
+export function CalendarView({ onOpenRecord, properties, records, readOnly, onCreate, onUpdate, view, onUpdateView }: ViewProps) {
   const router = useRouter();
   const dateProps = properties.filter((p) => p.type === "date");
   const dateProp = properties.find((p) => p.id === view.datePropertyId) ?? dateProps[0];
@@ -266,7 +274,7 @@ export function CalendarView({ properties, records, readOnly, onCreate, onUpdate
                 <div className="flex items-center justify-between">
                   <span className={cn("grid size-6 place-items-center rounded-full text-[12px]", key === today ? "bg-danger font-semibold text-white" : "text-fg-2")}>{d.getDate()}</span>
                   {!readOnly && (
-                    <button type="button" aria-label={`New row on ${d.toLocaleDateString("en", { dateStyle: "medium" })}`} onClick={async () => { const id = await onCreate({ [dateProp.id]: key }); if (id) router.push(`/p/${id}`); }} className="grid size-5 place-items-center rounded text-fg-3 opacity-0 hover:bg-hover group-hover/day:opacity-100 focus-visible:opacity-100">
+                    <button type="button" aria-label={`New row on ${d.toLocaleDateString("en", { dateStyle: "medium" })}`} onClick={async () => { const id = await onCreate({ [dateProp.id]: key }); if (id) onOpenRecord(id); }} className="grid size-5 place-items-center rounded text-fg-3 opacity-0 hover:bg-hover group-hover/day:opacity-100 focus-visible:opacity-100">
                       <Plus className="size-3.5" />
                     </button>
                   )}
@@ -274,7 +282,7 @@ export function CalendarView({ properties, records, readOnly, onCreate, onUpdate
                 <div className="mt-1 grid gap-1">
                   {items.map((r) => (
                     <CalendarItem key={r._id} id={r._id} disabled={readOnly}>
-                      <Link href={`/p/${r._id}`} className="block truncate rounded bg-overlay px-1.5 py-0.5 text-[12.5px] font-medium text-fg shadow-[0_0_0_1px_var(--line)] hover:bg-surface-2">
+                      <Link href={`/p/${r._id}`} onClick={openHandler(onOpenRecord, r._id)} className="block truncate rounded bg-overlay px-1.5 py-0.5 text-[12.5px] font-medium text-fg shadow-[0_0_0_1px_var(--line)] hover:bg-surface-2">
                         {r.icon && <PageIcon icon={r.icon} size={13} className="me-1 inline-grid align-[-2px]" />}
                         {pageTitle(r.title)}
                       </Link>

@@ -69,6 +69,7 @@ export default function MaxEditor(props: MaxEditorProps) {
 
   const editor = useCreateBlockNote({
     schema: maxSchema,
+    domAttributes: { editor: { "aria-label": "Page content", "aria-multiline": "true" } },
     initialContent: languages.blocks.length ? (languages.blocks as never) : undefined,
     uploadFile: async (file: File) => {
       const problem = checkImage(file);
@@ -148,10 +149,29 @@ export default function MaxEditor(props: MaxEditorProps) {
 
   const dir = props.dir === "auto" || !props.dir ? undefined : props.dir;
 
+  // BlockNote's to-do checkboxes have no names; give each one its item's text for screen readers.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const label = () => {
+      root.querySelectorAll<HTMLInputElement>('[data-content-type="checkListItem"] > div > input[type="checkbox"]').forEach((input) => {
+        const text = input.closest(".bn-block-content")?.querySelector(".bn-inline-content")?.textContent?.trim();
+        const name = text ? `Done: ${text.slice(0, 80)}` : "Done";
+        if (input.getAttribute("aria-label") !== name) input.setAttribute("aria-label", name);
+      });
+    };
+    label();
+    const observer = new MutationObserver(label);
+    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <EditorBridge.Provider value={bridge}>
       {/* Blank-canvas clicks focus the end of the document; block shortcuts are handled here. */}
       <div
+        ref={rootRef}
         className="lx-editor"
         dir={dir}
         spellCheck={props.spellcheck !== false}
@@ -163,6 +183,16 @@ export default function MaxEditor(props: MaxEditorProps) {
           if (!props.editable || event.button !== 0 || !isBlankEditorTarget(event.target)) return;
           event.preventDefault();
           focusEditorEnd(editor);
+        }}
+        onClickCapture={(event) => {
+          // Internal page links open the page, like Notion (Cmd/Ctrl-click opens a new tab).
+          const a = (event.target as HTMLElement).closest?.("a[href^='/p/']") as HTMLAnchorElement | null;
+          if (!a || a.closest(".mx-pagelink, .mx-mention")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const pageId = a.getAttribute("href")!.slice(3).split(/[?#]/)[0];
+          if (event.metaKey || event.ctrlKey) window.open(`/p/${pageId}`, "_blank", "noopener");
+          else propsRef.current.navigate(pageId);
         }}
         onDropCapture={(event) => {
           handleBlockDrop(editor, event);

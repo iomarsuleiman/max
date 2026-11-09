@@ -50,6 +50,25 @@ export function treeChildren(pages: PageRow[], parentId: string | null): PageRow
   return pages.filter((p) => p.parentId === parentId && !p.databaseId && !p.archivedAt && !p.isTemplate).sort(byRank);
 }
 
+/** Ids of templates and everything inside them (subpages, database rows). They stay out of the tree, search and recents. */
+export function templateMembers(pages: PageRow[]): Set<string> {
+  const byId = new Map(pages.map((p) => [p._id, p]));
+  const out = new Set<string>();
+  for (const p of pages) {
+    let cur: PageRow | undefined = p;
+    let guard = 0;
+    while (cur && guard++ < 60) {
+      if (cur.isTemplate) {
+        out.add(p._id);
+        break;
+      }
+      const up: string | null = cur.parentId ?? cur.databaseId;
+      cur = up ? byId.get(up) : undefined;
+    }
+  }
+  return out;
+}
+
 export function descendants(pages: PageRow[], rootId: string): PageRow[] {
   const byParent = new Map<string, PageRow[]>();
   for (const p of pages) {

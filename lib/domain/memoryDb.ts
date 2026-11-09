@@ -11,6 +11,7 @@ const emptyState = (): State => ({
   tokens: new Map(),
   audit: new Map(),
   idempotency: new Map(),
+  versions: new Map(),
 });
 
 let counter = 0;

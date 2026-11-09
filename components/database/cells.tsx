@@ -325,8 +325,11 @@ export function EditableValue({ prop, value, record, databaseId, readOnly, onSav
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) ref.current?.focus({ preventScroll: true });
+    // Return focus to the cell after its editor closes (never on first render).
+    if (wasOpen.current && !open) ref.current?.focus({ preventScroll: true });
+    wasOpen.current = open;
   }, [open]);
   const empty = value === null || value === undefined || value === "" || (Array.isArray(value) && !value.length);
   if (prop.type === "checkbox") {
@@ -341,10 +344,10 @@ export function EditableValue({ prop, value, record, databaseId, readOnly, onSav
       ref={ref}
       type="button"
       disabled={readOnly && !["url", "email", "phone"].includes(prop.type)}
-      aria-label={`${prop.name}${empty ? ", empty" : ""}`}
+      aria-label={empty ? `${prop.name}, empty` : undefined}
       className={cn("flex h-full min-h-8 w-full min-w-0 items-center px-2 text-start text-[13.5px] outline-none hover:bg-hover focus-visible:shadow-[inset_0_0_0_2px_var(--focus)] disabled:hover:bg-transparent", className)}
     >
-      {empty && prop.type !== "created_time" && prop.type !== "updated_time" && prop.type !== "formula" && prop.type !== "rollup" ? <span className="text-fg-3/70">{placeholder}</span> : <ValueView prop={prop} value={value} record={record} compact />}
+      {empty && prop.type !== "created_time" && prop.type !== "updated_time" && prop.type !== "formula" && prop.type !== "rollup" ? <span className="text-fg-3">{placeholder}</span> : <ValueView prop={prop} value={value} record={record} compact />}
     </button>
   );
   if (readOnly) return trigger;

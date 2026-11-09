@@ -1,0 +1,52 @@
+/** Every keyboard shortcut in Max, in one list (used by the handler docs and Settings → Keyboard shortcuts). */
+export interface Shortcut {
+  keys: string;
+  label: string;
+  group: "General" | "Navigation" | "Pages" | "Peek" | "Sidebar" | "Editor" | "Databases";
+}
+
+export const SHORTCUTS: Shortcut[] = [
+  { group: "General", keys: "⌘ K", label: "Search and commands" },
+  { group: "General", keys: "⌘ ⌥ N", label: "New page" },
+  { group: "General", keys: "⌘ ,", label: "Settings" },
+  { group: "General", keys: "⌘ /", label: "Show keyboard shortcuts" },
+  { group: "General", keys: "⌘ ⇧ L", label: "Switch light / dark theme" },
+  { group: "General", keys: "⌘ ⇧ I", label: "Import (Notion, Markdown, backup)" },
+  { group: "Navigation", keys: "⌘ [", label: "Back" },
+  { group: "Navigation", keys: "⌘ ]", label: "Forward" },
+  { group: "Navigation", keys: "⌘ ⇧ U", label: "Go to the parent page" },
+  { group: "Navigation", keys: "⌘ ⇧ H", label: "Go to Home" },
+  { group: "Navigation", keys: "⌘ ⇧ T", label: "Go to Templates" },
+  { group: "Pages", keys: "⌘ ⇧ F", label: "Add to / remove from Favorites" },
+  { group: "Pages", keys: "⌘ ⌥ L", label: "Copy page link" },
+  { group: "Pages", keys: "⌘ ⇧ D", label: "Duplicate page" },
+  { group: "Pages", keys: "⌘ ⇧ P", label: "Move page to…" },
+  { group: "Pages", keys: "⌘ ⇧ Y", label: "Page history" },
+  { group: "Pages", keys: "⌘ ⇧ E", label: "Export page as Markdown" },
+  { group: "Pages", keys: "⌘ ⇧ ⌫", label: "Move page to trash (undo from the toast)" },
+  { group: "Peek", keys: "Esc", label: "Close side or center peek" },
+  { group: "Peek", keys: "⌘ ↵", label: "Open the peeked page as a full page" },
+  { group: "Peek", keys: "⌥ ↑ / ⌥ ↓", label: "Previous / next row" },
+  { group: "Peek", keys: "⌘-click", label: "Open a row in a new tab instead" },
+  { group: "Sidebar", keys: "⌘ \\", label: "Show / hide the sidebar" },
+  { group: "Sidebar", keys: "⌥ ⇧ ↑ / ↓", label: "Move the focused page up / down" },
+  { group: "Sidebar", keys: "⌥ ⇧ → / ←", label: "Nest under the page above / move out a level" },
+  { group: "Sidebar", keys: "→ / ←", label: "Expand / collapse the focused page" },
+  { group: "Sidebar", keys: "F2", label: "Rename the focused page" },
+  { group: "Sidebar", keys: "Delete", label: "Move the focused page to trash" },
+  { group: "Editor", keys: "/", label: "Insert a block" },
+  { group: "Editor", keys: "@", label: "Link to a page" },
+  { group: "Editor", keys: "↵ in the title", label: "Start writing the page" },
+  { group: "Editor", keys: "⌘ B / I / U", label: "Bold / italic / underline" },
+  { group: "Editor", keys: "⌘ ⇧ X", label: "Strikethrough" },
+  { group: "Editor", keys: "⌘ E", label: "Inline code" },
+  { group: "Editor", keys: "⌘ K (with text selected)", label: "Add a link" },
+  { group: "Editor", keys: "⌘ D", label: "Duplicate block" },
+  { group: "Editor", keys: "⌘ ⇧ ↑ / ↓", label: "Move block up / down" },
+  { group: "Editor", keys: "Tab / ⇧ Tab", label: "Indent / outdent block" },
+  { group: "Editor", keys: "⌘ ⌥ 1 / 2 / 3", label: "Heading 1 / 2 / 3" },
+  { group: "Editor", keys: "⌘ ⇧ 7 / 8 / 9", label: "Numbered / bulleted / to-do list" },
+  { group: "Editor", keys: "⌘ Z / ⌘ ⇧ Z", label: "Undo / redo" },
+  { group: "Databases", keys: "↵ on a cell", label: "Edit the value" },
+  { group: "Databases", keys: "Esc", label: "Cancel editing" },
+];
