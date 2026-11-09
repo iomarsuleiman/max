@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowUpDown, Eye, EyeOff, Filter, Plus, Search, X } from "lucide-react";
-import { Button, Popover, cn } from "@/components/ui";
+import { ActionSelect, Button, Popover, Select, cn } from "@/components/ui";
 import type { DatabaseView, FilterOperator, PropertyDef, ViewFilter, ViewSort } from "@/lib/domain/types";
 import { PropIcon } from "./meta";
 
@@ -114,18 +114,19 @@ export function FilterButton({ view, properties, onChange }: { view: DatabaseVie
           return (
             <li key={f.id} className="flex flex-wrap items-center gap-1.5">
               <span className="w-10 text-end text-[12px] text-fg-3">{i === 0 ? "Where" : "and"}</span>
-              <select aria-label="Property" value={f.propertyId} onChange={(e) => set({ propertyId: e.target.value, operator: operatorsFor(properties.find((p) => p.id === e.target.value)!)[0].op, value: "" })} className="h-7 max-w-36 rounded-md bg-surface-2 px-1.5 text-[13px]">
-                {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <select aria-label="Condition" value={f.operator} onChange={(e) => set({ operator: e.target.value as FilterOperator })} className="h-7 rounded-md bg-surface-2 px-1.5 text-[13px]">
-                {ops.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
-              </select>
+              <Select
+                label="Property"
+                size="sm"
+                variant="filled"
+                className="max-w-36"
+                value={f.propertyId}
+                onChange={(id) => set({ propertyId: id, operator: operatorsFor(properties.find((p) => p.id === id)!)[0].op, value: "" })}
+                options={properties.map((p) => ({ value: p.id, label: p.name, icon: <PropIcon type={p.type} /> }))}
+              />
+              <Select label="Condition" size="sm" variant="filled" value={f.operator} onChange={(op) => set({ operator: op as FilterOperator })} options={ops.map((o) => ({ value: o.op, label: o.label }))} />
               {needs &&
                 (prop.type === "select" || prop.type === "status" || prop.type === "multi_select" ? (
-                  <select aria-label="Value" value={String(f.value ?? "")} onChange={(e) => set({ value: e.target.value })} className="h-7 max-w-36 rounded-md bg-surface-2 px-1.5 text-[13px]">
-                    <option value="">Choose…</option>
-                    {prop.options?.map((o) => <option key={o.id} value={o.name}>{o.name}</option>)}
-                  </select>
+                  <Select label="Value" size="sm" variant="filled" className="max-w-36" value={String(f.value ?? "")} onChange={(v) => set({ value: v })} options={(prop.options ?? []).map((o) => ({ value: o.name, label: o.name }))} />
                 ) : (
                   <input
                     aria-label="Value"
@@ -144,10 +145,7 @@ export function FilterButton({ view, properties, onChange }: { view: DatabaseVie
         })}
       </ul>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <select aria-label="Add a filter" value="" onChange={(e) => e.target.value && add(e.target.value)} className="h-7 rounded-md px-1.5 text-[13px] text-fg-2 hover:bg-hover">
-          <option value="">+ Add a filter</option>
-          {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <ActionSelect label="Add a filter" onPick={add} options={properties.map((p) => ({ value: p.id, label: p.name, icon: <PropIcon type={p.type} /> }))} />
         {filters.length > 0 && (
           <Button size="xs" variant="ghost" onClick={() => onChange([])}>
             Clear all filters
@@ -175,13 +173,26 @@ export function SortButton({ view, properties, onChange }: { view: DatabaseView;
       <ul className="grid gap-1.5">
         {sorts.map((s, i) => (
           <li key={i} className="flex items-center gap-1.5">
-            <select aria-label="Sort by" value={s.propertyId} onChange={(e) => onChange(sorts.map((x, j) => (j === i ? { ...x, propertyId: e.target.value } : x)))} className="h-7 min-w-0 flex-1 rounded-md bg-surface-2 px-1.5 text-[13px]">
-              {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <select aria-label="Direction" value={s.direction} onChange={(e) => onChange(sorts.map((x, j) => (j === i ? { ...x, direction: e.target.value as "asc" | "desc" } : x)))} className="h-7 rounded-md bg-surface-2 px-1.5 text-[13px]">
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
+            <Select
+              label="Sort by"
+              size="sm"
+              variant="filled"
+              className="flex-1"
+              value={s.propertyId}
+              onChange={(id) => onChange(sorts.map((x, j) => (j === i ? { ...x, propertyId: id } : x)))}
+              options={properties.map((p) => ({ value: p.id, label: p.name, icon: <PropIcon type={p.type} /> }))}
+            />
+            <Select
+              label="Direction"
+              size="sm"
+              variant="filled"
+              value={s.direction}
+              onChange={(d) => onChange(sorts.map((x, j) => (j === i ? { ...x, direction: d } : x)))}
+              options={[
+                { value: "asc" as const, label: "Ascending" },
+                { value: "desc" as const, label: "Descending" },
+              ]}
+            />
             <button type="button" aria-label="Remove sort" onClick={() => onChange(sorts.filter((_, j) => j !== i))} className="grid size-6 place-items-center rounded text-fg-3 hover:bg-hover">
               <X className="size-3.5" />
             </button>
@@ -189,10 +200,11 @@ export function SortButton({ view, properties, onChange }: { view: DatabaseView;
         ))}
       </ul>
       <div className="mt-2 flex items-center justify-between">
-        <select aria-label="Add a sort" value="" onChange={(e) => e.target.value && onChange([...sorts, { propertyId: e.target.value, direction: "asc" }])} className="h-7 rounded-md px-1.5 text-[13px] text-fg-2 hover:bg-hover">
-          <option value="">+ Add a sort</option>
-          {properties.filter((p) => !sorts.some((s) => s.propertyId === p.id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <ActionSelect
+          label="Add a sort"
+          onPick={(id) => onChange([...sorts, { propertyId: id, direction: "asc" }])}
+          options={properties.filter((p) => !sorts.some((s) => s.propertyId === p.id)).map((p) => ({ value: p.id, label: p.name, icon: <PropIcon type={p.type} /> }))}
+        />
         {sorts.length > 0 && (
           <Button size="xs" variant="ghost" onClick={() => onChange([])}>
             Clear sorts
