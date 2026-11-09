@@ -200,14 +200,14 @@ function ResizeHandle({ width, setWidth, onCommit }: { width: number; setWidth: 
 function SidebarHeader({ mobile }: { mobile?: boolean }) {
   const ws = useWorkspace();
   const name = ws.settings?.displayName || ws.identity.name;
-  const workspaceName = ws.settings?.displayName || ws.identity.name !== "You" ? `${name}'s Max` : "My Max";
+  const workspaceName = "Max";
   return (
     <div className="flex items-center gap-1 ps-4 pe-2 pb-1 pt-2">
       <Menu>
         <MenuTrigger asChild>
           <button type="button" className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 text-start hover:bg-hover data-[state=open]:bg-hover">
-            <span className="grid size-6 shrink-0 place-items-center rounded-[6px] bg-fg text-canvas">
-              <LogoMark className="size-4" />
+            <span className="grid size-6 shrink-0 place-items-center text-fg">
+              <LogoMark className="size-[22px]" />
             </span>
             <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-fg">{workspaceName}</span>
             <ChevronDown className="size-3.5 text-fg-3" />
