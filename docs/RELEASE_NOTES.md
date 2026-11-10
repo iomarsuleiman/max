@@ -23,4 +23,4 @@ Notion conversion and size limits are documented in the import preview and [NOTI
 
 The mobile editor is a browser editor. Automated Chromium and WebKit checks cover touch-sized layouts, viewport resizing, selection-preserving formatting, block insertion, undo/redo, and saving; physical iOS keyboard behavior requires device testing.
 
-Vercel production uses its production Convex deployment key. Preview deployments need a separately scoped preview configuration; production credentials are not shared into previews.
+Automatic Vercel deployments run only from `main`. Preview deployments are disabled. Production uses its production Convex deployment key.
