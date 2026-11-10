@@ -19,6 +19,10 @@ const palettes = {
 const escapeXml = (text: string) =>
   text.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[character] ?? character);
 
+/** Foil needs the palette hue at a QR-safe luminance, so channel values are scaled toward black. */
+const shade = (hex: string, factor: number) =>
+  "#" + hex.replace(/^#/, "").replace(/[0-9a-fA-F]{2}/g, (pair) => Math.round(parseInt(pair, 16) * factor).toString(16).padStart(2, "0"));
+
 /** Bounded wrapping keeps long names and unbroken words inside the paper. */
 function wrap(text: string, limit: number): string[] {
   if (!text.trim()) return [];
@@ -87,12 +91,13 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
     <title id="${titleId}">${escapeXml(card.name)}'s Max workspace card</title>
     <desc>Membership artwork with a QR code that opens Max. No private workspace information is published.</desc>
     <defs>
-      <linearGradient class="card-foil-gradient" id="${safePrefix}-qr-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1f1f1f"/><stop offset=".22" stop-color="#4a4a4a"/><stop offset=".38" stop-color="#7c7c7c"/><stop offset=".5" stop-color="#2e2e2e"/><stop offset=".68" stop-color="#6a6a6a"/><stop offset=".85" stop-color="#3a3a3a"/><stop offset="1" stop-color="#565656"/></linearGradient>
+      <linearGradient class="card-foil-gradient" id="${safePrefix}-qr-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${palette.ink}"/><stop offset=".2" stop-color="${shade(palette.dark, .58)}"/><stop offset=".27" stop-color="${shade(palette.first, .42)}"/><stop offset=".32" stop-color="${palette.ink}"/><stop offset=".52" stop-color="${shade(palette.dark, .55)}"/><stop offset=".6" stop-color="${shade(palette.second, .42)}"/><stop offset=".65" stop-color="${palette.ink}"/><stop offset=".82" stop-color="${shade(palette.dark, .58)}"/><stop offset="1" stop-color="${palette.ink}"/></linearGradient>
       <linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${palette.first}"/><stop offset=".52" stop-color="${palette.dark}"/><stop offset="1" stop-color="${palette.second}"/></linearGradient>
       <radialGradient id="${glowId}"><stop stop-color="${palette.glow}" stop-opacity=".6"/><stop offset="1" stop-color="${palette.glow}" stop-opacity="0"/></radialGradient>
       <pattern id="${safePrefix}-hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V3" stroke="${palette.ink}" stroke-width="1"/></pattern>
       <linearGradient class="card-light-gradient" id="${safePrefix}-art-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".36" stop-color="#fff" stop-opacity=".04"/><stop offset=".55" stop-color="#fff" stop-opacity=".24"/><stop offset=".76" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".06"/></linearGradient>
-      <radialGradient class="card-shine-gradient" id="${safePrefix}-shine" cx=".5" cy=".45" r=".72"><stop stop-color="#fff" stop-opacity=".3"/><stop offset=".28" stop-color="#fff" stop-opacity=".1"/><stop offset=".62" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".05"/></radialGradient>
+      <linearGradient class="card-shine-gradient" id="${safePrefix}-shine" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".3" stop-color="#fff" stop-opacity=".04"/><stop offset=".5" stop-color="#fff" stop-opacity=".2"/><stop offset=".7" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <pattern id="${safePrefix}-grain" width="10" height="10" patternUnits="userSpaceOnUse"><circle cx="1.1" cy="1.7" r=".55" fill="${palette.ink}" opacity=".18"/><circle cx="4.3" cy=".8" r=".45" fill="#fff" opacity=".14"/><circle cx="7.9" cy="2.6" r=".5" fill="${palette.ink}" opacity=".14"/><circle cx="2.6" cy="4.9" r=".5" fill="${palette.ink}" opacity=".12"/><circle cx="6.2" cy="5.7" r=".45" fill="#fff" opacity=".1"/><circle cx="9.3" cy="6.8" r=".55" fill="${palette.ink}" opacity=".15"/><circle cx="3.7" cy="8.2" r=".45" fill="#fff" opacity=".12"/><circle cx="8.1" cy="9.4" r=".5" fill="${palette.ink}" opacity=".14"/><circle cx="1.4" cy="9" r=".4" fill="#fff" opacity=".1"/></pattern>
       <mask id="${safePrefix}-art-mask" maskUnits="userSpaceOnUse" x="24" y="24" width="312" height="274">${artMask}</mask>
       <clipPath id="${clipId}"><rect x="24" y="24" width="312" height="274" rx="3"/></clipPath>
     </defs>
@@ -101,6 +106,7 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
       ${shape}
       ${card.pattern !== "plain" ? `<ellipse cx="100" cy="112" rx="150" ry="138" fill="url(#${glowId})" mask="url(#${safePrefix}-art-mask)"/>` : ""}
       <rect class="card-art-light" x="24" y="24" width="312" height="274" fill="url(#${safePrefix}-art-light)" mask="url(#${safePrefix}-art-mask)"/>
+      <rect class="card-grain" x="24" y="24" width="312" height="274" fill="url(#${safePrefix}-grain)" mask="url(#${safePrefix}-art-mask)"/>
     </g>
     ${textLines(names, nameY, nameSize, palette.ink, 700, nameSize + 4)}
     <g font-family="monospace">${textLines(subtitles, subtitleY, 14, palette.ink, 500, 18)}</g>
