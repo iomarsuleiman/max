@@ -133,6 +133,8 @@ describe("one workspace/card identity", () => {
       expect(svg).not.toContain("data:image");
       expect(svg).toContain('mask="url(#card-art-mask)"');
       expect(svg).toContain('class="card-qr-modules"');
+      expect(svg).toContain('<svg width="88" height="88"');
+      expect(svg).toContain('class="card-foil-gradient"');
       expect(svg).not.toContain("card-qr-foil");
       expect(svg).not.toContain("YOUR WORKSPACE CARD");
       expect(svg).not.toContain("<filter");
@@ -141,14 +143,14 @@ describe("one workspace/card identity", () => {
     expect(profileCardSvg(defaultProfileCard("New member")).svg).toContain("NEW CARD");
   });
 
-  it("keeps the softly lit QR modules scannable at multiple reflection angles", async () => {
+  it("keeps the neutral foil QR modules scannable at multiple reflection angles", async () => {
     const { default: sharp } = await import("sharp");
     const { default: jsQR } = await import("jsqr");
     const { PNG } = await import("pngjs");
     const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme: "mint", shape: "band" });
     for (const angle of [0, 90, 180, 270]) {
-      const reflected = svg.replace('class="card-light-gradient"', `class="card-light-gradient" gradientTransform="rotate(${angle} .5 .5)"`);
-      const png = PNG.sync.read(await sharp(Buffer.from(reflected)).resize(1080).extract({ left: 816, top: 1344, width: 192, height: 192 }).png().toBuffer());
+      const reflected = svg.replace('class="card-foil-gradient"', `class="card-foil-gradient" gradientTransform="rotate(${angle} .5 .5)"`);
+      const png = PNG.sync.read(await sharp(Buffer.from(reflected)).resize(1080).extract({ left: 744, top: 1308, width: 264, height: 264 }).png().toBuffer());
       expect(jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data).toBe("https://max.chaos.fail");
     }
   }, 15000);
