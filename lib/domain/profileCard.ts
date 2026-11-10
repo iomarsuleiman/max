@@ -12,7 +12,7 @@ export const profileCardSchema = z.object({
   pattern: z.enum(["plain", "gradient", "dots"]),
   shape: z.enum(profileCardShapes).default("arch"),
   /** Max join date, assigned by the server from the workspace creation timestamp. */
-  createdAt: z.number().int().nonnegative().max(8_640_000_000_000_000).optional(),
+  createdAt: z.number().nonnegative().max(8_640_000_000_000_000).optional(),
 });
 
 export type ProfileCard = z.infer<typeof profileCardSchema>;
