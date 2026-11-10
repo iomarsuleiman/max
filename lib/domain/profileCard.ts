@@ -11,7 +11,7 @@ export const profileCardSchema = z.object({
   theme: z.enum(profileCardThemes),
   pattern: z.enum(["plain", "gradient", "dots"]),
   shape: z.enum(profileCardShapes).default("arch"),
-  /** Assigned by the server on the first saved edition. Older cards may not have a recorded date. */
+  /** Max join date, assigned by the server from the workspace creation timestamp. */
   createdAt: z.number().int().nonnegative().max(8_640_000_000_000_000).optional(),
 });
 

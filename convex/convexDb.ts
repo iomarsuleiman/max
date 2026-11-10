@@ -17,7 +17,7 @@ export function convexDb(db: Reader | Writer): Db {
       const nid = normalize(table, id);
       if (!nid) return null;
       const row = await db.get(nid);
-      return row ? (strip(row) as unknown as Tables[T]) : null;
+      return row ? (strip(row, table) as unknown as Tables[T]) : null;
     },
     async list<T extends TableName>(table: T, ownerId: string, where?: { field: IndexedField<T>; value: string | null }) {
       const rows = where
@@ -29,7 +29,7 @@ export function convexDb(db: Reader | Writer): Db {
             .query(table)
             .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
             .collect();
-      return rows.map((r) => strip(r) as unknown as Tables[T]);
+      return rows.map((r) => strip(r, table) as unknown as Tables[T]);
     },
     async insert<T extends TableName>(table: T, row: NewRow<T>) {
       return (await writer().insert(table, row as never)) as string;
@@ -54,9 +54,10 @@ export function convexDb(db: Reader | Writer): Db {
   };
 }
 
-function strip(row: Record<string, unknown>) {
-  const { _creationTime: _c, ...rest } = row;
-  return rest;
+function strip(row: Record<string, unknown>, table?: TableName) {
+  const { _creationTime, ...rest } = row;
+  // Legacy settings already have the authoritative first-use timestamp in Convex.
+  return table === "settings" ? { ...rest, joinedAt: rest.joinedAt ?? _creationTime } : rest;
 }
 
 export function convexStorage(storage: StorageReader | StorageWriter): Storage {

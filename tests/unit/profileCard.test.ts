@@ -17,6 +17,23 @@ describe("private profile cards", () => {
     expect((await alice("settings.get")).settings.profileCardOnboarded).toBe(true);
   });
 
+  it("uses the Max join date for late-created and legacy cards, including exports and resets", async () => {
+    const { as, advance, db } = setup();
+    const call = as("member");
+    await call("account.init");
+    const joined = (await call("settings.get")).settings;
+    advance(30 * 86_400_000);
+    await call("profileCard.update", { card: { ...defaultProfileCard("Member"), createdAt: 1 } });
+    expect((await call("profileCard.get")).card.createdAt).toBe(joined.joinedAt);
+    await db.patch("settings", joined._id, { profileCard: defaultProfileCard("Legacy") });
+    expect((await call("settings.get")).settings.profileCard.createdAt).toBe(joined.joinedAt);
+    expect((await call("profileCard.export")).svg).toContain("8 Nov 2026");
+    await call("settings.reset", { scope: "all" });
+    expect((await call("settings.get")).settings.joinedAt).toBe(joined.joinedAt);
+    await call("profileCard.update", { card: defaultProfileCard("Updated") });
+    expect((await call("profileCard.get")).card.createdAt).toBe(joined.joinedAt);
+  });
+
   it("validates card fields at the persistence boundary without losing existing data", async () => {
     const call = setup().as("owner");
     const card = defaultProfileCard("Omar");
