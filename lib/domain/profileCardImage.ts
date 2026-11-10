@@ -41,11 +41,12 @@ function wrap(text: string, limit: number): string[] {
   return lines;
 }
 
-function textLines(lines: string[], y: number, size: number, color: string, weight: number, gap: number): string {
+function textLines(lines: string[], y: number, size: number, color: string, weight: number, gap: number, spacing = 0): string {
   return lines
     .map((line, index) => {
       const rtl = /^[^\p{L}]*\p{Script=Arabic}/u.test(line);
-      return `<text x="${rtl ? 336 : 24}" y="${y + index * gap}" font-size="${size}" font-weight="${weight}" fill="${color}" direction="${rtl ? "rtl" : "ltr"}" unicode-bidi="plaintext">${escapeXml(line)}</text>`;
+      const tracking = spacing && !rtl ? ` letter-spacing="${spacing}"` : "";
+      return `<text x="${rtl ? 336 : 24}" y="${y + index * gap}" font-size="${size}" font-weight="${weight}"${tracking} fill="${color}" direction="${rtl ? "rtl" : "ltr"}" unicode-bidi="plaintext">${escapeXml(line)}</text>`;
     })
     .join("");
 }
@@ -60,10 +61,10 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
   const titleId = `${safePrefix}-title`;
   const nameSize = card.name.length > 32 ? 23 : 28;
   const names = wrap(card.name, nameSize === 28 ? 18 : 23);
-  const subtitles = wrap(card.subtitle, 33);
+  const subtitles = wrap(card.subtitle, 30).map((line) => line.toLocaleUpperCase("en"));
   const nameY = 330;
   const subtitleY = nameY + names.length * (nameSize + 4) + 2;
-  const footerY = Math.max(480, subtitleY + subtitles.length * 18 + 64);
+  const footerY = Math.max(480, subtitleY + subtitles.length * 17 + 64);
   const height = footerY + 54;
   const qr = qrcode(0, "M");
   qr.addData("https://max.chaos.fail");
@@ -104,13 +105,13 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
       <rect class="card-art-light" x="24" y="24" width="312" height="274" fill="url(#${safePrefix}-art-light)" mask="url(#${safePrefix}-art-mask)"/>
       <rect class="card-grain" x="24" y="24" width="312" height="274" filter="url(#${safePrefix}-grain)" mask="url(#${safePrefix}-art-mask)" opacity=".18"/>
     </g>
-    ${textLines(names, nameY, nameSize, palette.ink, 700, nameSize + 4)}
-    <g font-family="monospace">${textLines(subtitles, subtitleY, 14, palette.ink, 500, 18)}</g>
-    <rect x="24" y="${footerY - 12}" width="${Math.round(79 + date.length * 6.8)}" height="25" rx="2" fill="none" stroke="${palette.ink}" stroke-width="1.4"/>
-    <path d="M66 ${footerY - 12}v25M80 ${footerY - 12}v25" stroke="${palette.ink}" stroke-width="1"/>
-    <rect x="66" y="${footerY - 12}" width="14" height="25" fill="url(#${safePrefix}-hatch)"/>
-    <text x="35" y="${footerY + 5}" fill="${palette.ink}" font-size="11" font-weight="700">MAX</text>
-    <text x="91" y="${footerY + 5}" fill="${palette.ink}" font-size="11" font-weight="600">${date}</text>
+    ${textLines(names, nameY, nameSize, palette.ink, 700, nameSize + 4, -.5)}
+    <g font-family="monospace">${textLines(subtitles, subtitleY, 12, palette.ink, 600, 17, 1.7)}</g>
+    <rect x="24" y="${footerY - 14}" width="${Math.round(77 + date.length * 7.4)}" height="28" rx="2" fill="none" stroke="${palette.ink}" stroke-width="1.4"/>
+    <path d="M66 ${footerY - 14}v28M80 ${footerY - 14}v28" stroke="${palette.ink}" stroke-width="1"/>
+    <rect x="66" y="${footerY - 14}" width="14" height="28" fill="url(#${safePrefix}-hatch)"/>
+    <text x="35" y="${footerY + 5}" fill="${palette.ink}" font-size="11" font-weight="700" letter-spacing=".4">MAX</text>
+    <text x="91" y="${footerY + 5}" fill="${palette.ink}" font-size="13.5" font-weight="700">${date}</text>
     <g class="card-qr" transform="translate(248 ${footerY - 44})">
       <rect width="88" height="88" rx="3" fill="#fffdf0"/>
       <svg width="88" height="88" viewBox="0 0 ${modules + 8} ${modules + 8}"><path class="card-qr-modules" d="${qrPath}" fill="url(#${safePrefix}-qr-light)" shape-rendering="crispEdges"/></svg>
