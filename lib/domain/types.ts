@@ -185,8 +185,6 @@ export interface SettingsRow {
   collapsedSections: SidebarSectionId[];
   expandedPageIds: string[];
   lastPageId: string | null;
-  /** The page /home opens. Any page can be your home page; null falls back to the last or first page. */
-  homePageId?: string | null;
   displayName: string | null;
   onboarded: boolean;
   updatedAt: number;

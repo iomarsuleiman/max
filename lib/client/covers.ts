@@ -16,6 +16,8 @@ export interface CoverCredit {
   creator?: string;
   source?: string;
   license?: string;
+  /** Average color, painted while the image loads. */
+  color?: string;
 }
 
 export const SOLID_COLORS: Record<string, string> = {
@@ -39,6 +41,20 @@ export const COVER_COLLECTIONS: CoverCollection[] = fetched.map((c) => ({ name: 
 export function coverCredit(value: string): CoverCredit | undefined {
   for (const c of fetched) for (const i of c.items) if (i.value === value) return i;
   return undefined;
+}
+
+const colors = new Map(fetched.flatMap((c) => c.items.map((i) => [i.value, i.color] as const)));
+
+/** The average color of a built-in cover, or of a solid color cover. */
+export function coverColor(cover: string | null | undefined): string | undefined {
+  if (!cover) return undefined;
+  if (cover.startsWith("color:")) return SOLID_COLORS[cover.slice(6)];
+  return colors.get(cover) ?? undefined;
+}
+
+/** Built-in covers are local files, so Next can resize them and serve AVIF/WebP. */
+export function isLocalCover(cover: string | null | undefined): boolean {
+  return !!cover?.startsWith("cover:");
 }
 
 export const ALL_COVERS = COVER_COLLECTIONS.flatMap((c) => c.items.map((i) => i.value));

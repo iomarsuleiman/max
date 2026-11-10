@@ -10,7 +10,7 @@ Live at **[max.chaos.fail](https://max.chaos.fail)** once deployed (see [docs/SE
 
 ## What's inside
 
-- **Pages inside pages.** Any page can be your home page (⋯ → Set as home page), there is no fixed dashboard. A sidebar tree with drag handles to reorder and nest, collapsible Favorites, Recents and Pages sections, keyboard moves (⌥⇧ + arrows), favorites, recents, a trash you can restore from, and a "Move to…" picker.
+- **Pages inside pages.** Max opens where you left off; there is no separate home screen. Readable page addresses (`/p/video-pipeline-<id>`) that follow renames. A sidebar tree with drag handles to reorder and nest, collapsible Favorites, Recents and Pages sections, keyboard moves (⌥⇧ + arrows), favorites, recents, a trash you can restore from, a "Move to…" picker, and a resizable sidebar (drag the edge, click it to close).
 - **The Chaos block editor.** Headings, to-dos, toggles, toggle headings, callouts, quotes, tables, code with highlighting, math (KaTeX), Mermaid diagrams, images with alt text, YouTube with watch ranges, web bookmarks, table of contents, page links, `@` page and date mentions, multi-column layouts, inline and linked databases, embeds (Figma, Loom, Vimeo, Maps, CodePen and more) and file, audio and video uploads up to 50 MB. Gutter handles to drag blocks, `/` command menu, Markdown shortcuts, safe paste from Word, Google Docs and Notion.
 - **Page history and comments.** Snapshots every 10 minutes and before every assistant edit or restore, with a preview and one-click restore. Private comments on a page or on a block, resolve and reopen, highlighted blocks.
 - **Graph view.** An Obsidian-style graph of every page and how they link, with a local graph per page, an animated replay of your workspace growing, hover previews, search, filters, forces you can tune and a keyboard-friendly list.
@@ -20,7 +20,7 @@ Live at **[max.chaos.fail](https://max.chaos.fail)** once deployed (see [docs/SE
 - **Templates.** A gallery (video projects, tasks, meeting notes, reading list, content calendar, journal, weekly planner, wiki) plus your own page and row templates with `{{today}}` placeholders.
 - **Import and export.** Notion "Markdown & CSV" exports (pages, nesting, databases with inferred column types, rows, row content, links that become page mentions, and images), optionally as templates, Markdown files and Max backups. Export everything as Markdown (.zip) or JSON.
 - **Assistants (MCP).** 82 tools that mirror every UI action (pages, content, databases, templates, history, comments, the graph and more), sharing one service layer and permission checks with the app. OAuth for ChatGPT and Claude, personal access tokens for other clients, confirmations for destructive actions and an activity log.
-- **Made to be used every day.** Light and dark themes (OKLCH tokens tuned separately), emoji and Lucide icons in ten colors, covers, fonts, density, full-width pages, RTL and mixed English/Arabic text, keyboard shortcuts, WCAG 2.2 AA checks in CI, print or save as PDF, mobile drawer, and a settings window for account, preferences, editor, sidebar, connections and data.
+- **Made to be used every day.** Light and dark themes (OKLCH tokens tuned separately), emoji, Lucide icons in ten colors or your own image as icons, covers (resized AVIF/WebP with an instant color placeholder) you can drag to reposition, fonts, density, full-width pages, RTL and mixed English/Arabic text, keyboard shortcuts, WCAG 2.2 AA checks in CI, print or save as PDF, mobile drawer, and a settings window for account, preferences, editor, sidebar, connections and data.
 
 ## Quick start (local mode, no accounts needed)
 
@@ -50,9 +50,9 @@ Max uses [Clerk](https://clerk.com) for accounts and [Convex](https://convex.dev
 ## Project layout
 
 ```
-app/                 Routes: workspace (home → your home page, p/[pageId], graph, templates, trash), auth, public pages, /mcp, local API
+app/                 Routes: workspace (home → your last page, p/[slug-id], graph, templates, trash), auth, public pages, /mcp, local API
 components/editor    The Chaos block editor adapted for Max (blocks, side menu, slash menu, drag feedback, paste policy)
-components/…         Workspace shell and sidebar, page view, databases, settings, import, graph, home page, UI kit
+components/…         Workspace shell and sidebar, page view, databases, settings, import, graph, UI kit
 convex/              Schema, database adapter and the authenticated dispatcher
 lib/domain/          Every operation (pages, documents, blocks, databases, templates, import/export, settings, tokens)
 lib/server/          Local store, MCP server and server-side runner

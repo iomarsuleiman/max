@@ -1,5 +1,6 @@
 "use client";
 
+import { pageHref } from "@/lib/pageUrl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
@@ -34,6 +35,8 @@ const MaxEditor = dynamic(() => import("@/components/editor/MaxEditor"), {
   ssr: false,
   loading: () => <EditorSkeleton />,
 });
+// Start downloading the editor as soon as this module loads, in parallel with the page's data.
+if (typeof window !== "undefined") void import("@/components/editor/MaxEditor").catch(() => undefined);
 
 function EditorSkeleton() {
   return (
@@ -68,7 +71,6 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
   const doc = useOp<DocumentGetResult>("documents.get", isDatabase ? "skip" : { pageId });
 
   // Start the editor download while page data is in flight, not after both queries finish.
-  useEffect(() => { void import("@/components/editor/MaxEditor").catch(() => undefined); }, []);
 
   // Recents.
   const touched = useRef(false);
@@ -79,7 +81,13 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
   }, [page, pageId, ws]);
 
   useEffect(() => {
-    if (page && !embedded) document.title = `${page.icon && !page.icon.startsWith("lucide:") ? page.icon + " " : ""}${pageTitle(page.title)} · Max`;
+    if (!page || embedded) return;
+    document.title = `${page.icon && !/^(lucide:|max-asset:|https:)/.test(page.icon) ? page.icon + " " : ""}${pageTitle(page.title)} · Max`;
+    // Keep the address readable: /p/<title-words>-<id>, updated as the page is renamed.
+    const canonical = pageHref(page._id, page.title);
+    if (window.location.pathname.startsWith("/p/") && decodeURI(window.location.pathname) !== decodeURI(canonical)) {
+      window.history.replaceState(window.history.state, "", `${canonical}${window.location.search}${window.location.hash}`);
+    }
   }, [page, embedded]);
 
   // Keyboard shortcuts act on the open page (a peek takes precedence while it's open).
@@ -256,7 +264,7 @@ function Backlinks({ pageId }: { pageId: string }) {
         <ul className="mt-1 grid">
           {q.data!.pages.map((p) => (
             <li key={p._id}>
-              <Link href={`/p/${p._id}`} className="flex h-7 items-center gap-2 rounded px-1 text-[13.5px] text-fg-2 hover:bg-hover">
+              <Link href={pageHref(p._id, p.title)} className="flex h-7 items-center gap-2 rounded px-1 text-[13.5px] text-fg-2 hover:bg-hover">
                 <PageIcon icon={p.icon} kind={p.kind} /> {pageTitle(p.title)}
               </Link>
             </li>
@@ -294,7 +302,7 @@ function ChildPages({ pages }: { pages: PageSummary[] }) {
       <ul className="grid">
         {pages.map((p) => (
           <li key={p._id}>
-            <Link href={`/p/${p._id}`} className="flex h-8 items-center gap-2 rounded-md px-1.5 text-[14px] text-fg hover:bg-hover">
+            <Link href={pageHref(p._id, p.title)} className="flex h-8 items-center gap-2 rounded-md px-1.5 text-[14px] text-fg hover:bg-hover">
               <PageIcon icon={p.icon} kind={p.kind} />
               <span className="truncate underline decoration-line-strong underline-offset-[3px]">{pageTitle(p.title)}</span>
             </Link>
@@ -505,7 +513,7 @@ function DocumentEditor({ pageId, doc, readOnly, smallText, outline }: { pageId:
             }
           }}
           pages={pages}
-          navigate={(id) => router.push(`/p/${id}`)}
+          navigate={(id) => router.push(pageHref(id, ws.byId.get(id)?.title))}
           renderDatabase={(id, ro) => <InlineDatabase databaseId={id} readOnly={ro} />}
           createDatabase={async () => {
             try {

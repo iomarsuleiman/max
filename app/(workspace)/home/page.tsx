@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import { HomeResolver } from "@/components/home/HomeResolver";
+import { StartResolver } from "@/components/workspace/StartResolver";
 
-export const metadata = { title: "Home" };
+export const metadata = { title: "Max" };
 
 export default function HomePage() {
   return (
     <Suspense>
-      <HomeResolver />
+      <StartResolver />
     </Suspense>
   );
 }

@@ -19,14 +19,13 @@ import {
   Trash2,
   Type,
   MoveHorizontal,
-  Unlock, Printer, Waypoints, House } from "lucide-react";
+  Unlock, Printer, Waypoints } from "lucide-react";
 import { toast } from "sonner";
 import { IconButton, Menu, MenuCheckItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Switch } from "@/components/ui";
 import { useRead } from "@/lib/client/data";
 import { dateTime } from "@/lib/client/format";
 import type { PageRow } from "@/lib/client/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
-import { setHomePage } from "@/components/workspace/PageMenu";
 
 export function download(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -137,11 +136,6 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
           {page.kind === "page" && (
             <MenuItem icon={<History />} onSelect={() => setHistoryOpen(true)}>
               Page history
-            </MenuItem>
-          )}
-          {!page.databaseId && (
-            <MenuItem icon={<House />} onSelect={() => setHomePage(ws, ws.settings?.homePageId === page._id ? null : page._id)}>
-              {ws.settings?.homePageId === page._id ? "Remove as home page" : "Set as home page"}
             </MenuItem>
           )}
           <MenuItem icon={<Waypoints />} onSelect={() => setGraphOpen(true)}>

@@ -1,19 +1,12 @@
 "use client";
 
+import { pageHref } from "@/lib/pageUrl";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowLeftToLine, ArrowRightToLine, ArrowUp, Copy, CornerUpRight, ExternalLink, House, Link2, PanelRight, PenLine, RectangleHorizontal, Star, StarOff, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeftToLine, ArrowRightToLine, ArrowUp, Copy, CornerUpRight, ExternalLink, Link2, PanelRight, PenLine, RectangleHorizontal, Star, StarOff, Trash2 } from "lucide-react";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui";
 import type { PageSummary } from "@/lib/client/types";
-import { toast } from "sonner";
-import { notifyError, useWorkspace } from "./context";
-
-/** Makes a page your home page (what /home and ⌘⇧H open), or clears it. */
-export function setHomePage(ws: ReturnType<typeof useWorkspace>, pageId: string | null) {
-  ws.updateSettings({ homePageId: pageId })
-    .then(() => toast.success(pageId ? "Set as your home page" : "Removed as your home page", { duration: 1500 }))
-    .catch((err) => notifyError(err, "Couldn't change your home page."));
-}
+import { useWorkspace } from "./context";
 
 /** The actions available for a page everywhere it appears (sidebar rows, favorites, search). */
 export function PageMenu({
@@ -40,9 +33,6 @@ export function PageMenu({
           {fav ? "Remove from Favorites" : "Add to Favorites"}
         </MenuItem>
         <MenuSeparator />
-        <MenuItem icon={<House />} onSelect={() => setHomePage(ws, ws.settings?.homePageId === page._id ? null : page._id)}>
-          {ws.settings?.homePageId === page._id ? "Remove as home page" : "Set as home page"}
-        </MenuItem>
         <MenuItem icon={<Link2 />} onSelect={() => ws.copyLink(page._id)}>
           Copy link
         </MenuItem>
@@ -81,7 +71,7 @@ export function PageMenu({
         <MenuItem icon={<RectangleHorizontal />} onSelect={() => ws.openPage(page._id, { mode: "center" })}>
           Open in center peek
         </MenuItem>
-        <MenuItem icon={<ExternalLink />} onSelect={() => window.open(`/p/${page._id}`, "_blank", "noopener")}>
+        <MenuItem icon={<ExternalLink />} onSelect={() => window.open(pageHref(page._id, page.title), "_blank", "noopener")}>
           Open in new tab
         </MenuItem>
         <MenuItem icon={<Trash2 />} danger onSelect={() => ws.archivePage(page._id)}>

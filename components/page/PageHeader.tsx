@@ -61,6 +61,7 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
                     <PageIcon icon={page.icon} size={72} />
                   </button>
                 }
+                pageId={page._id}
                 onPick={(e) => update({ icon: e })}
                 onRemove={() => update({ icon: null })}
               />
@@ -76,6 +77,7 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
                     <SmilePlus className="size-4" /> Add icon
                   </button>
                 }
+                pageId={page._id}
                 onPick={(e) => update({ icon: e })}
               />
             )}

@@ -52,7 +52,7 @@ export function CoverPicker({ trigger, onPick, onUpload, onRemove }: { trigger: 
                 {c.items.map((item) => (
                   <PopoverClose asChild key={item.value}>
                     <button type="button" aria-label={`${c.name}: ${item.label}`} title={item.label} onClick={() => onPick(item.value)} className="overflow-hidden rounded-md ring-offset-2 ring-offset-overlay hover:ring-2 hover:ring-line-strong focus-visible:ring-2 focus-visible:ring-accent">
-                      <CoverView cover={item.value} className="h-14 w-full" />
+                      <CoverView cover={item.value} className="h-14 w-full" sizes="160px" />
                     </button>
                   </PopoverClose>
                 ))}

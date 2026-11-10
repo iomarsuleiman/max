@@ -13,10 +13,12 @@ import {
   useUIMode,
 } from "@blocknote/react";
 import { SuggestionMenu } from "@blocknote/core/extensions";
+import { SyntaxHighlightingExtension } from "@blocknote/core";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/shadcn";
 import { CalendarDays, Plus } from "lucide-react";
 import { PageIcon } from "@/components/workspace/PageIcon";
+import { pageIdFromPath } from "@/lib/pageUrl";
 import { EditorBridge, maxSchema, type EditorBridgeValue, type MaxEditorType } from "./blocks";
 import { focusEditorEnd, isBlankEditorTarget } from "./focusEnd";
 import { maxSlashItems, normalizeSearch, searchSlashItems } from "./slashMenu";
@@ -76,6 +78,8 @@ export default function MaxEditor(props: MaxEditorProps) {
 
   const editor = useCreateBlockNote({
     schema: maxSchema,
+    // Shiki loads the first time a code block needs coloring, not with every page.
+    extensions: [SyntaxHighlightingExtension({ createHighlighter: () => import("./shiki").then((m) => m.createHighlighter()) })],
     dictionary: { ...locales.en, multi_column: multiColumnLocales.en } as never,
     domAttributes: { editor: { "aria-label": "Page content", "aria-multiline": "true" } },
     initialContent: languages.blocks.length ? (languages.blocks as never) : undefined,
@@ -207,7 +211,8 @@ export default function MaxEditor(props: MaxEditorProps) {
           if (!a || a.closest(".mx-pagelink, .mx-mention")) return;
           event.preventDefault();
           event.stopPropagation();
-          const pageId = a.getAttribute("href")!.slice(3).split(/[?#]/)[0];
+          const pageId = pageIdFromPath(a.getAttribute("href"));
+          if (!pageId) return;
           if (event.metaKey || event.ctrlKey) window.open(`/p/${pageId}`, "_blank", "noopener");
           else propsRef.current.navigate(pageId);
         }}

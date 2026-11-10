@@ -43,6 +43,18 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(zod@4.6.7)
+      '@shikijs/core':
+        specifier: 4.6.0
+        version: 4.6.0
+      '@shikijs/engine-javascript':
+        specifier: 4.6.0
+        version: 4.6.0
+      '@shikijs/langs-precompiled':
+        specifier: 4.6.0
+        version: 4.6.0
+      '@shikijs/themes':
+        specifier: 4.6.0
+        version: 4.6.0
       clsx:
         specifier: ^2.1.1
         version: 2.1.1

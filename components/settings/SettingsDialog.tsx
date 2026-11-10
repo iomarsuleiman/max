@@ -232,27 +232,6 @@ function PreferencesSection() {
         <SettingRow title="Full width for new pages" description="Each page can still be switched from its ⋯ menu.">
           <Switch label="Full width for new pages" checked={s.defaultFullWidth} onCheckedChange={(v) => set("defaultFullWidth", v)} />
         </SettingRow>
-        <SettingRow title="Home page" description="Any page can be your home page. It opens when you start Max and with ⌘⇧H." htmlFor="home-page">
-          <Select
-            id="home-page"
-            label="Home page"
-            className="w-[220px]"
-            value={s.homePageId ?? ""}
-            onChange={(id) => set("homePageId", id || null, id ? "Home page set" : "Home page cleared")}
-            options={[
-              { value: "", label: "None (open the last page)" },
-              ...(ws.tree ?? [])
-                .filter((p) => p.kind === "page")
-                .sort((a, b) => pageTitle(a.title).localeCompare(pageTitle(b.title), undefined, { numeric: true }))
-                .map((p) => ({ value: p._id, label: pageTitle(p.title), icon: <PageIcon icon={p.icon} kind={p.kind} size={15} /> })),
-            ]}
-          />
-        </SettingRow>
-        {!s.homePageId && (
-          <SettingRow title="Open on start" description="Without a home page, Max opens one of these.">
-            <Segmented label="Open on start" value={s.startPage} onChange={(v) => set("startPage", v)} options={[{ value: "last", label: "Last visited page" }, { value: "home", label: "First page" }]} />
-          </SettingRow>
-        )}
       </Group>
     </>
   );

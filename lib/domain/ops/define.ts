@@ -35,4 +35,9 @@ export const confirm = z
   .optional()
   .describe("Must be true. Confirms you have told the user this permanently removes data.");
 export const title = z.string().max(500);
-export const icon = z.string().max(64).nullable();
+/** An emoji, "lucide:<name>:<color>", or an image: an uploaded "max-asset://<id>" or an https link. */
+export const icon = z
+  .string()
+  .max(2048)
+  .refine((v) => v.length <= 64 || /^(https:\/\/|max-asset:\/\/)/.test(v), "An icon is an emoji, an icon name, or an image link.")
+  .nullable();
