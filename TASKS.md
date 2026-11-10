@@ -10,6 +10,7 @@
 - [x] Add explicit MCP card read/update/export parity, including PNG export.
 - [x] Revise landing page with draggable, inertial Max logo using existing colors.
 - [x] Add optional offline game and restrained tab/switch/navigation motion.
+- [x] Verify the final Arc-style landing revision: monochrome logo, no topbar/toggle/helper text, system theme, static 1,160-byte texture, sticky interactive walkthrough and dark recovery surfaces.
 - [x] Verify conversion, ownership, retries, cancellation, UI accessibility and regressions.
 - [ ] Review diff, publish PR and merge after checks pass.
 
@@ -26,7 +27,7 @@
 
 - 72 unit/integration tests pass, including real Convex schema/store/worker execution against mocked Notion responses, durable attachment ingestion and link repair.
 - Both TypeScript projects and ESLint pass. Production build succeeds.
-- All 20 browser tests pass, including accessibility, desktop/mobile regressions, card PNG export, Notion wizard/report, reduced motion, and network-offline fallback/game.
+- All 21 browser tests pass from a fresh workspace, including accessibility, desktop/mobile regressions, card PNG export, Notion wizard/report, reduced motion, network-offline fallback/game, system-only landing colors, sticky walkthrough and texture budget. Public help themes persist across reload; the landing intentionally follows the system.
 - Convex functions/schema deploy successfully to an isolated anonymous local backend; internal read smoke test succeeds. This does not validate live Clerk or Notion authorization.
 - Existing first-sign-in redirect now preserves Settings query parameters, verified with the Notion journey from a fresh workspace.
 - Production OAuth credentials remain an operator setup step, documented in docs/NOTION.md. Unsupported conversions and import bounds are disclosed in preview/reports and documentation.

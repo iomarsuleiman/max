@@ -2,16 +2,18 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/brand/Logo";
 import { CLOUD, REPO_URL } from "@/lib/config";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function PublicFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-canvas">
+    <div className="paper-grain flex min-h-dvh flex-col bg-canvas">
       <header className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 text-fg" aria-label="Max home">
           <LogoMark className="size-6" />
           <span className="text-[15px] font-semibold tracking-tight">Max</span>
         </Link>
         <nav className="ms-auto flex items-center gap-1 text-[13px]">
+          <ThemeToggle />
           <Link href="/connect" className="rounded-md px-2.5 py-1.5 text-fg-2 hover:bg-hover hover:text-fg max-sm:hidden">
             Assistants
           </Link>

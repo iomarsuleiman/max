@@ -60,7 +60,7 @@ export function PlayfulLogo() {
         type="button"
         aria-label="Spin the Max butterfly"
         aria-describedby="butterfly-help"
-        className="text-accent focus-visible:ring-accent grid size-44 touch-none place-items-center rounded-[44px] outline-none select-none focus-visible:ring-2 focus-visible:ring-offset-8 sm:size-52"
+        className="text-fg focus-visible:ring-fg grid size-44 touch-none place-items-center rounded-[44px] outline-none select-none focus-visible:ring-2 focus-visible:ring-offset-8 sm:size-52"
         style={{ cursor: "grab" }}
         onPointerDown={(e) => {
           const s = motion.current;
@@ -115,10 +115,10 @@ export function PlayfulLogo() {
         }}
       >
         <span ref={mark} className="block size-40 sm:size-48">
-          <LogoMark className="size-full drop-shadow-[0_12px_18px_var(--accent-soft)]" />
+          <LogoMark className="size-full" />
         </span>
       </button>
-      <p id="butterfly-help" className="text-fg-3 text-xs">
+      <p id="butterfly-help" className="sr-only">
         A little room to play. Drag, tap, or use the arrow keys.
       </p>
     </div>

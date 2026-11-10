@@ -24,7 +24,16 @@
         next = 1100,
         obstacles = [],
         announced = -1;
-      const ink = () => (matchMedia("(prefers-color-scheme: dark)").matches ? "#c9d7e6" : "#3c6ea8");
+      let gameInk = getComputedStyle(host).color;
+      const ink = () => gameInk;
+      const themeChanged = () => {
+        gameInk = getComputedStyle(host).color;
+        if (!running) draw();
+      };
+      const themeObserver = new MutationObserver(themeChanged);
+      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme"] });
+      const colorScheme = matchMedia("(prefers-color-scheme: dark)");
+      colorScheme.addEventListener("change", themeChanged);
       const draw = () => {
         context.clearRect(0, 0, 600, 200);
         context.fillStyle = ink();
@@ -104,7 +113,7 @@
         running = true;
         last = performance.now();
         button.textContent = "Pause game";
-      canvas.focus();
+        canvas.focus();
         frame = requestAnimationFrame(tick);
       };
       const jump = () => {
@@ -131,6 +140,8 @@
         running = false;
         cancelAnimationFrame(frame);
         document.removeEventListener("visibilitychange", pause);
+        themeObserver.disconnect();
+        colorScheme.removeEventListener("change", themeChanged);
         root.removeEventListener("keydown", key);
         root.replaceChildren();
       };

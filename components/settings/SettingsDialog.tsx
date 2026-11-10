@@ -439,7 +439,7 @@ function ConnectionsSection() {
           <ul className="py-2 text-[13px]">
             {audit.data.events.map((e) => (
               <li key={e._id} className="flex items-center gap-3 py-1">
-                <span className={cn("size-1.5 rounded-full", e.ok ? "bg-success" : "bg-danger")} aria-label={e.ok ? "Succeeded" : "Failed"} />
+                <span role="img" className={cn("size-1.5 rounded-full", e.ok ? "bg-success" : "bg-danger")} aria-label={e.ok ? "Succeeded" : "Failed"} />
                 <code className="font-mono text-[12.5px]">{e.op}</code>
                 {!e.ok && <span className="text-[12px] text-danger">{e.code}</span>}
                 <span className="ms-auto text-[12px] text-fg-3" title={dateTime(e.at)}>{timeAgo(e.at)}</span>

@@ -1,5 +1,5 @@
 /* Never cache pages, API responses, credentials or private workspace content. */
-const CACHE = "max-offline-v1";
+const CACHE = "max-offline-v2";
 const FILES = ["/offline.html", "/offline-game.js"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES))));
 self.addEventListener("activate", (event) =>
