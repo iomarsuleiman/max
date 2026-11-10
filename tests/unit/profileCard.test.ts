@@ -138,7 +138,7 @@ describe("one workspace/card identity", () => {
       expect(svg).not.toContain("card-qr-foil");
       expect(svg).not.toContain("YOUR WORKSPACE CARD");
       expect(svg).not.toMatch(/(?:href|src)="https?:/);
-      expect(svg).toMatch(/<rect x="24" y="\d+" width="\d+" height="25"/);
+      expect(svg).toMatch(/<rect x="24" y="\d+" width="\d+" height="28"/);
     }
     expect(profileCardSvg(defaultProfileCard("New member")).svg).toContain("NEW CARD");
   });
