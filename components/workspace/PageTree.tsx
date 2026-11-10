@@ -232,7 +232,7 @@ const TreeRow = memo(function TreeRow({
       aria-expanded={item.hasChildren ? item.expanded : undefined}
       aria-selected={active}
       className={cn(
-        "group/row relative flex h-7 items-center gap-0.5 rounded-md pe-1 text-[13.5px] text-fg-2 transition-colors duration-75 hover:bg-hover",
+        "group/row relative flex h-7 min-w-0 max-w-full items-center gap-0.5 rounded-md pe-1 text-[13.5px] text-fg-2 transition-colors duration-75 hover:bg-hover",
         active && "bg-hover font-medium text-fg",
         (ghost || isDragging) && "z-10 bg-accent-soft opacity-80 ring-1 ring-accent/40",
       )}
@@ -290,12 +290,12 @@ const TreeRow = memo(function TreeRow({
           onKeyDown={onKeyDown}
         >
           <PageIcon icon={item.page.icon} kind={item.page.kind} />
-          <span className="truncate" title={title}>
+          <span className="min-w-0 flex-1 truncate" title={title} data-page-title>
             {title}
           </span>
         </Link>
       )}
-      <div className="flex items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/row:opacity-100 has-[[data-state=open]]:opacity-100 max-md:opacity-100">
+      <div className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/row:opacity-100 has-[[data-state=open]]:opacity-100 max-md:opacity-100">
         <PageMenu
           page={item.page}
           onRename={() => onRename(item.id)}

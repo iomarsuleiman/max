@@ -5,7 +5,7 @@ import { Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Field, Input } from "@/components/ui";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
-import { defaultProfileCard, profileCardSchema, type ProfileCard as Card } from "@/lib/domain/profileCard";
+import { defaultProfileCard, profileCardSchema, profileCardThemes, profileCardShapes, type ProfileCard as Card } from "@/lib/domain/profileCard";
 import { ProfileCard } from "./ProfileCard";
 import { downloadProfileCardPng } from "@/lib/client/profileCardExport";
 
@@ -14,7 +14,7 @@ export function ProfileCardEditor() {
   const id = useId();
   const [card, setCard] = useState(() => {
     const saved = profileCardSchema.safeParse(ws.settings?.profileCard);
-    return saved.success ? saved.data : defaultProfileCard(ws.settings?.displayName || ws.identity.name);
+    return saved.success ? { ...saved.data, name: ws.settings?.displayName?.trim() || saved.data.name } : defaultProfileCard(ws.settings?.displayName || ws.identity.name);
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,8 +28,8 @@ export function ProfileCardEditor() {
     setBusy(true);
     setError(null);
     try {
-      await ws.call("profileCard.update", { card: parsed.data });
-      setCard(parsed.data);
+      const result = await ws.call<{ card: Card }>("profileCard.update", { card: parsed.data });
+      setCard(result.card);
       toast.success("Profile card saved");
     } catch (err) {
       notifyError(err, "Couldn't save your card. Your draft is still here.");
@@ -51,46 +51,20 @@ export function ProfileCardEditor() {
         <Button
           icon={<Shuffle className="size-4" />}
           onClick={() => {
-            const themes: Card["theme"][] = ["sunset", "ocean", "sage", "clay", "lilac"];
-            const shapes: Card["shape"][] = ["arch", "leaf", "orbit"];
-            const next = themes.filter((theme) => theme !== card.theme);
-            const random = crypto.getRandomValues(new Uint32Array(2));
-            setCard({ ...card, theme: next[random[0] % next.length], shape: shapes[random[1] % shapes.length], pattern: "gradient" });
+            const next = profileCardThemes.filter((theme) => theme !== card.theme);
+            const random = crypto.getRandomValues(new Uint32Array(3));
+            const subtitles = ["Curious explorer", "Quiet daydreamer", "Creative wanderer", "Thoughtful maker", "Bright observer", "Gentle trailblazer"];
+            setCard({ ...card, theme: next[random[0] % next.length], shape: profileCardShapes[random[1] % profileCardShapes.length], subtitle: subtitles[random[2] % subtitles.length], pattern: "gradient" });
           }}
         >
-          Shuffle design
+          Change
         </Button>
         <p className="text-fg-3 text-center text-xs">The QR opens Max. Your workspace stays private.</p>
       </div>
       <div className="card-studio-controls">
-        <Field label="Card name" htmlFor={`${id}-name`}>
+        <Field label="Name" htmlFor={`${id}-name`} help="Used on your card and throughout Max.">
           <Input id={`${id}-name`} value={card.name} maxLength={80} required dir="auto" onChange={(e) => setCard({ ...card, name: e.target.value })} />
         </Field>
-        <details className="card-details">
-          <summary>More about you</summary>
-          <Field label="About you" htmlFor={`${id}-bio`} help={`${card.bio.length}/180 characters`}>
-            <textarea
-              id={`${id}-bio`}
-              value={card.bio}
-              maxLength={180}
-              rows={3}
-              dir="auto"
-              onChange={(e) => setCard({ ...card, bio: e.target.value })}
-              className="border-line-strong bg-canvas focus:border-accent focus:ring-accent-soft w-full resize-y rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2"
-              placeholder="Collecting ideas, making things."
-            />
-          </Field>
-          <Field label="Card subtitle" htmlFor={`${id}-subtitle`}>
-            <Input
-              id={`${id}-subtitle`}
-              value={card.subtitle}
-              maxLength={60}
-              dir="auto"
-              onChange={(event) => setCard({ ...card, subtitle: event.target.value })}
-              placeholder="Curious explorer"
-            />
-          </Field>
-        </details>
         {error && (
           <p role="alert" className="text-danger text-sm">
             {error}

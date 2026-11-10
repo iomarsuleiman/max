@@ -11,8 +11,8 @@ Max brings private pages, rich documents, personal databases, and an MCP server 
 - Revision-aware saving, local draft recovery, conflict handling, and retry after reconnecting.
 - Owner-scoped MCP tools for pages, documents, databases, imports, and profile cards.
 - Direct Notion copy imports with selection, review, background progress, cancellation, retry, and reports. Notion originals remain unchanged.
-- Compact membership cards with randomized artwork, PNG export, gentle tilt, and a reflective QR that opens Max without publishing profile data.
-- A system-themed landing with a distinctive sans hero, bidirectional spinner, static paper texture, and interactive sticky walkthrough.
+- Compact membership cards with one shared workspace name, twelve color palettes, textured artwork including a curved-band design, a stable issue-date stamp, PNG export, gentle tilt, and reflective QR marks that open Max without publishing workspace data.
+- A system-themed landing with a short Fraunces serif hero, angular touch spinner, static paper texture, scalloped section edge and real product screenshots in a clipped sticky walkthrough.
 - Recovery screens and an optional offline Paper hop game with opt-in synthesized audio and an on-device best score. The service worker caches only the fallback and game assets, never private pages.
 
 ## Deployment requirements and limits

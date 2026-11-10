@@ -299,10 +299,6 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .card-outline { position: relative; width: 100%; max-width: 276px; padding: 16px 13px 13px; border: 1px dashed var(--line-strong); }
 .card-outline-label { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 0 7px; color: var(--fg-3); background: var(--overlay); font: 9px/12px var(--font-mono); letter-spacing: .06em; }
 .card-studio-controls { display: grid; gap: 16px; min-width: 0; align-self: start; }
-.card-details summary { color: var(--fg-2); font-size: 13px; cursor: pointer; padding: 8px 0; }
-.card-details[open] { display: grid; gap: 12px; }
-.profile-card:hover .card-qr-foil { opacity: .3; }
-.card-qr-foil { transition: opacity 220ms ease; }
 @media(max-width: 600px) {
  .card-studio { grid-template-columns: minmax(0,1fr); gap: 24px; }
  .card-studio-intro { grid-column: 1; grid-row: 1; }
@@ -313,3 +309,36 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 }
 @media(prefers-reduced-motion: reduce) { .profile-card { transform: none !important; transition: none; } }
 [data-reduce-motion="on"] .profile-card { transform: none !important; }
+
+/* A scalloped edge and oversized real captures clipped at the viewport side. */
+.landing-system { --landing-section: #fff; }
+.landing-headline, .showcase-title { font-family: var(--font-landing-serif), Georgia, serif; }
+.landing-showcase { position: relative; background: var(--landing-section); overflow: clip; padding: 100px 0 120px; }
+.landing-showcase::before { content: ""; position: absolute; inset: 0 0 auto; height: 10px; background: radial-gradient(circle at 8px 0, var(--canvas) 7px, transparent 7.5px) repeat-x; background-size: 16px 10px; }
+.showcase-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 100px; max-width: 1160px; margin: auto; padding: 0 32px; align-items: start; }
+.showcase-title { font-size: clamp(48px, 5vw, 72px); font-weight: 600; line-height: 1.04; letter-spacing: -.035em; }
+.showcase-tabs { margin-top: 40px; display: grid; gap: 12px; }
+.showcase-tabs button { position: relative; min-height: 40svh; border: 0; padding: 24px; text-align: start; color: var(--fg-2); outline: none; outline-offset: 5px; }
+.showcase-tabs button::before { content: ""; position: absolute; inset-inline-start: 0; top: 50%; transform: translateY(-50%); height: 100px; width: 1px; background: transparent; }
+.showcase-tabs button:focus-visible { outline: 2px solid var(--fg); border-radius: 4px; }
+.showcase-tabs button[aria-selected="true"] { color: var(--fg); animation: none; box-shadow: none; }
+.showcase-tabs button[aria-selected="true"]::before { background: var(--fg); }
+.showcase-feature-title { display: block; font-size: 20px; font-weight: 500; }
+.showcase-feature-body { display: block; font-size: 16px; line-height: 1.65; margin-top: 12px; color: var(--fg-2); }
+.product-viewer { position: sticky; top: 64px; margin: 0; min-width: 0; outline-offset: 8px; }
+.product-shot { display: block; width: 1180px; max-width: none; height: auto; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 48px #0002; }
+@media(prefers-color-scheme:dark) { .landing-system { --landing-section: #202020; } }
+@media(max-width:1023px) {
+ .landing-showcase { padding: 64px 0 72px; }
+ .showcase-grid { display: flex; flex-direction: column; gap: 32px; padding: 0 24px; }
+ .showcase-copy { width: 100%; }
+ .showcase-tabs { gap: 4px; margin-top: 24px; }
+ .showcase-tabs button { min-height: 68px; width: 100%; padding: 14px 20px; }
+ .showcase-tabs button::before { height: calc(100% - 16px); }
+ .showcase-feature-body { display: none; margin-top: 6px; font-size: 14px; }
+ .showcase-tabs button[aria-selected="true"] .showcase-feature-body { display: block; }
+ .product-viewer { position: static; width: 100%; height: 420px; overflow: hidden; border-radius: 14px; border: 1px solid var(--line); }
+ .product-shot { width: 760px; transform: translateX(-120px); border: 0; border-radius: 0; box-shadow: none; }
+ .product-viewer[data-feature="sidebar"] .product-shot { transform: none; }
+ .product-viewer[data-feature="card"] .product-shot { transform: translateX(-180px); }
+}

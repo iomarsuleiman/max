@@ -40,3 +40,14 @@
 - [x] Add spinner inertia, distinctive sans hero and optional game audio.
 - [x] Run release checks: production build, ESLint, both TypeScript projects, 72 unit tests and all 28 browser checks.
 - [ ] Merge release PR and publish v1.0.0 after GitHub checks.
+
+## Final v1 presentation pass
+- [x] Merge production-only deployment policy, PR #9.
+- [x] Diagnose outline/cover overlap and clipped sidebar titles; add bounded regressions.
+- [x] Inspect Arc's public interaction code and implement angular touch physics for Max.
+- [x] Capture real editor, graph, card and sidebar screens from disposable sample notes, light and dark.
+- [x] Verify the shorter serif hero, scalloped section edge and sticky clipped screenshots.
+- [x] Unify workspace/card Name, remove About you, add 12 palettes, curved-band artwork, artwork-only grain, dated hatch stamp and QR-module foil.
+- [x] Final verification: production build, both TypeScript projects, ESLint (existing warnings only), 81 unit/integration tests, and all 30 browser cases (29 full-suite passes plus corrected Arabic-name assertion rerun).
+- [ ] Merge the final presentation PR after GitHub checks.
+- [ ] Publish v1.0.0, then begin phase 00 of the saved Max Collaboration 2.0 plan.
