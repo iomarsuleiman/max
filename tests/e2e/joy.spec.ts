@@ -7,7 +7,8 @@ test("landing butterfly responds to keyboard, drag and reduced motion", async ({
   await expect(logo).toBeVisible();
   await logo.focus();
   await page.keyboard.press("ArrowRight");
-  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(30deg\)/);
+  await expect(logo.locator("span")).not.toHaveAttribute("style", /rotate\(0deg\)/);
+  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 4000 });
   const box = await logo.boundingBox();
   expect(box).not.toBeNull();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -15,6 +16,9 @@ test("landing butterfly responds to keyboard, drag and reduced motion", async ({
   await page.mouse.move(box!.x + box!.width - 10, box!.y + box!.height / 2, { steps: 6 });
   await page.mouse.up();
   await expect(logo.locator("span")).not.toHaveAttribute("style", /rotate\(30deg\)/);
+  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 4000 });
+  await logo.click();
+  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 4000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.waitForTimeout(60);
   const paused = await logo.locator("span").getAttribute("style");
@@ -77,6 +81,7 @@ test("landing texture stays small and static, with system colors and no navigati
   await page.screenshot({ path: "test-results/max-landing-light.png", fullPage: true });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(landing).toHaveCSS("color-scheme", "dark");
+  await expect(landing).toHaveCSS("background-image", /paper-dark\.png/);
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze()).violations.map((violation) => violation.id)).toEqual([]);
   await page.screenshot({ path: "test-results/max-landing-dark.png", fullPage: true });
   await page.goto("/connect/status?reason=invalid_target");
