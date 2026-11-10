@@ -10,7 +10,8 @@ test("cover crops persist, cancel restores the crop, images download, and galler
   });
   expect(updated.ok()).toBeTruthy();
   await page.goto(`/p/${createdPage._id}`);
-  const image = page.locator('img[src="/covers/met-435857.jpg"]');
+  // Built-in covers are served resized through Next's image optimizer.
+  const image = page.locator('img[src*="met-435857"]');
   await expect(image).toBeVisible();
   await page.getByRole("button", { name: "Reposition", exact: true }).click();
   await page.getByRole("slider", { name: "Cover position" }).press("End");
@@ -33,5 +34,5 @@ test("cover crops persist, cancel restores the crop, images download, and galler
     .getByRole("button", { name: /^Japanese prints:/ })
     .first()
     .click();
-  await expect(page.locator('img[src^="/covers/japanese-prints-"]')).toHaveCSS("object-position", "50% 50%");
+  await expect(page.locator('img[src*="japanese-prints-"]').first()).toHaveCSS("object-position", "50% 50%");
 });

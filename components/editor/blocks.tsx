@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Select } from "@/components/ui";
-import katex from "katex";
 import "katex/dist/katex.min.css";
 import {
   BlockNoteSchema,
@@ -14,7 +13,7 @@ import {
   imageParse,
 } from "@blocknote/core";
 import { createReactBlockSpec, createReactInlineContentSpec, ResizableFileBlockWrapper, SourceBlockWithPreview, useEditorChange, useResolveUrl } from "@blocknote/react";
-import { codeBlockOptions } from "@blocknote/code-block";
+import { CODE_LANGUAGES } from "./codeLanguages";
 import { AlertTriangle, FileText, Globe, Image as ImageIcon, Info, Lightbulb, Link2, ListTree, Octagon, PlayCircle, Sheet, Star, StickyNote, Video } from "lucide-react";
 import { withMultiColumn } from "@blocknote/xl-multi-column";
 import Diagram from "./Diagram";
@@ -82,7 +81,25 @@ export const Callout = createReactBlockSpec(
 
 /* ── Equation (LaTeX via KaTeX) ──────────────────────────────────────────── */
 
+// KaTeX (~75 KB) loads the first time a page shows an equation, not with every page.
+let katex: typeof import("katex").default | null = null;
+let katexLoading: Promise<void> | null = null;
+function loadKatex() {
+  katexLoading ??= import("katex").then((m) => {
+    katex = m.default;
+  });
+  return katexLoading;
+}
+function useKatex() {
+  const [ready, setReady] = useState(() => katex !== null);
+  useEffect(() => {
+    if (!ready) void loadKatex().then(() => setReady(true));
+  }, [ready]);
+  return ready;
+}
+
 export function renderMath(source: string, display = true): { html: string; error?: string } {
+  if (!katex) return { html: "" };
   try {
     return { html: katex.renderToString(source, { displayMode: display, throwOnError: true, output: "htmlAndMathml", strict: "ignore", trust: false }) };
   } catch (err) {
@@ -96,7 +113,8 @@ export const Equation = createReactBlockSpec(
     meta: { hasPreview: true, code: true },
     render: function EquationBlock({ block, editor, contentRef }) {
       const source = Array.isArray(block.content) ? block.content.map((c) => ("text" in c ? c.text : "")).join("") : "";
-      const rendered = useMemo(() => (source.trim() ? renderMath(source) : { html: "" }), [source]);
+      const ready = useKatex();
+      const rendered = useMemo(() => (ready && source.trim() ? renderMath(source) : { html: "" }), [source, ready]);
       const [lastGood, setLastGood] = useState(rendered.html);
       useEffect(() => {
         if (rendered.html) setLastGood(rendered.html);
@@ -545,7 +563,7 @@ export const maxSchema = withMultiColumn(BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     heading: createHeadingBlockSpec({ levels: [1, 2, 3], allowToggleHeadings: true }),
-    codeBlock: createCodeBlockSpec(codeBlockOptions),
+    codeBlock: createCodeBlockSpec({ defaultLanguage: "javascript", supportedLanguages: CODE_LANGUAGES }),
     image: MaxImage(),
     callout: Callout(),
     equation: Equation(),

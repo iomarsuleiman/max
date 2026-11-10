@@ -27,17 +27,7 @@ describe("graph.get", () => {
   });
 });
 
-describe("home page and sidebar settings", () => {
-  it("lets any page be the home page and clears it when trashed", async () => {
-    const call = setup().as("u1");
-    const page = (await call<{ page: { _id: string } }>("pages.create", { title: "My home" })).page;
-    await call("settings.update", { homePageId: page._id });
-    expect((await call<{ settings: { homePageId: string | null } }>("settings.get")).settings.homePageId).toBe(page._id);
-    await call("pages.archive", { id: page._id });
-    expect((await call<{ settings: { homePageId: string | null } }>("settings.get")).settings.homePageId).toBeNull();
-    await expect(call("settings.update", { homePageId: "missing" })).rejects.toThrow();
-  });
-
+describe("sidebar settings", () => {
   it("drops the retired databases section", async () => {
     const call = setup().as("u1");
     await call("settings.update", { sidebarSections: ["pages", "databases", "favorites", "recents"], collapsedSections: ["databases", "recents"] });

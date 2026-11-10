@@ -1,5 +1,6 @@
 "use client";
 
+import { pageHref, pageIdFromPath } from "@/lib/pageUrl";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -159,14 +160,17 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const peekParam = params.get("peek");
   const peek = peekParam ? { id: peekParam, mode: (params.get("pm") === "center" ? "center" : "side") as "side" | "center" } : null;
+  // Readable page links (/p/<title-words>-<id>); titles come from the sidebar tree.
+  const titlesRef = useRef<Map<string, PageSummary>>(new Map());
+  const hrefFor = useCallback((id: string) => pageHref(id, titlesRef.current.get(id)?.title), []);
   const openPage = useCallback<WorkspaceValue["openPage"]>(
     (id, { mode = "full", list, event } = {}) => {
       if (event?.metaKey || event?.ctrlKey) {
-        window.open(`/p/${id}`, "_blank", "noopener");
+        window.open(hrefFor(id), "_blank", "noopener");
         return;
       }
       if (mode === "full" || event?.shiftKey) {
-        router.push(`/p/${id}`);
+        router.push(hrefFor(id));
         return;
       }
       if (list) setPeekList(list);
@@ -175,7 +179,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
       sp.set("pm", mode);
       router.push(`${pathname}?${sp.toString()}`, { scroll: false });
     },
-    [params, pathname, router],
+    [hrefFor, params, pathname, router],
   );
   const closePeek = useCallback(() => {
     const sp = new URLSearchParams(params.toString());
@@ -203,6 +207,9 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   }, [params, pathname, router]);
 
   const byId = useMemo(() => new Map((tree.data?.pages ?? []).map((p) => [p._id, p])), [tree.data]);
+  useEffect(() => {
+    titlesRef.current = byId;
+  }, [byId]);
 
   const createPage = useCallback<WorkspaceValue["createPage"]>(
     async ({ parentId = null, title, kind = "page", index, open = true } = {}) => {
@@ -211,7 +218,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
           ? await call<{ database: { _id: string } }>("databases.create", { parentId, title: title ?? "", index }).then((r) => r.database._id)
           : await call<{ page: { _id: string } }>("pages.create", { parentId, title: title ?? "", index }).then((r) => r.page._id);
         if (parentId) setExpanded(parentId, true);
-        if (open) router.push(`/p/${res}?new=1`);
+        if (open) router.push(`${pageHref(res, title ?? "")}?new=1`);
         return res;
       } catch (err) {
         notifyError(err, "Couldn't create the page.");
@@ -232,12 +239,12 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
             onClick: () => call("pages.restore", { id }).then(() => toast.success("Restored")).catch((e) => notifyError(e)),
           },
         });
-        if (pathname === `/p/${id}`) router.push(page?.parentId ? `/p/${page.parentId}` : "/home");
+        if (pageIdFromPath(pathname) === id) router.push(page?.parentId ? hrefFor(page.parentId) : "/home");
       } catch (err) {
         notifyError(err, "Couldn't move the page to trash.");
       }
     },
-    [byId, call, pathname, router],
+    [byId, call, hrefFor, pathname, router],
   );
 
   const duplicatePage = useCallback(
@@ -247,14 +254,14 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
         const res = await call<{ id: string; copied: number }>("pages.duplicate", { id });
         toast.success(res.copied > 1 ? `Duplicated with ${res.copied - 1} subpage${res.copied > 2 ? "s" : ""}` : "Duplicated", {
           id: t,
-          action: { label: "Open", onClick: () => router.push(`/p/${res.id}`) },
+          action: { label: "Open", onClick: () => router.push(hrefFor(res.id)) },
         });
       } catch (err) {
         toast.dismiss(t);
         notifyError(err, "Couldn't duplicate the page.");
       }
     },
-    [call, router],
+    [call, hrefFor, router],
   );
 
   const toggleFavorite = useCallback(
@@ -270,16 +277,16 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   );
 
   const copyLink = useCallback((id: string) => {
-    const url = `${window.location.origin}/p/${id}`;
+    const url = `${window.location.origin}${hrefFor(id)}`;
     navigator.clipboard
       .writeText(url)
       .then(() => toast.success("Link copied. It opens only for you."))
       .catch(() => toast.error("Couldn't copy. Your browser blocked clipboard access."));
-  }, []);
+  }, [hrefFor]);
 
   // Global shortcuts (the full list lives in lib/client/shortcuts.ts).
-  const shortcutState = useRef({ byId, activePageId: null as string | null, homePageId: null as string | null });
-  shortcutState.current = { byId, activePageId: peekParam ?? activePageId, homePageId: settings?.homePageId ?? null };
+  const shortcutState = useRef({ byId, activePageId: null as string | null });
+  shortcutState.current = { byId, activePageId: peekParam ?? activePageId };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
@@ -300,14 +307,13 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
       if (e.shiftKey && !e.altKey) {
         if (key === "l") return run(() => void updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }));
         if (key === "i") return run(() => (setImportAsTemplates(false), setImportOpen(true)));
-        if (key === "h") return run(() => router.push(shortcutState.current.homePageId ? `/p/${shortcutState.current.homePageId}` : "/home"));
         if (key === "t") return run(() => router.push("/templates"));
         if (key === "g") return run(() => router.push("/graph"));
       }
       if (!current) return;
       const page = pages.get(current);
       if (e.shiftKey && !e.altKey) {
-        if (key === "u") return run(() => (page?.parentId ? router.push(`/p/${page.parentId}`) : router.push("/home")));
+        if (key === "u") return run(() => (page?.parentId ? router.push(hrefFor(page.parentId)) : router.push("/home")));
         if (key === "f") return run(() => void toggleFavorite(current, !page?.favoriteRank));
         if (key === "d") return run(() => void duplicatePage(current));
         if (key === "p") return run(() => setMoveTarget(current));
@@ -320,7 +326,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [archivePage, copyLink, createPage, duplicatePage, openSettings, router, setSidebarOpen, sidebarOpen, toggleFavorite, updateSettings]);
+  }, [archivePage, copyLink, createPage, duplicatePage, hrefFor, openSettings, router, setSidebarOpen, sidebarOpen, toggleFavorite, updateSettings]);
 
   const value: WorkspaceValue = {
     tree: tree.data?.pages,

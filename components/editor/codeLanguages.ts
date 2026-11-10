@@ -1,4 +1,4 @@
-import { codeBlockOptions } from "@blocknote/code-block";
+import supportedLanguages from "./code-languages.json";
 
 /**
  * Stored lessons may name a code language any way (assistants write "js", "py", "" or
@@ -6,7 +6,10 @@ import { codeBlockOptions } from "@blocknote/code-block";
  * so the editor shows the matching id (or plain text) and hands the stored name back unchanged
  * when it saves, unless the writer picked another language.
  */
-const languages = codeBlockOptions.supportedLanguages as Record<string, { aliases?: readonly string[] }>;
+const languages = supportedLanguages as Record<string, { name: string; aliases?: string[] }>;
+
+/** Code block languages (the list @blocknote/code-block ships, without bundling its highlighter). */
+export const CODE_LANGUAGES = languages;
 
 export function editorCodeLanguage(stored: unknown): string {
   const name = typeof stored === "string" ? stored : "";

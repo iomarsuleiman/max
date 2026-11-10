@@ -1,5 +1,6 @@
 "use client";
 
+import { pageHref, pageIdFromPath } from "@/lib/pageUrl";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -148,52 +149,103 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
           <span className="ms-auto text-[11px] font-normal text-fg-3 max-md:hidden">⌘⌥N</span>
         </button>
       </div>
-      {!mobile && <ResizeHandle width={width} setWidth={setWidth} onCommit={(w) => ws.updateSettings({ sidebarWidth: w })} />}
+      {!mobile && <ResizeHandle width={width} setWidth={setWidth} onCommit={(w) => ws.updateSettings({ sidebarWidth: w })} onClose={() => ws.setSidebarOpen(false)} />}
     </aside>
   );
 }
 
-function ResizeHandle({ width, setWidth, onCommit }: { width: number; setWidth: (w: number) => void; onCommit: (w: number) => void }) {
-  const start = useRef<{ x: number; w: number } | null>(null);
-  const latest = useRef(width);
-  latest.current = width;
-  const clamp = (w: number) => Math.max(200, Math.min(480, Math.round(w)));
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 480;
+
+/**
+ * Notion-style sidebar edge: hovering shows a highlighted line and a hint, dragging resizes,
+ * a plain click closes the sidebar. Arrow keys resize (Shift for bigger steps), Enter closes.
+ */
+function ResizeHandle({ width, setWidth, onCommit, onClose }: { width: number; setWidth: (w: number) => void; onCommit: (w: number) => void; onClose: () => void }) {
+  const start = useRef<{ x: number; w: number; moved: boolean } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [hint, setHint] = useState<number | null>(null); // pointer y for the hint
+  const clamp = (w: number) => Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(w)));
+  const end = (commit: boolean) => {
+    const s = start.current;
+    start.current = null;
+    setDragging(false);
+    document.body.style.removeProperty("cursor");
+    document.body.style.removeProperty("user-select");
+    if (!s) return;
+    if (s.moved && commit) onCommit(width);
+    else if (!s.moved && commit) onClose();
+  };
   return (
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize sidebar"
-      aria-valuemin={200}
-      aria-valuemax={480}
+      aria-label="Resize sidebar. Drag or use the left and right arrow keys; Enter closes the sidebar."
+      aria-valuemin={MIN_WIDTH}
+      aria-valuemax={MAX_WIDTH}
       aria-valuenow={width}
       tabIndex={0}
-      className="absolute -end-1 top-0 z-10 h-full w-2 cursor-col-resize after:absolute after:inset-y-0 after:start-[3px] after:w-0.5 after:bg-transparent after:transition-colors hover:after:bg-line-strong focus-visible:after:bg-accent"
+      className="group/resize absolute -end-[6px] top-0 z-30 h-full w-3 cursor-col-resize touch-none outline-none max-md:hidden"
+      onPointerEnter={(e) => setHint(e.clientY)}
+      onPointerLeave={() => setHint(null)}
       onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
         e.currentTarget.setPointerCapture(e.pointerId);
-        start.current = { x: e.clientX, w: width };
+        start.current = { x: e.clientX, w: width, moved: false };
+        setDragging(true);
+        setHint(null);
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
       }}
       onPointerMove={(e) => {
-        if (!start.current) return;
-        const dx = (e.clientX - start.current.x) * (document.documentElement.dir === "rtl" ? -1 : 1);
-        setWidth(clamp(start.current.w + dx));
+        const s = start.current;
+        if (!s) {
+          setHint(e.clientY);
+          return;
+        }
+        const dx = (e.clientX - s.x) * (document.documentElement.dir === "rtl" ? -1 : 1);
+        if (Math.abs(dx) > 2) s.moved = true;
+        if (s.moved) setWidth(clamp(s.w + dx));
       }}
-      onPointerUp={() => {
-        if (start.current) onCommit(latest.current);
-        start.current = null;
-      }}
-      onDoubleClick={() => {
-        setWidth(248);
-        onCommit(248);
-      }}
+      onPointerUp={() => end(true)}
+      onPointerCancel={() => end(false)}
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
           e.preventDefault();
-          const w = clamp(width + (e.key === "ArrowRight" ? 16 : -16));
+          const dir = (e.key === "ArrowRight" ? 1 : -1) * (document.documentElement.dir === "rtl" ? -1 : 1);
+          const w = clamp(width + dir * (e.shiftKey ? 64 : 16));
           setWidth(w);
           onCommit(w);
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          onClose();
         }
       }}
-    />
+    >
+      {/* The line: faint on hover, strong while dragging or focused. */}
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-y-0 start-[5px] w-0.5 bg-transparent transition-colors delay-100 duration-150 group-hover/resize:bg-[color-mix(in_oklch,var(--fg)_22%,transparent)] group-focus-visible/resize:bg-accent",
+          dragging && "!bg-accent !delay-0",
+        )}
+      />
+      {hint !== null && !dragging && (
+        <span
+          aria-hidden
+          className="pointer-events-none fixed z-50 ms-3 grid -translate-y-1/2 gap-0.5 whitespace-nowrap rounded-md bg-fg px-2 py-1 text-[11.5px] leading-tight text-canvas shadow-pop [animation:max-fade_150ms_ease_300ms_both]"
+          style={{ top: hint, insetInlineStart: width + 4 }}
+        >
+          <span>
+            <b className="font-semibold">Drag</b> to resize
+          </span>
+          <span>
+            <b className="font-semibold">Click</b> to close
+          </span>
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -386,10 +438,10 @@ function PagesSection() {
 
 function SimpleRow({ page, trailing }: { page: PageSummary; trailing?: ReactNode }) {
   const pathname = usePathname();
-  const active = pathname === `/p/${page._id}`;
+  const active = pageIdFromPath(pathname) === page._id;
   return (
     <div className={cn("group/row flex h-7 items-center gap-1 rounded-md pe-1 ps-2 text-[13.5px] hover:bg-hover", active ? "bg-hover font-medium text-fg" : "text-fg-2")}>
-      <Link href={`/p/${page._id}`} className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch" onMouseEnter={() => prefetchOp("pages.get", { id: page._id })}>
+      <Link href={pageHref(page._id, page.title)} className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch" onMouseEnter={() => prefetchOp("pages.get", { id: page._id })}>
         <PageIcon icon={page.icon} kind={page.kind} />
         <span className="truncate">{pageTitle(page.title)}</span>
       </Link>

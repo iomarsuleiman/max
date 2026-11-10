@@ -1,5 +1,6 @@
 "use client";
 
+import { pageHref } from "@/lib/pageUrl";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
@@ -133,7 +134,7 @@ export function SearchDialog() {
                   {!!recents.data?.pages.length && (
                     <Command.Group heading="Recent" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-fg-3">
                       {recents.data.pages.map((p) => (
-                        <ResultItem key={p._id} value={p._id} onSelect={() => go(`/p/${p._id}`)} icon={<PageIcon icon={p.icon} kind={p.kind} />} title={pageTitle(p.title)} meta={<span className="inline-flex items-center gap-1"><Clock className="size-3" />{timeAgo(p.lastOpenedAt)}</span>} />
+                        <ResultItem key={p._id} value={p._id} onSelect={() => go(pageHref(p._id, p.title))} icon={<PageIcon icon={p.icon} kind={p.kind} />} title={pageTitle(p.title)} meta={<span className="inline-flex items-center gap-1"><Clock className="size-3" />{timeAgo(p.lastOpenedAt)}</span>} />
                       ))}
                     </Command.Group>
                   )}
@@ -168,7 +169,7 @@ export function SearchDialog() {
                         <ResultItem
                           key={r._id}
                           value={r._id}
-                          onSelect={() => go(`/p/${r._id}`)}
+                          onSelect={() => go(pageHref(r._id, r.title))}
                           icon={<PageIcon icon={r.icon} kind={r.kind} />}
                           title={<Highlight text={pageTitle(r.title)} query={debounced} />}
                           meta={r.breadcrumbs.length ? r.breadcrumbs.join(" / ") : undefined}

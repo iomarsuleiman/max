@@ -23,7 +23,8 @@
     "convex:deploy": "convex deploy",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "mcp:docs": "tsx scripts/mcp-inventory.ts",
-    "covers:fetch": "node scripts/fetch-covers.mjs"
+    "emoji:build": "node scripts/build-emoji-data.mjs",
+    "covers:fetch": "node scripts/fetch-covers.mjs && node scripts/cover-colors.mjs"
   },
   "dependencies": {
     "@blocknote/code-block": "0.55.0",
@@ -36,6 +37,10 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "@shikijs/core": "4.6.0",
+    "@shikijs/engine-javascript": "4.6.0",
+    "@shikijs/langs-precompiled": "4.6.0",
+    "@shikijs/themes": "4.6.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "convex": "^1.49.0",

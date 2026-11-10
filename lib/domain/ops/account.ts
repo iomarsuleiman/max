@@ -37,7 +37,6 @@ const settingsPatch = z.object({
   defaultFullWidth: z.boolean().optional(),
   density: z.enum(["comfortable", "compact"]).optional(),
   startPage: z.enum(["home", "last"]).optional(),
-  homePageId: z.string().min(1).nullable().optional(),
   textDirection: z.enum(["auto", "ltr", "rtl"]).optional(),
   spellcheck: z.boolean().optional(),
   showRecents: z.boolean().optional(),
@@ -58,13 +57,8 @@ export const settingsGet = defineOp({
   async run(ctx) {
     const row = await getSettingsRow(ctx);
     const settings = row ?? ({ _id: "", ...defaultSettings(ctx.ownerId, ctx.now) } as SettingsRow);
-    let homePageId = settings.homePageId ?? null;
-    if (homePageId) {
-      const home = await ctx.db.get("pages", homePageId);
-      if (!home || home.ownerId !== ctx.ownerId || home.archivedAt) homePageId = null;
-    }
     return {
-      settings: { ...settings, homePageId, sidebarSections: normalizeSidebar(settings.sidebarSections), collapsedSections: (settings.collapsedSections ?? []).filter((s) => DEFAULT_SIDEBAR.includes(s)) },
+      settings: { ...settings, sidebarSections: normalizeSidebar(settings.sidebarSections), collapsedSections: (settings.collapsedSections ?? []).filter((s) => DEFAULT_SIDEBAR.includes(s)) },
       saved: !!row,
     };
   },
@@ -84,7 +78,6 @@ export const settingsUpdate = defineOp({
       }
       patch.sidebarSections = listed;
     }
-    if (patch.homePageId) await requirePage(ctx, patch.homePageId);
     if (patch.collapsedSections) patch.collapsedSections = patch.collapsedSections.filter((s) => DEFAULT_SIDEBAR.includes(s));
     const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
     const settings = await upsertSettings(ctx, clean);
@@ -428,7 +421,7 @@ export const exportPage = defineOp({
     if (format === "json") {
       return { filename: `${safeFileName(page.title)}.json`, mimeType: "application/json", content: JSON.stringify({ format: "max-page", version: 1, page, blocks }, null, 2) };
     }
-    let md = `# ${page.icon ? page.icon + " " : ""}${page.title || "Untitled"}\n\n`;
+    let md = `# ${page.icon && !/^(lucide:|max-asset:|https:)/.test(page.icon) ? page.icon + " " : ""}${page.title || "Untitled"}\n\n`;
     if (page.kind === "database") md += databaseMarkdown(page, pages) + "\n";
     if (page.databaseId) {
       const db = pages.find((p) => p._id === page.databaseId);

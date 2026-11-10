@@ -14,9 +14,20 @@ const config: NextConfig = {
   typedRoutes: false,
   agentRules: false,
   serverExternalPackages: [],
-  images: { remotePatterns: [{ protocol: "https", hostname: "i.ytimg.com" }] },
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "i.ytimg.com" }],
+    // Covers and thumbnails: AVIF first, then WebP, cached for a year (the files never change).
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [640, 960, 1280, 1600, 1920, 2560],
+    imageSizes: [96, 160, 240, 320],
+    qualities: [72, 75],
+    minimumCacheTTL: 31_536_000,
+  },
   async headers() {
-    return [{ source: "/:path*", headers: security }];
+    return [
+      { source: "/:path*", headers: security },
+      { source: "/covers/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+    ];
   },
   async redirects() {
     return [{ source: "/settings", destination: "/home?settings=account", permanent: false }];

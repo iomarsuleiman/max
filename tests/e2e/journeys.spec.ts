@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function newPage(page: Page, title: string) {
-  // /home opens your home page (or your first page), so wait for that before creating another.
+  // Opening Max goes to your last (or first) page, so wait for that before creating another.
   await page.goto("/home");
   await page.waitForURL(/\/p\//);
   await page.locator(".bn-editor").waitFor();

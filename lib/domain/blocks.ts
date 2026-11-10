@@ -4,6 +4,8 @@
  * These never run on every keystroke; the editor saves JSON as-is.
  */
 
+import { PAGE_LINK_RE } from "../pageUrl";
+
 export interface InlineText {
   type: "text";
   text: string;
@@ -100,7 +102,7 @@ export function referencedPageIds(blocks: Block[]): string[] {
     for (const item of items) {
       if (item.type === "pageMention") ids.add((item as InlineMention).props.pageId);
       if (item.type === "link") {
-        const m = /\/p\/([A-Za-z0-9_-]+)/.exec((item as InlineLink).href);
+        const m = PAGE_LINK_RE.exec((item as InlineLink).href);
         if (m) ids.add(m[1]);
       }
     }

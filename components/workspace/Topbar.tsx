@@ -1,5 +1,6 @@
 "use client";
 
+import { pageHref } from "@/lib/pageUrl";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronsRight, Menu as MenuIcon } from "lucide-react";
@@ -41,7 +42,7 @@ export function Topbar({ crumbs, children, className }: { crumbs: Crumb[]; child
                 </Tooltip>
               ) : (
                 <Link
-                  href={c.href ?? `/p/${c._id}`}
+                  href={c.href ?? pageHref(c._id!, c.title)}
                   aria-current={i === shown.length - 1 ? "page" : undefined}
                   title={pageTitle(c.title)}
                   className={cn("flex min-w-0 items-center gap-1.5 rounded-[5px] px-1.5 py-0.5 hover:bg-hover", i === shown.length - 1 && "text-fg")}

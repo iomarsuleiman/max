@@ -1,5 +1,6 @@
 "use client";
 
+import { pageHref, pageIdFromPath } from "@/lib/pageUrl";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -188,7 +189,7 @@ const TreeRow = memo(function TreeRow({
   const pathname = usePathname();
   const router = useRouter();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-  const active = pathname === `/p/${item.id}`;
+  const active = pageIdFromPath(pathname) === item.id;
   const style: CSSProperties = { transform: CSS.Translate.toString(transform), transition, paddingInlineStart: 4 + depth * INDENT };
   const title = pageTitle(item.page.title);
   const rowRef = useRef<HTMLLIElement | null>(null);
@@ -274,12 +275,12 @@ const TreeRow = memo(function TreeRow({
         />
       ) : (
         <Link
-          href={`/p/${item.id}`}
+          href={pageHref(item.id, item.page.title)}
           data-row-link="true"
           className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-[4px] outline-offset-[-2px]"
           onMouseEnter={() => {
             prefetchOp("pages.get", { id: item.id });
-            router.prefetch(`/p/${item.id}`);
+            router.prefetch(pageHref(item.id, item.page.title));
           }}
           onFocus={() => prefetchOp("pages.get", { id: item.id })}
           onDoubleClick={(e) => {

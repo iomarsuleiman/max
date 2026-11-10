@@ -183,7 +183,7 @@ export function GalleryView({ onOpenRecord, properties, records, readOnly, onCre
     <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3 px-4 sm:px-12">
       {records.map((r) => (
         <Link key={r._id} href={`/p/${r._id}`} onClick={openHandler(onOpenRecord, r._id)} className="overflow-hidden rounded-lg bg-overlay shadow-[0_0_0_1px_var(--line),0_1px_2px_oklch(0_0_0/0.04)] transition-colors hover:bg-surface-2">
-          {view.cardPreview !== "none" && <CoverView cover={r.cover} position={r.coverPosition} className="h-28 w-full" />}
+          {view.cardPreview !== "none" && <CoverView cover={r.cover} position={r.coverPosition} className="h-28 w-full" sizes="(max-width: 640px) 100vw, 320px" />}
           <div className="p-2.5">
             <div className="flex items-center gap-1.5 text-[13.5px] font-medium text-fg">
               {r.icon && <PageIcon icon={r.icon} />}
