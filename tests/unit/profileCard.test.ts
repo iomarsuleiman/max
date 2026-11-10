@@ -135,6 +135,8 @@ describe("one workspace/card identity", () => {
       expect(svg).toContain('class="card-qr-modules"');
       expect(svg).toContain('<svg width="88" height="88"');
       expect(svg).toContain('class="card-foil-gradient"');
+      expect(svg).toMatch(/class="card-shine-gradient" id="[^"]+" cx="\.5" cy="\.45"/);
+      expect(svg).toContain('<rect class="card-shine" x="0" y="0" width="360"');
       expect(svg).not.toContain("card-qr-foil");
       expect(svg).not.toContain("YOUR WORKSPACE CARD");
       expect(svg).not.toContain("<filter");

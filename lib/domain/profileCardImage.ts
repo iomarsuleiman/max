@@ -87,11 +87,12 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
     <title id="${titleId}">${escapeXml(card.name)}'s Max workspace card</title>
     <desc>Membership artwork with a QR code that opens Max. No private workspace information is published.</desc>
     <defs>
-      <linearGradient class="card-foil-gradient" id="${safePrefix}-qr-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#252525"/><stop offset=".28" stop-color="#484848"/><stop offset=".48" stop-color="#686868"/><stop offset=".7" stop-color="#333333"/><stop offset="1" stop-color="#505050"/></linearGradient>
+      <linearGradient class="card-foil-gradient" id="${safePrefix}-qr-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1f1f1f"/><stop offset=".22" stop-color="#4a4a4a"/><stop offset=".38" stop-color="#7c7c7c"/><stop offset=".5" stop-color="#2e2e2e"/><stop offset=".68" stop-color="#6a6a6a"/><stop offset=".85" stop-color="#3a3a3a"/><stop offset="1" stop-color="#565656"/></linearGradient>
       <linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${palette.first}"/><stop offset=".52" stop-color="${palette.dark}"/><stop offset="1" stop-color="${palette.second}"/></linearGradient>
       <radialGradient id="${glowId}"><stop stop-color="${palette.glow}" stop-opacity=".6"/><stop offset="1" stop-color="${palette.glow}" stop-opacity="0"/></radialGradient>
       <pattern id="${safePrefix}-hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V3" stroke="${palette.ink}" stroke-width="1"/></pattern>
       <linearGradient class="card-light-gradient" id="${safePrefix}-art-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".36" stop-color="#fff" stop-opacity=".04"/><stop offset=".55" stop-color="#fff" stop-opacity=".24"/><stop offset=".76" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".06"/></linearGradient>
+      <radialGradient class="card-shine-gradient" id="${safePrefix}-shine" cx=".5" cy=".45" r=".72"><stop stop-color="#fff" stop-opacity=".3"/><stop offset=".28" stop-color="#fff" stop-opacity=".1"/><stop offset=".62" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".05"/></radialGradient>
       <mask id="${safePrefix}-art-mask" maskUnits="userSpaceOnUse" x="24" y="24" width="312" height="274">${artMask}</mask>
       <clipPath id="${clipId}"><rect x="24" y="24" width="312" height="274" rx="3"/></clipPath>
     </defs>
@@ -112,6 +113,7 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
       <rect width="88" height="88" rx="3" fill="#fffdf0"/>
       <svg width="88" height="88" viewBox="0 0 ${modules + 8} ${modules + 8}"><path class="card-qr-modules" d="${qrPath}" fill="url(#${safePrefix}-qr-light)" shape-rendering="crispEdges"/></svg>
     </g>
+    <rect class="card-shine" x="0" y="0" width="360" height="${height}" rx="10" fill="url(#${safePrefix}-shine)"/>
   </svg>`;
   return { svg, width: 360, height };
 }
