@@ -87,7 +87,7 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
     <title id="${titleId}">${escapeXml(card.name)}'s Max workspace card</title>
     <desc>Membership artwork with a QR code that opens Max. No private workspace information is published.</desc>
     <defs>
-      <linearGradient class="card-light-gradient" id="${safePrefix}-qr-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#273332"/><stop offset=".5" stop-color="#52615f"/><stop offset="1" stop-color="#273332"/></linearGradient>
+      <linearGradient class="card-foil-gradient" id="${safePrefix}-qr-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#252525"/><stop offset=".28" stop-color="#484848"/><stop offset=".48" stop-color="#686868"/><stop offset=".7" stop-color="#333333"/><stop offset="1" stop-color="#505050"/></linearGradient>
       <linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${palette.first}"/><stop offset=".52" stop-color="${palette.dark}"/><stop offset="1" stop-color="${palette.second}"/></linearGradient>
       <radialGradient id="${glowId}"><stop stop-color="${palette.glow}" stop-opacity=".6"/><stop offset="1" stop-color="${palette.glow}" stop-opacity="0"/></radialGradient>
       <pattern id="${safePrefix}-hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V3" stroke="${palette.ink}" stroke-width="1"/></pattern>
@@ -108,9 +108,9 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
     <rect x="66" y="${footerY - 12}" width="14" height="25" fill="url(#${safePrefix}-hatch)"/>
     <text x="35" y="${footerY + 5}" fill="${palette.ink}" font-size="11" font-weight="700">MAX</text>
     <text x="91" y="${footerY + 5}" fill="${palette.ink}" font-size="11" font-weight="600">${date}</text>
-    <g class="card-qr" transform="translate(272 ${footerY - 32})">
-      <rect width="64" height="64" rx="3" fill="#fffdf0"/>
-      <svg width="64" height="64" viewBox="0 0 ${modules + 8} ${modules + 8}"><path class="card-qr-modules" d="${qrPath}" fill="url(#${safePrefix}-qr-light)" shape-rendering="crispEdges"/></svg>
+    <g class="card-qr" transform="translate(248 ${footerY - 44})">
+      <rect width="88" height="88" rx="3" fill="#fffdf0"/>
+      <svg width="88" height="88" viewBox="0 0 ${modules + 8} ${modules + 8}"><path class="card-qr-modules" d="${qrPath}" fill="url(#${safePrefix}-qr-light)" shape-rendering="crispEdges"/></svg>
     </g>
   </svg>`;
   return { svg, width: 360, height };
