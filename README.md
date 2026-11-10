@@ -6,9 +6,15 @@
 
 Max is a calm, personal workspace: nested pages, a block editor, personal databases and templates, with a built-in [Model Context Protocol](https://modelcontextprotocol.io) server so ChatGPT, Claude or any MCP client can work with your notes when you allow it.
 
-Live at **[max.chaos.fail](https://max.chaos.fail)** once deployed (see [docs/SETUP.md](docs/SETUP.md)).
+Live at **[max.chaos.fail](https://max.chaos.fail)**. Self-hosting instructions are in [docs/SETUP.md](docs/SETUP.md).
+
+See the [v1 release notes](docs/RELEASE_NOTES.md).
 
 ## What's inside
+
+- **Mobile editing.** A keyboard-aware touch toolbar with block insertion, text styles, links, colors, undo/redo, and block actions. Larger touch controls and readable inputs keep editing usable on small screens.
+- **Membership cards.** Name your card, shuffle its artwork, and export a PNG. A scannable QR opens Max; profile details stay private. Card preview and MCP exports share the same renderer.
+- **A little room to play.** A freely spinning landing logo, a system-themed paper surface, and an optional offline Paper hop game with opt-in sound and a local best score.
 
 - **Pages inside pages.** Max opens where you left off; there is no separate home screen. Readable page addresses (`/p/video-pipeline-<id>`) that follow renames. A sidebar tree with drag handles to reorder and nest, collapsible Favorites, Recents and Pages sections, keyboard moves (⌥⇧ + arrows), favorites, recents, a trash you can restore from, a "Move to…" picker, and a resizable sidebar (drag the edge, click it to close).
 - **The Chaos block editor.** Headings, to-dos, toggles, toggle headings, callouts, quotes, tables, code with highlighting, math (KaTeX), Mermaid diagrams, images with alt text, YouTube with watch ranges, web bookmarks, table of contents, page links, `@` page and date mentions, multi-column layouts, inline and linked databases, embeds (Figma, Loom, Vimeo, Maps, CodePen and more) and file, audio and video uploads up to 50 MB. Gutter handles to drag blocks, `/` command menu, Markdown shortcuts, safe paste from Word, Google Docs and Notion.

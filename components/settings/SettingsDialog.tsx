@@ -50,7 +50,8 @@ export function SettingsDialog() {
           className="fixed start-1/2 top-1/2 z-[61] flex h-[min(720px,calc(100dvh-48px))] w-[min(1080px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-overlay shadow-dialog outline-none [animation:max-in_160ms_var(--ease)] rtl:translate-x-1/2 max-md:inset-0 max-md:h-dvh max-md:w-full max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:flex-col"
         >
           <D.Title className="sr-only">Settings</D.Title>
-          <nav aria-label="Settings sections" className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto bg-surface px-2 py-3 max-md:w-full max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-line max-md:py-2">
+          <D.Close asChild><IconButton label="Close settings" size="md" className="absolute end-2 top-2 z-10 bg-overlay md:hidden"><X className="size-5" /></IconButton></D.Close>
+          <nav aria-label="Settings sections" className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto bg-surface px-2 py-3 max-md:w-full max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-line max-md:py-2 max-md:pe-14">
             {(["Account", "Workspace"] as const).map((g) => (
               <div key={g} className="contents">
                 <p className="px-2 pb-1 pt-2 text-[11.5px] font-medium text-fg-3 first:pt-0 max-md:hidden">{g}</p>
@@ -60,7 +61,7 @@ export function SettingsDialog() {
                     type="button"
                     aria-current={section === n.id ? "page" : undefined}
                     onClick={() => ws.openSettings(n.id)}
-                    className={cn("flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-[13.5px] text-fg-2 hover:bg-hover hover:text-fg [&>svg]:size-4 [&>svg]:text-fg-3", section === n.id && "bg-hover font-medium text-fg")}
+                    className={cn("flex h-7 max-md:h-11 shrink-0 items-center gap-2 rounded-md px-2 text-[13.5px] text-fg-2 hover:bg-hover hover:text-fg [&>svg]:size-4 [&>svg]:text-fg-3", section === n.id && "bg-hover font-medium text-fg")}
                   >
                     {n.icon}
                     {n.label}
@@ -69,9 +70,9 @@ export function SettingsDialog() {
               </div>
             ))}
           </nav>
-          <div className="relative min-w-0 flex-1 overflow-y-auto px-12 py-9 max-md:px-5 max-md:py-6">
+          <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto px-12 py-9 max-md:px-5 max-md:py-6">
             <D.Close asChild>
-              <IconButton label="Close settings" size="md" className="absolute end-3 top-3">
+              <IconButton label="Close settings" size="md" className="absolute end-3 top-3 max-md:hidden">
                 <X className="size-4" />
               </IconButton>
             </D.Close>

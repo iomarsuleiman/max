@@ -106,7 +106,7 @@ function WorkspaceRoot({ children }: { children: ReactNode }) {
 function Frame({ children }: { children: ReactNode }) {
   const ws = useWorkspace();
   return (
-    <div className="flex h-dvh overflow-hidden bg-canvas" data-font={ws.settings?.font}>
+    <div className="max-workspace-frame flex h-dvh overflow-hidden bg-canvas" data-font={ws.settings?.font}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[90] focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2 focus:shadow-pop">
         Skip to content
       </a>

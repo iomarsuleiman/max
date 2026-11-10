@@ -15,7 +15,7 @@ const copy: Record<SaveState, string> = {
   conflict: "Changed elsewhere",
 };
 
-/** Always-visible, never-truncated save state. */
+/** Routine save states stay compact on phones; errors retain a visible label. */
 export function SaveStatus({ state, lastSavedAt, error, onRetry, updatedAt }: { state: SaveState; lastSavedAt: number | null; error: string | null; onRetry: () => void; updatedAt?: number }) {
   const when = lastSavedAt ?? updatedAt;
   const icon =
@@ -26,7 +26,8 @@ export function SaveStatus({ state, lastSavedAt, error, onRetry, updatedAt }: { 
       <Tooltip label={tip}>
         <span tabIndex={0} className={cn("inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-[12.5px] text-fg-3", (state === "error" || state === "conflict") && "text-danger", state === "offline" && "text-warning")}>
           {icon}
-          <span className={cn(state === "saved" && "max-sm:hidden")}>{state === "saved" && when ? `Saved ${timeAgo(when)}` : copy[state]}</span>
+          {(state === "error" || state === "offline" || state === "conflict") && <span className="sm:hidden">{state === "error" ? "Not saved" : state === "offline" ? "Offline" : "Conflict"}</span>}
+          <span className="max-sm:sr-only">{state === "saved" && when ? `Saved ${timeAgo(when)}` : copy[state]}</span>
         </span>
       </Tooltip>
       {(state === "error" || state === "offline") && (

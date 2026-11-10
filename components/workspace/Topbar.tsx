@@ -22,7 +22,7 @@ export function Topbar({ crumbs, children, className }: { crumbs: Crumb[]; child
   // Long trails collapse the middle; every crumb keeps its full title in a tooltip.
   const shown: (Crumb | "gap")[] = crumbs.length > 4 ? [crumbs[0], "gap", ...crumbs.slice(-2)] : crumbs;
   return (
-    <header className={cn("flex h-11 shrink-0 items-center gap-1 px-2 sm:px-3", className)}>
+    <header className={cn("max-topbar flex h-11 shrink-0 items-center gap-1 px-2 sm:px-3", className)}>
       <IconButton label="Open navigation" size="md" className="md:hidden" onClick={() => ws.setMobileNavOpen(true)}>
         <MenuIcon className="size-4" />
       </IconButton>

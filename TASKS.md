@@ -12,7 +12,7 @@
 - [x] Add optional offline game and restrained tab/switch/navigation motion.
 - [x] Verify the final Arc-style landing revision: monochrome logo, no topbar/toggle/helper text, system theme, static 1,160-byte texture, sticky interactive walkthrough and dark recovery surfaces.
 - [x] Verify conversion, ownership, retries, cancellation, UI accessibility and regressions.
-- [ ] Review diff, publish PR and merge after checks pass.
+- [x] Review diff, publish PR and merge after checks pass, PR #6.
 
 ## Constraints and evidence
 
@@ -31,3 +31,12 @@
 - Convex functions/schema deploy successfully to an isolated anonymous local backend; internal read smoke test succeeds. This does not validate live Clerk or Notion authorization.
 - Existing first-sign-in redirect now preserves Settings query parameters, verified with the Notion journey from a fresh workspace.
 - Production OAuth credentials remain an operator setup step, documented in docs/NOTION.md. Unsupported conversions and import bounds are disclosed in preview/reports and documentation.
+
+## v1 polish and release
+- [x] Merge dark grain and initial logo fix as PR #7.
+- [x] Redesign compact membership cards, shuffle, QR foil and motion.
+- [x] Improve mobile editor toolbar, keyboard viewport and touch flows.
+- [x] Verify no horizontal page scrolling, local wide-content scrolling and touch block actions, Chromium and WebKit.
+- [x] Add spinner inertia, distinctive sans hero and optional game audio.
+- [x] Run release checks: production build, ESLint, both TypeScript projects, 72 unit tests and all 28 browser checks.
+- [ ] Merge release PR and publish v1.0.0 after GitHub checks.
