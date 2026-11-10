@@ -120,8 +120,7 @@ function useSettings() {
 /* ── Account ─────────────────────────────────────────────────────────────── */
 
 function AccountSection() {
-  const { s, set, ws } = useSettings();
-  const [name, setName] = useState(s?.displayName ?? "");
+  const { s, ws } = useSettings();
   const id = ws.identity;
   const deleteData = async () => {
     const ok = await confirmAction({
@@ -162,11 +161,7 @@ function AccountSection() {
       <Group>
         <div className="flex flex-wrap items-center gap-4 py-3">
           <Avatar name={s?.displayName || id.name} url={id.imageUrl} size={56} />
-          <div className="grid min-w-60 flex-1 gap-1.5">
-            <Field label="Preferred name" htmlFor="name" help="Used in greetings and your workspace name.">
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name !== (s?.displayName ?? "") && set("displayName", name.trim() || null, "Name saved")} placeholder={id.name} />
-            </Field>
-          </div>
+          <span className="text-sm font-medium">{s?.displayName || s?.profileCard?.name || id.name}</span>
         </div>
         {id.email && (
           <SettingRow title="Email" description={id.email}>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineOp } from "./define";
-import { getSettingsRow, upsertSettings } from "./helpers";
+import { getSettingsRow } from "./helpers";
+import { settingsUpdate } from "./account";
 import { profileCardSchema } from "../profileCard";
 import { profileCardSvg } from "../profileCardImage";
 import { MaxError } from "../errors";
@@ -13,8 +14,9 @@ export const profileCardGet = defineOp({
     "Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern. Other accounts' cards are inaccessible.",
   input: z.object({}),
   async run(ctx) {
-    const saved = profileCardSchema.safeParse((await getSettingsRow(ctx))?.profileCard);
-    return { card: saved.success ? saved.data : null };
+    const settings = await getSettingsRow(ctx);
+    const saved = profileCardSchema.safeParse(settings?.profileCard);
+    return { card: saved.success ? { ...saved.data, name: settings?.displayName?.trim() || saved.data.name } : null };
   },
 });
 export const profileCardUpdate = defineOp({
@@ -25,8 +27,8 @@ export const profileCardUpdate = defineOp({
     "Saves your private workspace card with the same validation as Max's card editor. This does not change your sign-in identity or publish a public profile.",
   input: z.object({ card: profileCardSchema }),
   async run(ctx, { card }) {
-    await upsertSettings(ctx, { profileCard: card, profileCardOnboarded: true });
-    return { card };
+    const { settings } = await settingsUpdate.run(ctx, { profileCard: card, profileCardOnboarded: true });
+    return { card: profileCardSchema.parse(settings.profileCard) };
   },
 });
 export const profileCardExport = defineOp({

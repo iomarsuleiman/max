@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardInitials, defaultProfileCard } from "@/lib/domain/profileCard";
+import { cardInitials, defaultProfileCard, profileCardThemes, profileCardShapes } from "@/lib/domain/profileCard";
 import { setup } from "./harness";
 import { profileCardSvg } from "@/lib/domain/profileCardImage";
 
@@ -10,10 +10,10 @@ describe("private profile cards", () => {
     const bob = as("bob");
     const card = { ...defaultProfileCard("عمر سليمان"), bio: "Notes in العربية and English", theme: "sage", pattern: "dots" };
     await alice("settings.update", { profileCard: card, profileCardOnboarded: true });
-    expect((await alice("settings.get")).settings.profileCard).toEqual(card);
+    expect((await alice("settings.get")).settings.profileCard).toMatchObject(card);
     expect((await bob("settings.get")).settings.profileCard).toBeUndefined();
     await alice("settings.reset", { scope: "all" });
-    expect((await alice("settings.get")).settings.profileCard).toEqual(card);
+    expect((await alice("settings.get")).settings.profileCard).toMatchObject(card);
     expect((await alice("settings.get")).settings.profileCardOnboarded).toBe(true);
   });
 
@@ -31,7 +31,7 @@ describe("private profile cards", () => {
     ]) {
       await expect(call("settings.update", { profileCard: invalid })).rejects.toMatchObject({ code: "VALIDATION" });
     }
-    expect((await call("settings.get")).settings.profileCard).toEqual(card);
+    expect((await call("settings.get")).settings.profileCard).toMatchObject(card);
   });
 
   it("supports card tools, safe artwork export and older card preferences", async () => {
@@ -39,7 +39,7 @@ describe("private profile cards", () => {
     const call = as("owner", "mcp");
     const card = { ...defaultProfileCard("Omar <script>"), subtitle: "Curious explorer", shape: "orbit" };
     await call("profileCard.update", { card });
-    expect((await call("profileCard.get")).card).toEqual(card);
+    expect((await call("profileCard.get")).card).toMatchObject(card);
     expect((await as("other", "mcp")("profileCard.get")).card).toBeNull();
     const exported = await call("profileCard.export");
     expect(exported.svg).toContain("&lt;script&gt;");
@@ -67,4 +67,65 @@ describe("private profile cards", () => {
     expect(cardInitials("🪴 Gardener")).toBe("🪴G");
     expect(cardInitials("")).toBe("M");
   });
+});
+
+
+describe("one workspace/card identity", () => {
+  it("synchronizes UI and MCP names atomically and preserves the server-issued date", async () => {
+    const { as, advance } = setup();
+    const call = as("member", "mcp");
+    await call("profileCard.update", { card: { ...defaultProfileCard("Avery"), createdAt: 1 } });
+    const initial = (await call("profileCard.get")).card;
+    expect(initial.createdAt).toBeGreaterThan(Date.UTC(2026, 10, 8));
+    expect((await call("settings.get")).settings.displayName).toBe("Avery");
+    advance(10 * 86_400_000);
+    await call("settings.update", { displayName: "Avery Maker" });
+    expect((await call("profileCard.get")).card).toMatchObject({ name: "Avery Maker", createdAt: initial.createdAt });
+    await call("profileCard.update", { card: { ...initial, name: "Avery M.", createdAt: 999 } });
+    const settings = (await call("settings.get")).settings;
+    expect(settings.displayName).toBe("Avery M.");
+    expect(settings.profileCard).toMatchObject({ name: "Avery M.", createdAt: initial.createdAt });
+    await expect(call("settings.update", { displayName: "Different", profileCard: initial })).rejects.toMatchObject({ code: "VALIDATION" });
+    expect((await call("settings.get")).settings.displayName).toBe("Avery M.");
+  });
+
+  it("reconciles older divergent names on read without losing legacy biography", async () => {
+    const { as, db } = setup();
+    const call = as("member");
+    await call("settings.update", { profileCard: { ...defaultProfileCard("Old card name"), bio: "A private older biography" } });
+    const current = (await call("settings.get")).settings;
+    await db.patch("settings", current._id, { displayName: "Preferred workspace name" });
+    expect((await call("profileCard.get")).card).toMatchObject({ name: "Preferred workspace name", bio: "A private older biography" });
+    expect((await call("settings.get")).settings.profileCard.name).toBe("Preferred workspace name");
+    const exported = await call("profileCard.export");
+    expect(exported.svg).not.toContain("A private older biography");
+  });
+
+  it("renders all palettes and shapes with artwork-only grain and a dated hatch stamp", () => {
+    expect(profileCardThemes.length).toBeGreaterThanOrEqual(10);
+    for (const theme of profileCardThemes) for (const shape of profileCardShapes) {
+      const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme, shape, createdAt: Date.UTC(2026, 10, 8) });
+      expect(svg).toContain("8 Nov 2026");
+      expect(svg).toContain("card-art-grain");
+      expect(svg).toContain('mask="url(#card-art-mask)"');
+      expect(svg).toContain('class="card-qr-modules"');
+      expect(svg).not.toContain("card-qr-foil");
+      expect(svg).not.toContain("YOUR WORKSPACE CARD");
+      expect(svg).not.toContain("<filter");
+      expect(svg).not.toMatch(/(?:href|src)="https?:/);
+    }
+    expect(profileCardSvg(defaultProfileCard("New member")).svg).toContain("NEW CARD");
+  });
+
+  it("keeps the metallic QR modules scannable at multiple reflection angles", async () => {
+    const { default: sharp } = await import("sharp");
+    const { default: jsQR } = await import("jsqr");
+    const { PNG } = await import("pngjs");
+    const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme: "mint", shape: "band" });
+    for (const angle of [0, 90, 180, 270]) {
+      const reflected = svg.replace('class="card-foil-gradient"', `class="card-foil-gradient" gradientTransform="rotate(${angle} .5 .5)"`);
+      const png = PNG.sync.read(await sharp(Buffer.from(reflected)).resize(1080).extract({ left: 816, top: 1344, width: 192, height: 192 }).png().toBuffer());
+      expect(jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data).toBe("https://max.chaos.fail");
+    }
+  }, 15000);
 });

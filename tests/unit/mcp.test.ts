@@ -83,7 +83,7 @@ describe("MCP server", () => {
   it("creates, reads and downloads a private card through MCP", async () => {
     const card = { name: "Omar", bio: "My ideas", subtitle: "Curious explorer", theme: "sunset", pattern: "gradient", shape: "arch" };
     expect((await call("profileCard_update", { card })).isError).toBe(false);
-    expect((await call("profileCard_get")).body.card).toEqual(card);
+    expect((await call("profileCard_get")).body.card).toEqual({ ...card, createdAt: expect.any(Number) });
     const result = await client.callTool({ name: "profileCard_exportPng", arguments: {} });
     const image = result.content as { type: string; data?: string; mimeType?: string }[];
     expect(result.isError).not.toBe(true);

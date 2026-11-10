@@ -18,8 +18,8 @@ test("mobile card stays compact and settings remain reachable", async ({ page })
   const card = dialog.getByRole("article", { name: "Your profile card preview" });
   await expect(card).toBeVisible();
   expect((await card.boundingBox())!.width).toBeLessThanOrEqual(248);
-  await dialog.getByLabel("Card name", { exact: true }).fill("A very long name with lots of words for a small card");
-  await dialog.getByRole("button", { name: "Shuffle design" }).click();
+  await dialog.getByLabel("Name", { exact: true }).fill("A very long name with lots of words for a small card");
+  await dialog.getByRole("button", { name: "Change" }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/max-mobile-card.png" });
   await dialog.getByRole("button", { name: "Close settings", exact: true }).click();

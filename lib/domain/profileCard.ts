@@ -1,13 +1,18 @@
 import { z } from "zod";
 
-/** Private workspace identity, independent of the sign-in account. */
+export const profileCardThemes = ["ocean", "sage", "clay", "lilac", "sunset", "rose", "mint", "amber", "midnight", "lagoon", "plum", "citrus"] as const;
+export const profileCardShapes = ["arch", "leaf", "orbit", "band"] as const;
+
+/** Workspace identity; the name is shared with the workspace display name. */
 export const profileCardSchema = z.object({
   name: z.string().trim().min(1, "Give your card a name.").max(80),
   subtitle: z.string().trim().max(60).default(""),
-  bio: z.string().trim().max(180),
-  theme: z.enum(["ocean", "sage", "clay", "lilac", "sunset"]),
+  bio: z.string().trim().max(180).default(""),
+  theme: z.enum(profileCardThemes),
   pattern: z.enum(["plain", "gradient", "dots"]),
-  shape: z.enum(["arch", "leaf", "orbit"]).default("arch"),
+  shape: z.enum(profileCardShapes).default("arch"),
+  /** Assigned by the server on the first saved edition. Older cards may not have a recorded date. */
+  createdAt: z.number().int().nonnegative().max(8_640_000_000_000_000).optional(),
 });
 
 export type ProfileCard = z.infer<typeof profileCardSchema>;

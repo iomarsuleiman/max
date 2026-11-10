@@ -440,12 +440,12 @@ function SimpleRow({ page, trailing }: { page: PageSummary; trailing?: ReactNode
   const pathname = usePathname();
   const active = pageIdFromPath(pathname) === page._id;
   return (
-    <div className={cn("group/row flex h-7 items-center gap-1 rounded-md pe-1 ps-2 text-[13.5px] hover:bg-hover", active ? "bg-hover font-medium text-fg" : "text-fg-2")}>
+    <div className={cn("group/row flex h-7 min-w-0 max-w-full items-center gap-1 rounded-md pe-1 ps-2 text-[13.5px] hover:bg-hover", active ? "bg-hover font-medium text-fg" : "text-fg-2")}>
       <Link href={pageHref(page._id, page.title)} className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch" onMouseEnter={() => prefetchOp("pages.get", { id: page._id })}>
         <PageIcon icon={page.icon} kind={page.kind} />
-        <span className="truncate">{pageTitle(page.title)}</span>
+        <span className="min-w-0 flex-1 truncate" title={pageTitle(page.title)} data-shortcut-title>{pageTitle(page.title)}</span>
       </Link>
-      {trailing}
+      {trailing && <span className="flex shrink-0 items-center">{trailing}</span>}
     </div>
   );
 }
@@ -485,7 +485,7 @@ function FavoritesList() {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={list.map((p) => p._id)} strategy={verticalListSortingStrategy}>
-        <ul className="grid">
+        <ul className="grid min-w-0">
           {list.map((p) => (
             <SortableFavorite key={p._id} page={p} onKeyMove={keyMove} />
           ))}
@@ -502,7 +502,7 @@ function SortableFavorite({ page, onKeyMove }: { page: PageSummary; onKeyMove: (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn("relative", isDragging && "z-10 opacity-80")}
+      className={cn("relative min-w-0", isDragging && "z-10 opacity-80")}
       onKeyDown={(e) => {
         if (e.altKey && e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
           e.preventDefault();
@@ -546,9 +546,9 @@ function RecentsList() {
   const list = recents.data?.pages ?? [];
   if (!list.length) return <p className="px-2 py-1 text-xs text-fg-3">Pages you open show up here.</p>;
   return (
-    <ul className="grid">
+    <ul className="grid min-w-0">
       {list.map((p) => (
-        <li key={p._id}>
+        <li key={p._id} className="min-w-0">
           <SimpleRow
             page={p}
             trailing={

@@ -1,153 +1,207 @@
 "use client";
+
 import { useEffect, useRef } from "react";
+import { advanceLogoMotion, angularDelta, createLogoMotion, releaseLogoMotion, resetLogoMotion } from "@/lib/client/logoMotion";
 import { LogoMark } from "./Logo";
 
-/** Damped rotation sleeps when at rest and respects both motion preferences. */
+type Sample = { time: number; x: number; y: number; angle: number };
+type Gesture =
+  | { kind: "spin"; pointer: number; polar: number; travel: number; x: number; y: number }
+  | { kind: "pull"; pointer: number; startX: number; startY: number; offsetX: number; offsetY: number; travel: number; x: number; y: number };
+
+/** The edge turns around the finger; the center pulls. Animation sleeps as soon as it settles. */
 export function PlayfulLogo() {
-  const mark = useRef<HTMLSpanElement>(null);
-  const motion = useRef({ angle: 0, velocity: 0, frame: 0, last: 0, dragging: false, pointer: 0, x: 0, time: 0, reduced: false, travel: 0, target: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const markRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    const s = motion.current;
+    const button = buttonRef.current;
+    const mark = markRef.current;
+    if (!button || !mark) return;
+    const motion = createLogoMotion();
     const media = matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => {
-      s.reduced = media.matches || document.documentElement.dataset.reduceMotion === "on";
-      if (s.reduced) {
-        cancelAnimationFrame(s.frame);
-        s.frame = 0;
-        s.velocity = 0;
-      }
+    const controller = new AbortController();
+    const { signal } = controller;
+    let reduced = false;
+    let gesture: Gesture | null = null;
+    let samples: Sample[] = [];
+    let frame = 0;
+    let last = 0;
+    let direction = 1;
+    const paint = () => {
+      mark.style.transform = `translate(${motion.x.value}px, ${motion.y.value}px) scale(${1 + motion.press.value * 0.12}) rotate(${motion.angle % 360}deg)`;
     };
-    const pause = () => {
-      if (document.hidden) {
-        cancelAnimationFrame(s.frame);
-        s.frame = 0;
-        s.velocity = 0;
-        s.dragging = false;
-      }
+    const tick = (now: number) => {
+      frame = 0;
+      const moving = advanceLogoMotion(motion, (now - last) / 1000);
+      last = now;
+      paint();
+      if (moving && !reduced && !document.hidden) frame = requestAnimationFrame(tick);
     };
-    update();
-    media.addEventListener("change", update);
-    document.addEventListener("visibilitychange", pause);
-    const observer = new MutationObserver(update);
+    const wake = () => {
+      if (frame || reduced || document.hidden) return;
+      last = performance.now();
+      frame = requestAnimationFrame(tick);
+    };
+    const center = () => {
+      const rect = button.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2 + motion.x.value, y: rect.top + rect.height / 2 + motion.y.value };
+    };
+    const sample = (event: PointerEvent) => {
+      samples.push({ time: event.timeStamp, x: event.clientX, y: event.clientY, angle: motion.angle });
+      while (samples.length > 2 && event.timeStamp - samples[0].time > 100) samples.shift();
+    };
+    const clearCapture = (pointer: number) => {
+      if (button.hasPointerCapture(pointer)) button.releasePointerCapture(pointer);
+      button.style.cursor = "grab";
+    };
+    const reset = () => {
+      const pointer = gesture?.pointer;
+      gesture = null;
+      if (pointer !== undefined) clearCapture(pointer);
+      cancelAnimationFrame(frame);
+      frame = 0;
+      resetLogoMotion(motion);
+      paint();
+    };
+    const preferences = () => {
+      reduced = media.matches || document.documentElement.dataset.reduceMotion === "on";
+      if (reduced) reset();
+    };
+    const kick = (sign: number) => {
+      direction = sign;
+      releaseLogoMotion(motion, sign * 1450, 1200, reduced);
+      paint();
+      wake();
+    };
+    const release = (event?: PointerEvent, cancelled = false) => {
+      const held = gesture;
+      if (!held || (event && event.pointerId !== held.pointer)) return;
+      if (event && !cancelled) sample(event);
+      gesture = null;
+      clearCapture(held.pointer);
+      const first = samples[0];
+      const final = samples.at(-1);
+      const duration = first && final ? (final.time - first.time) / 1000 : 0;
+      const vx = duration > 0 && first && final ? (final.x - first.x) / duration : 0;
+      const vy = duration > 0 && first && final ? (final.y - first.y) / duration : 0;
+      const angularVelocity = duration > 0 && first && final ? (final.angle - first.angle) / duration : 0;
+      if (!cancelled && held.travel < 5) return kick(direction);
+      if (held.kind === "pull") {
+        motion.x.velocity = cancelled ? 0 : Math.max(-1800, Math.min(1800, vx));
+        motion.y.velocity = cancelled ? 0 : Math.max(-1800, Math.min(1800, vy));
+      }
+      if (Math.abs(angularVelocity) > 70) direction = Math.sign(angularVelocity);
+      releaseLogoMotion(motion, held.kind === "spin" && !cancelled ? angularVelocity : 0, cancelled ? 0 : Math.hypot(vx, vy), reduced);
+      paint();
+      wake();
+    };
+    button.addEventListener(
+      "pointerdown",
+      (event) => {
+        if ((event.pointerType === "mouse" && event.button !== 0) || gesture || reduced) return;
+        event.preventDefault();
+        const origin = center();
+        const x = event.clientX - origin.x;
+        const y = event.clientY - origin.y;
+        motion.rotation = { kind: "rest" };
+        motion.press.target = 1;
+        const common = { pointer: event.pointerId, travel: 0, x: event.clientX, y: event.clientY };
+        gesture =
+          Math.hypot(x, y) > button.offsetWidth * 0.24
+            ? { ...common, kind: "spin", polar: (Math.atan2(y, x) * 180) / Math.PI }
+            : { ...common, kind: "pull", startX: event.clientX, startY: event.clientY, offsetX: motion.x.value, offsetY: motion.y.value };
+        if (gesture.kind === "pull") {
+          motion.x.target = motion.x.value;
+          motion.y.target = motion.y.value;
+        }
+        motion.x.velocity = motion.y.velocity = 0;
+        samples = [];
+        sample(event);
+        button.setPointerCapture(event.pointerId);
+        button.style.cursor = "grabbing";
+        wake();
+      },
+      { signal },
+    );
+    button.addEventListener(
+      "pointermove",
+      (event) => {
+        if (!gesture || gesture.pointer !== event.pointerId) return;
+        if (event.pointerType === "mouse" && event.buttons === 0) return release(event, true);
+        gesture.travel += Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y);
+        gesture.x = event.clientX;
+        gesture.y = event.clientY;
+        if (gesture.kind === "spin") {
+          const origin = center();
+          const polar = (Math.atan2(event.clientY - origin.y, event.clientX - origin.x) * 180) / Math.PI;
+          motion.angle += angularDelta(gesture.polar, polar);
+          gesture.polar = polar;
+        } else {
+          motion.x.value = motion.x.target = gesture.offsetX + event.clientX - gesture.startX;
+          motion.y.value = motion.y.target = gesture.offsetY + event.clientY - gesture.startY;
+        }
+        sample(event);
+        paint();
+        wake();
+      },
+      { signal },
+    );
+    button.addEventListener("pointerup", (event) => release(event), { signal });
+    button.addEventListener("pointercancel", (event) => release(event, true), { signal });
+    button.addEventListener("lostpointercapture", (event) => release(event, true), { signal });
+    window.addEventListener("pointerup", (event) => release(event), { signal });
+    window.addEventListener("blur", reset, { signal });
+    document.addEventListener(
+      "visibilitychange",
+      () => {
+        if (document.hidden) reset();
+      },
+      { signal },
+    );
+    // Pointer releases already act above. Only keyboard-generated clicks receive a second path.
+    button.addEventListener(
+      "click",
+      (event) => {
+        if (event.detail === 0) kick(direction);
+      },
+      { signal },
+    );
+    button.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        kick(event.key === "ArrowLeft" ? -1 : 1);
+      },
+      { signal },
+    );
+    preferences();
+    media.addEventListener("change", preferences, { signal });
+    const observer = new MutationObserver(preferences);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-reduce-motion"] });
     return () => {
-      cancelAnimationFrame(s.frame);
-      media.removeEventListener("change", update);
-      document.removeEventListener("visibilitychange", pause);
+      controller.abort();
       observer.disconnect();
+      cancelAnimationFrame(frame);
     };
   }, []);
-  const paint = () => {
-    if (mark.current) mark.current.style.transform = `rotate(${motion.current.angle % 360}deg)`;
-  };
-  const settle = () => {
-    const s = motion.current;
-    if (s.reduced || s.frame || document.hidden) return;
-    const start = s.angle;
-    const speed = Math.abs(s.velocity);
-    const direction = Math.sign(s.velocity) || 1;
-    const projected = start + s.velocity / 0.0012;
-    s.target = speed > 0.08 ? (direction > 0 ? Math.ceil(projected / 360) : Math.floor(projected / 360)) * 360 : Math.round(start / 360) * 360;
-    const distance = s.target - start;
-    const duration = speed > 0.08 ? Math.max(1400, Math.min(7000, (Math.abs(distance) * 3) / speed)) : 600;
-    s.last = performance.now();
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - s.last) / duration);
-      s.angle = start + distance * (1 - (1 - progress) ** 3);
-      s.velocity = (distance * 3 * (1 - progress) ** 2) / duration;
-      paint();
-      if (progress < 1 && !s.dragging && !s.reduced) {
-        s.frame = requestAnimationFrame(tick);
-      } else {
-        s.angle = 0;
-        s.target = 0;
-        s.velocity = 0;
-        s.frame = 0;
-        paint();
-      }
-    };
-    s.frame = requestAnimationFrame(tick);
-  };
+
   return (
     <div className="mb-7 flex flex-col items-center gap-3">
       <button
+        ref={buttonRef}
         type="button"
         aria-label="Spin the Max butterfly"
         aria-describedby="butterfly-help"
         className="text-fg focus-visible:ring-fg grid size-44 touch-none place-items-center rounded-[44px] outline-none select-none focus-visible:ring-2 focus-visible:ring-offset-8 sm:size-52"
         style={{ cursor: "grab" }}
-        onPointerDown={(e) => {
-          const s = motion.current;
-          if (e.button !== 0) return;
-          s.travel = 0;
-          cancelAnimationFrame(s.frame);
-          s.frame = 0;
-          s.dragging = true;
-          s.pointer = e.pointerId;
-          s.x = e.clientX;
-          s.time = performance.now();
-          s.velocity = 0;
-          e.currentTarget.setPointerCapture(e.pointerId);
-          e.currentTarget.style.cursor = "grabbing";
-        }}
-        onPointerMove={(e) => {
-          const s = motion.current;
-          if (!s.dragging || e.pointerId !== s.pointer) return;
-          const now = performance.now();
-          const delta = (e.clientX - s.x) * 1.1;
-          s.travel += Math.abs(e.clientX - s.x);
-          s.angle += delta;
-          s.velocity = s.velocity * 0.3 + Math.max(-3.5, Math.min(3.5, delta / Math.max(8, now - s.time))) * 0.7;
-          s.x = e.clientX;
-          s.time = now;
-          paint();
-        }}
-        onPointerUp={(e) => {
-          if (e.pointerId !== motion.current.pointer || !motion.current.dragging) return;
-          motion.current.dragging = false;
-          if (performance.now() - motion.current.time > 80) motion.current.velocity = 0;
-          if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
-          e.currentTarget.style.cursor = "grab";
-          settle();
-        }}
-        onPointerCancel={(e) => {
-          motion.current.dragging = false;
-          motion.current.velocity = 0;
-          e.currentTarget.style.cursor = "grab";
-          settle();
-        }}
-        onClick={(e) => {
-          if (e.detail === 0 || motion.current.travel < 4) {
-            cancelAnimationFrame(motion.current.frame);
-            motion.current.frame = 0;
-            if (motion.current.reduced) {
-              motion.current.angle = 0;
-              paint();
-            } else {
-              motion.current.velocity = (Math.sign(motion.current.velocity) || 1) * Math.min(3.5, Math.abs(motion.current.velocity) + 1.5);
-              paint();
-              settle();
-            }
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-            e.preventDefault();
-            cancelAnimationFrame(motion.current.frame);
-            motion.current.frame = 0;
-            motion.current.velocity = e.key === "ArrowLeft" ? -1.6 : 1.6;
-            if (motion.current.reduced) motion.current.angle += e.key === "ArrowLeft" ? -30 : 30;
-            paint();
-            settle();
-          }
-        }}
       >
-        <span ref={mark} className="block size-40 sm:size-48">
+        <span ref={markRef} className="block size-40 sm:size-48">
           <LogoMark className="size-full" />
         </span>
       </button>
       <p id="butterfly-help" className="sr-only">
-        A little room to play. Drag, tap, or use the arrow keys.
+        Drag the edge to spin, or pull the middle. Tap or use the arrow keys to spin.
       </p>
     </div>
   );

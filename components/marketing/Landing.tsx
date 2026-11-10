@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
-import { Space_Grotesk } from "next/font/google";
+import { Fraunces } from "next/font/google";
 
-const heroFont = Space_Grotesk({ subsets: ["latin"], display: "swap", weight: ["500"] });
+const heroFont = Fraunces({ subsets: ["latin"], display: "swap", weight: ["600"], variable: "--font-landing-serif" });
 import { CLOUD } from "@/lib/config";
 import { PlayfulLogo } from "@/components/brand/PlayfulLogo";
 import Walkthrough from "./Walkthrough";
@@ -9,16 +9,14 @@ import Walkthrough from "./Walkthrough";
 /** The landing follows the OS palette independently of saved workspace preferences. */
 export function LandingContent() {
   return (
-    <main className="landing-system paper-grain bg-canvas text-fg">
+    <main className={`${heroFont.variable} landing-system paper-grain bg-canvas text-fg`}>
       <section className="mx-auto flex min-h-svh max-w-5xl flex-col items-center justify-center px-6 py-20 text-center">
         <PlayfulLogo />
-        <h1 className={`${heroFont.className} max-w-4xl text-5xl leading-[1.04] font-medium tracking-[-.065em] text-balance sm:text-7xl lg:text-8xl`}>
-          A home for your ideas.
+        <h1 className="landing-headline mt-4 max-w-5xl text-[52px] leading-[1.13] font-semibold tracking-[-.032em] text-balance sm:text-7xl lg:text-[76px]">
+          Make room.
         </h1>
         <p className="text-fg-2 mt-7 max-w-xl text-base leading-relaxed text-balance sm:text-xl">
-          Your notes, pages and databases.
-          <br />
-          Private by default.
+          Your notes, all together.
         </p>
         <Link
           href={CLOUD ? "/sign-up" : "/home"}

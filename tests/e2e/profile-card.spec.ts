@@ -6,33 +6,39 @@ test("profile card previews, saves and persists across reload", async ({ page })
   await page.goto("/home?settings=account");
   const settings = page.getByRole("dialog", { name: "Settings", exact: true });
   await expect(settings.getByRole("heading", { name: "Welcome to Max." })).toBeVisible();
-  await settings.getByLabel("Card name", { exact: true }).fill("عمر Omar");
-  await settings.getByText("More about you", { exact: true }).click();
-  await settings.getByLabel("About you", { exact: true }).fill("Collecting ideas in two languages.");
-  await settings.getByLabel("Card subtitle", { exact: true }).fill("Curious explorer");
+  await settings.getByLabel("Name", { exact: true }).fill("عمر Omar");
+  await expect(settings.getByLabel("Preferred name", { exact: true })).toHaveCount(0);
+  await expect(settings.getByLabel("About you", { exact: true })).toHaveCount(0);
+  await expect(settings.getByLabel("Card name", { exact: true })).toHaveCount(0);
   const preview = settings.getByRole("article", { name: "Your profile card preview" });
   const before = await preview.innerHTML();
-  await settings.getByRole("button", { name: "Shuffle design" }).click();
+  await settings.getByRole("button", { name: "Change" }).click();
   expect(await preview.innerHTML()).not.toBe(before);
   const savedDesign = await preview
     .locator("svg")
     .first()
     .evaluate((svg) => Array.from(svg.querySelectorAll("path, stop")).map((element) => [element.getAttribute("d"), element.getAttribute("stop-color")]));
   await expect(preview).toContainText("عمر Omar");
-  await expect(preview).toContainText("Collecting ideas in two languages.");
   await settings.getByRole("button", { name: "Save my card", exact: true }).click();
   await expect(page.getByText("Profile card saved", { exact: true })).toBeVisible();
+  const stored = await page.request.post("/api/local/ops", { data: { op: "settings.get", args: {} } });
+  const data = (await stored.json()).result.settings;
+  expect(data.displayName).toBe("عمر Omar");
+  expect(data.profileCard.createdAt).toBeGreaterThan(0);
+  const issued = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(data.profileCard.createdAt);
+  await expect(preview).toContainText(issued);
+  await expect(preview).not.toContainText("YOUR WORKSPACE CARD");
   await page.reload();
-  await expect(settings.getByLabel("Card name", { exact: true })).toHaveValue("عمر Omar");
+  await expect(settings.getByLabel("Name", { exact: true })).toHaveValue("عمر Omar");
   expect(
     await preview
       .locator("svg")
       .first()
       .evaluate((svg) => Array.from(svg.querySelectorAll("path, stop")).map((element) => [element.getAttribute("d"), element.getAttribute("stop-color")])),
   ).toEqual(savedDesign);
-  await settings.getByLabel("Card name", { exact: true }).fill("");
+  await settings.getByLabel("Name", { exact: true }).fill("");
   await expect(settings.getByRole("article", { name: "Your profile card preview" })).toBeVisible();
-  await settings.getByLabel("Card name", { exact: true }).fill("Omar Suleiman");
+  await settings.getByLabel("Name", { exact: true }).fill("Omar Suleiman");
   const download = page.waitForEvent("download");
   await settings.getByRole("button", { name: "Download PNG", exact: true }).click();
   const file = await download;

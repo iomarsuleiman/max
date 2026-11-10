@@ -13,7 +13,7 @@ See the [v1 release notes](docs/RELEASE_NOTES.md).
 ## What's inside
 
 - **Mobile editing.** A keyboard-aware touch toolbar with block insertion, text styles, links, colors, undo/redo, and block actions. Larger touch controls and readable inputs keep editing usable on small screens.
-- **Membership cards.** Name your card, shuffle its artwork, and export a PNG. A scannable QR opens Max; profile details stay private. Card preview and MCP exports share the same renderer.
+- **Membership cards.** Use your workspace name, change the artwork, and export a PNG. Textured artwork, a dated membership stamp, and a scannable metallic QR make the card your own; workspace data stays private. Card preview and MCP exports share the same renderer.
 - **A little room to play.** A freely spinning landing logo, a system-themed paper surface, and an optional offline Paper hop game with opt-in sound and a local best score.
 
 - **Pages inside pages.** Max opens where you left off; there is no separate home screen. Readable page addresses (`/p/video-pipeline-<id>`) that follow renames. A sidebar tree with drag handles to reorder and nest, collapsible Favorites, Recents and Pages sections, keyboard moves (⌥⇧ + arrows), favorites, recents, a trash you can restore from, a "Move to…" picker, and a resizable sidebar (drag the edge, click it to close).
