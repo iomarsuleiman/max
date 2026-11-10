@@ -129,13 +129,13 @@ describe("one workspace/card identity", () => {
       const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme, shape, createdAt: Date.UTC(2026, 10, 8) });
       expect(svg).toContain("8 Nov 2026");
       expect(svg).toContain("card-art-light");
-      expect(svg).not.toContain("grain");
+      expect(svg).toContain('fill="url(#card-grain)" mask="url(#card-art-mask)"');
       expect(svg).not.toContain("data:image");
       expect(svg).toContain('mask="url(#card-art-mask)"');
       expect(svg).toContain('class="card-qr-modules"');
       expect(svg).toContain('<svg width="88" height="88"');
       expect(svg).toContain('class="card-foil-gradient"');
-      expect(svg).toMatch(/class="card-shine-gradient" id="[^"]+" cx="\.5" cy="\.45"/);
+      expect(svg).toMatch(/class="card-shine-gradient" id="[^"]+" x1="0" y1="0" x2="1" y2="0"/);
       expect(svg).toContain('<rect class="card-shine" x="0" y="0" width="360"');
       expect(svg).not.toContain("card-qr-foil");
       expect(svg).not.toContain("YOUR WORKSPACE CARD");
@@ -145,15 +145,15 @@ describe("one workspace/card identity", () => {
     expect(profileCardSvg(defaultProfileCard("New member")).svg).toContain("NEW CARD");
   });
 
-  it("keeps the neutral foil QR modules scannable at multiple reflection angles", async () => {
+  it("keeps the colored foil QR modules scannable at multiple reflection angles for every palette", async () => {
     const { default: sharp } = await import("sharp");
     const { default: jsQR } = await import("jsqr");
     const { PNG } = await import("pngjs");
-    const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme: "mint", shape: "band" });
-    for (const angle of [0, 90, 180, 270]) {
+    for (const theme of profileCardThemes) for (const angle of [0, 90, 180, 270]) {
+      const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme, shape: "band" });
       const reflected = svg.replace('class="card-foil-gradient"', `class="card-foil-gradient" gradientTransform="rotate(${angle} .5 .5)"`);
       const png = PNG.sync.read(await sharp(Buffer.from(reflected)).resize(1080).extract({ left: 744, top: 1308, width: 264, height: 264 }).png().toBuffer());
-      expect(jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data).toBe("https://max.chaos.fail");
+      expect(jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data, `${theme} at ${angle}°`).toBe("https://max.chaos.fail");
     }
-  }, 15000);
+  }, 30000);
 });
