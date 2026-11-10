@@ -82,6 +82,9 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `pages_touch` | Mark page as opened | Write | Records that a page was opened so it appears in Recents. |
 | `pages_tree` | List page tree | Read | Lists every live page and database in the sidebar hierarchy (lightweight metadata only, no content). Use parentId to rebuild nesting; siblings sort by rank. |
 | `pages_update` | Update page | Write | Renames a page or changes its icon, cover, width, text size or lock. Only the fields you pass change. |
+| `profileCard_export` | Export my workspace card | Read | Returns a self-contained SVG of your saved card using Max's native card renderer. No private information is uploaded or published. Use profileCard_exportPng for a PNG image. |
+| `profileCard_get` | Read my workspace card | Read | Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern. Other accounts' cards are inaccessible. |
+| `profileCard_update` | Customize my workspace card | Write | Saves your private workspace card with the same validation as Max's card editor. This does not change your sign-in identity or publish a public profile. |
 | `properties_add` | Add property | Write | Adds a property (column) to a database. Types: text, number, select, multi_select, status, checkbox, date, url, email, relation (needs relationDatabaseId), created_time, updated_time. |
 | `properties_delete` | Delete property | Write · needs `confirm: true` | Deletes a property and its values from every row. The Name property can't be deleted. This can't be undone. |
 | `properties_update` | Update property | Write | Renames a property, changes its type, or replaces its select options. Changing type converts existing values where possible (values that can't convert are cleared). |
@@ -116,4 +119,14 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `assets_upload` | Upload an image | Write | Stores an image from a public https URL (private networks refused) or base64 data and returns a max-asset:// URL. |
 | `import_html` | Import HTML as a page | Write | Converts HTML (passed in or fetched from a public page) into a new page. |
 | `max_capabilities` | What Max can do | Read | Lists tools, limits, resources and error codes. |
+| `profileCard_exportPng` | Download my workspace card as PNG | Read | Renders the saved private card as a PNG image without publishing it. |
+| `notion_status` | Get Notion connection status | Read | Returns safe connection metadata for your own Notion workspace. Connect or reconnect in Max Settings; no provider credential is returned. |
+| `notion_sources` | List shared Notion sources | Read | Searches pages and data sources shared with your connected Notion integration. Follow nextCursor for more results; this is not the entire Notion workspace. |
+| `notion_preview` | Preview a Notion import | Read | Reviews selected authorized Notion roots and a Max destination before importing copies. Estimates and known limitations are disclosed; source content is never modified. |
+| `notion_start` | Import copies from Notion | Write | Starts a persisted background import of selected shared Notion pages and databases into your Max workspace. Supply a stable idempotencyKey to retry without duplicate trees. This never changes Notion originals. |
+| `notion_job` | Get Notion import progress | Read | Returns persisted progress, counts, warnings and errors for an import owned by your Max account. Use rootIds to open imported copies. |
+| `notion_report` | Read a Notion import report | Read | Returns the owner-scoped migration report with created, skipped and failed items and conversion warnings. Never contains upstream access tokens. |
+| `notion_history` | List Notion import history | Read | Lists recent Notion import jobs owned by your Max account, including completed, interrupted and failed imports. |
+| `notion_cancel` | Cancel a Notion import | Write | Stops an owned background import at its next checkpoint. Already imported Max copies remain and the original Notion content is never changed. |
+| `notion_retry` | Resume an incomplete Notion import | Write | Resumes an owned interrupted import from persisted checkpoints without duplicating previously created copies. Reconnect in Max if source access expired. |
 <!-- tools:end -->

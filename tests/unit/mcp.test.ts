@@ -35,9 +35,23 @@ describe("MCP server", () => {
     for (const op of mcpTools()) expect(names).toContain(toolName(op.name));
     expect(names).toEqual(expect.arrayContaining(["assets_upload", "import_html", "max_capabilities"]));
     expect(names).not.toContain("tokens_create");
+    expect(names).not.toContain("notion_disconnect");
+    expect(names).not.toContain("notion_connect");
     const archive = tools.find((t) => t.name === "pages_archive")!;
     expect(archive.annotations?.destructiveHint).toBe(true);
     expect(tools.find((t) => t.name === "pages_tree")!.annotations?.readOnlyHint).toBe(true);
+  });
+
+  it("capabilities matches every advertised tool including itself and safe Notion operations", async () => {
+    const { tools } = await client.listTools();
+    const result = await call("max_capabilities");
+    expect(result.isError).toBe(false);
+    expect(result.body.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(tools.map((tool) => tool.name).sort());
+    expect(tools.find((tool) => tool.name === "notion_sources")?.annotations?.readOnlyHint).toBe(true);
+    expect(tools.find((tool) => tool.name === "notion_start")?.annotations?.readOnlyHint).toBe(false);
+    const status = await call("notion_status");
+    expect(status.body).not.toHaveProperty("access_token");
+    expect(status.body).not.toHaveProperty("token");
   });
 
   it("creates, edits, reads and searches content", async () => {
@@ -66,6 +80,21 @@ describe("MCP server", () => {
     expect(tree.body.pages.filter((p: { title: string }) => p.title === "Once")).toHaveLength(1);
   });
 
+  it("creates, reads and downloads a private card through MCP", async () => {
+    const card = { name: "Omar", bio: "My ideas", subtitle: "Curious explorer", theme: "sunset", pattern: "gradient", shape: "arch" };
+    expect((await call("profileCard_update", { card })).isError).toBe(false);
+    expect((await call("profileCard_get")).body.card).toEqual(card);
+    const result = await client.callTool({ name: "profileCard_exportPng", arguments: {} });
+    const image = result.content as { type: string; data?: string; mimeType?: string }[];
+    expect(result.isError).not.toBe(true);
+    expect(image[0].mimeType).toBe("image/png");
+    expect(
+      Buffer.from(image[0].data || "", "base64")
+        .subarray(0, 8)
+        .toString("hex"),
+    ).toBe("89504e470d0a1a0a");
+  }, 30_000);
+
   it("works with databases end to end", async () => {
     const { body } = await call("gallery_install", { key: "projects-tasks" });
     const row = await call("records_create", { databaseId: body.id, values: { Name: "Write docs", Status: "In progress", Priority: "High" } });
@@ -84,7 +113,9 @@ describe("MCP server", () => {
   });
 
   it("imports HTML and uploads images from base64", async () => {
-    const imported = await call("import_html", { html: "<html><head><title>Article</title><script>alert(1)</script></head><body><h2>Hello</h2><p>Some <strong>bold</strong> text</p></body></html>" });
+    const imported = await call("import_html", {
+      html: "<html><head><title>Article</title><script>alert(1)</script></head><body><h2>Hello</h2><p>Some <strong>bold</strong> text</p></body></html>",
+    });
     expect(imported.isError).toBe(false);
     const md = await call("documents_get", { pageId: imported.body.id, format: "markdown" });
     expect(md.body.title).toBe("Article");

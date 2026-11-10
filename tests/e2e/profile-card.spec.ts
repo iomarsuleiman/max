@@ -1,0 +1,34 @@
+import { expect, test } from "@playwright/test";
+
+test("profile card previews, saves and persists across reload", async ({ page }) => {
+  await page.goto("/home?settings=account");
+  const settings = page.getByRole("dialog", { name: "Settings", exact: true });
+  await expect(settings.getByRole("heading", { name: "Make this space yours" })).toBeVisible();
+  await settings.getByLabel("Card name", { exact: true }).fill("عمر Omar");
+  await settings.getByLabel("About you", { exact: true }).fill("Collecting ideas in two languages.");
+  await settings.getByLabel("Card subtitle", { exact: true }).fill("Curious explorer");
+  await settings.getByRole("radio", { name: /^leaf$/i }).check();
+  await settings.getByRole("radio", { name: "Sage", exact: true }).check();
+  await settings.getByRole("radio", { name: "Dots", exact: true }).check();
+  const preview = settings.getByRole("article", { name: "Your profile card preview" });
+  await expect(preview).toContainText("عمر Omar");
+  await expect(preview).toContainText("Collecting ideas in two languages.");
+  await settings.getByRole("button", { name: "Save my card", exact: true }).click();
+  await expect(page.getByText("Profile card saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(settings.getByLabel("Card name", { exact: true })).toHaveValue("عمر Omar");
+  await expect(settings.getByRole("radio", { name: "Sage", exact: true })).toBeChecked();
+  await expect(settings.getByRole("radio", { name: "Dots", exact: true })).toBeChecked();
+  await expect(settings.getByRole("radio", { name: /^leaf$/i })).toBeChecked();
+  await settings.getByLabel("Card name", { exact: true }).fill("");
+  await expect(settings.getByRole("article", { name: "Your profile card preview" })).toBeVisible();
+  await settings.getByLabel("Card name", { exact: true }).fill("Omar Suleiman");
+  const download = page.waitForEvent("download");
+  await settings.getByRole("button", { name: "Download PNG", exact: true }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("max-workspace-card.png");
+  const path = await file.path();
+  const { readFile } = await import("node:fs/promises");
+  expect((await readFile(path!)).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+  await file.saveAs("test-results/max-workspace-card.png");
+});

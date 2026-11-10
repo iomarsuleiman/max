@@ -93,4 +93,6 @@ test("MCP: tokens authenticate and tools match the UI", async ({ page, request }
   await expect(page.getByRole("tree", { name: "Pages" })).toContainText("From an assistant");
   const denied = await request.post("/mcp", { headers: { "Content-Type": "application/json" }, data: { jsonrpc: "2.0", id: 3, method: "tools/list" } });
   expect(denied.status()).toBe(401);
+  await page.goto("/home?settings=connections");
+  await expect(page.getByRole("img", { name: "Succeeded", exact: true }).first()).toBeVisible();
 });

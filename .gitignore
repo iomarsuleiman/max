@@ -23,6 +23,7 @@ coverage/
 *.log
 .vercel/
 .convex/
+convex/_generated/
 
 # Local workspace data (local mode)
 .max-data/

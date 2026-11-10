@@ -7,6 +7,7 @@ import { listOps } from "@/lib/domain/ops";
 import { LIMITS } from "@/lib/domain/ops/helpers";
 import { runForOwner } from "./executor";
 import { importHtml, uploadAsset } from "./mcpExtras";
+import { NOTION_MCP_TOOLS } from "@/lib/notion/tools";
 
 /** MCP tool names use underscores: "pages.create" → "pages_create". */
 export const toolName = (op: string) => op.replace(/\./g, "_");
@@ -23,7 +24,12 @@ const INSTRUCTIONS = `Max is the user's private notes workspace: nested pages, r
 - Tools marked destructive need confirm: true, only after the user has agreed. Trashing (pages_archive) is reversible with pages_restore.
 - Use batch for several writes that must all succeed together.`;
 
-const IDEMPOTENCY = z.string().min(8).max(200).optional().describe("Optional unique key. Repeating a call with the same key within 24 hours returns the first result instead of applying it again.");
+const IDEMPOTENCY = z
+  .string()
+  .min(8)
+  .max(200)
+  .optional()
+  .describe("Optional unique key. Repeating a call with the same key within 24 hours returns the first result instead of applying it again.");
 
 function toolResult(result: unknown) {
   const structured = (result && typeof result === "object" && !Array.isArray(result) ? result : { result }) as Record<string, unknown>;
@@ -34,10 +40,57 @@ function toolError(err: unknown) {
 }
 
 /** Extra tools composed from domain operations (they need the server's network or Node APIs). */
-export const EXTRA_TOOLS = ["assets_upload", "import_html", "max_capabilities"];
+export const EXTRA_TOOLS = ["assets_upload", "import_html", "max_capabilities", "profileCard_exportPng", ...NOTION_MCP_TOOLS.map((tool) => tool.name)];
 
 export function createMcpServer(ownerId: string) {
   const server = new McpServer({ name: "max", version: VERSION, title: "Max", websiteUrl: APP_URL }, { instructions: INSTRUCTIONS });
+  server.registerTool(
+    "profileCard_exportPng",
+    {
+      title: "Download my workspace card as PNG",
+      description:
+        "Renders your saved private card as a PNG image using Max's shared card artwork. Returns the image directly without publishing or sending it to an external service.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      try {
+        const exported = (await runForOwner(ownerId, "profileCard.export", {})) as { svg: string; width: number; height: number };
+        const { default: sharp } = await import("sharp");
+        const png = await sharp(Buffer.from(exported.svg), { density: 216 }).png().toBuffer();
+        return {
+          content: [{ type: "image" as const, data: png.toString("base64"), mimeType: "image/png" }],
+          structuredContent: { filename: "max-workspace-card.png", mimeType: "image/png", width: exported.width * 3, height: exported.height * 3 },
+        };
+      } catch (err) {
+        return toolError(err);
+      }
+    },
+  );
+  for (const tool of NOTION_MCP_TOOLS) {
+    server.registerTool(
+      tool.name,
+      {
+        title: tool.title,
+        description: tool.description,
+        inputSchema: tool.input,
+        annotations: {
+          readOnlyHint: tool.readOnly,
+          destructiveHint: false,
+          idempotentHint: tool.readOnly || tool.operation === "start" || tool.operation === "cancel",
+          openWorldHint: true,
+        },
+      },
+      async (args: unknown) => {
+        try {
+          const { runNotionForOwner } = await import("./notion");
+          return toolResult(await runNotionForOwner(ownerId, tool.operation, tool.input.parse(args)));
+        } catch (err) {
+          return toolError(err);
+        }
+      },
+    );
+  }
   for (const op of mcpTools()) {
     server.registerTool(
       toolName(op.name),
@@ -67,7 +120,8 @@ export function createMcpServer(ownerId: string) {
     "assets_upload",
     {
       title: "Upload an image",
-      description: "Stores an image from a public https URL or base64 data (PNG, JPEG, WebP, GIF, AVIF or SVG, up to 20 MB) and returns a max-asset:// URL to use in an image block's url prop or as a page cover.",
+      description:
+        "Stores an image from a public https URL or base64 data (PNG, JPEG, WebP, GIF, AVIF or SVG, up to 20 MB) and returns a max-asset:// URL to use in an image block's url prop or as a page cover.",
       inputSchema: z.object({
         url: z.string().url().optional(),
         base64: z.string().max(28_000_000).optional(),
@@ -89,8 +143,14 @@ export function createMcpServer(ownerId: string) {
     "import_html",
     {
       title: "Import HTML as a page",
-      description: "Creates a page from HTML you pass, or from a public https web page. The HTML is converted to blocks; scripts, styles and embeds are dropped.",
-      inputSchema: z.object({ html: z.string().max(2_000_000).optional(), url: z.string().url().optional(), title: z.string().max(500).optional(), parentId: z.string().max(64).nullable().optional() }),
+      description:
+        "Creates a page from HTML you pass, or from a public https web page. The HTML is converted to blocks; scripts, styles and embeds are dropped.",
+      inputSchema: z.object({
+        html: z.string().max(2_000_000).optional(),
+        url: z.string().url().optional(),
+        title: z.string().max(500).optional(),
+        parentId: z.string().max(64).nullable().optional(),
+      }),
       annotations: { title: "Import HTML", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     (async (args: Parameters<typeof importHtml>[1]) => {
@@ -130,9 +190,17 @@ export function createMcpServer(ownerId: string) {
       const data = {
         version: VERSION,
         tools: [
-          ...mcpTools().map((op) => ({ name: toolName(op.name), kind: op.kind === "query" ? "read" : "write", needsConfirm: !!op.destructive, title: op.title })),
+          ...mcpTools().map((op) => ({
+            name: toolName(op.name),
+            kind: op.kind === "query" ? "read" : "write",
+            needsConfirm: !!op.destructive,
+            title: op.title,
+          })),
           { name: "assets_upload", kind: "write", needsConfirm: false, title: "Upload an image" },
           { name: "import_html", kind: "write", needsConfirm: false, title: "Import HTML as a page" },
+          { name: "max_capabilities", kind: "read", needsConfirm: false, title: "What Max can do" },
+          { name: "profileCard_exportPng", kind: "read", needsConfirm: false, title: "Download my workspace card as PNG" },
+          ...NOTION_MCP_TOOLS.map((tool) => ({ name: tool.name, kind: tool.readOnly ? "read" : "write", needsConfirm: false, title: tool.title })),
         ],
         resources: ["max://page/{id} (Markdown)"],
         idempotency: "Write tools accept idempotencyKey; repeats within 24 hours return the first result.",
