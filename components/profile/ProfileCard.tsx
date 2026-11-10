@@ -10,6 +10,7 @@ export function ProfileCard({ card }: { card: Card }) {
   const { svg } = profileCardSvg({ ...card, name: card.name.trim() || "Your name" }, id);
   const reset = () => {
     preview.current?.style.removeProperty("transform");
+    preview.current?.querySelectorAll(".card-light-gradient").forEach((gradient) => gradient.removeAttribute("gradientTransform"));
   };
   return (
     <article
@@ -21,7 +22,9 @@ export function ProfileCard({ card }: { card: Card }) {
         const box = event.currentTarget.getBoundingClientRect();
         const x = (event.clientX - box.left) / box.width - 0.5;
         const y = (event.clientY - box.top) / box.height - 0.5;
-        event.currentTarget.querySelector(".card-foil-gradient")?.setAttribute("gradientTransform", `rotate(${x * 160} .5 .5)`);
+        event.currentTarget.querySelectorAll(".card-light-gradient").forEach((gradient) => {
+          gradient.setAttribute("gradientTransform", `rotate(${x * 100 + y * 40} .5 .5)`);
+        });
         event.currentTarget.style.transform = `perspective(800px) rotateX(${-y * 10}deg) rotateY(${x * 12}deg)`;
       }}
       onPointerLeave={reset}
