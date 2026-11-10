@@ -12,9 +12,10 @@ import { downloadProfileCardPng } from "@/lib/client/profileCardExport";
 export function ProfileCardEditor() {
   const ws = useWorkspace();
   const id = useId();
-  const [card, setCard] = useState(() => {
+  const [card, setCard] = useState<Card>(() => {
     const saved = profileCardSchema.safeParse(ws.settings?.profileCard);
-    return saved.success ? { ...saved.data, name: ws.settings?.displayName?.trim() || saved.data.name } : defaultProfileCard(ws.settings?.displayName || ws.identity.name);
+    const initial = saved.success ? { ...saved.data, name: ws.settings?.displayName?.trim() || saved.data.name } : defaultProfileCard(ws.settings?.displayName || ws.identity.name);
+    return { ...initial, createdAt: ws.settings?.joinedAt ?? initial.createdAt };
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

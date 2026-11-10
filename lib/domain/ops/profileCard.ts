@@ -16,7 +16,7 @@ export const profileCardGet = defineOp({
   async run(ctx) {
     const settings = await getSettingsRow(ctx);
     const saved = profileCardSchema.safeParse(settings?.profileCard);
-    return { card: saved.success ? { ...saved.data, name: settings?.displayName?.trim() || saved.data.name } : null };
+    return { card: saved.success ? { ...saved.data, createdAt: settings?.joinedAt ?? saved.data.createdAt, name: settings?.displayName?.trim() || saved.data.name } : null };
   },
 });
 export const profileCardUpdate = defineOp({

@@ -177,6 +177,7 @@ export function normalizeSidebar(sections: SidebarSectionId[] | undefined): Side
 export function defaultSettings(ownerId: string, now: number): Omit<SettingsRow, "_id"> {
   return {
     ownerId,
+    joinedAt: now,
     theme: "system",
     font: "default",
     defaultFullWidth: false,
@@ -205,6 +206,7 @@ export async function getSettingsRow(ctx: OpContext): Promise<SettingsRow | null
 export async function upsertSettings(ctx: OpContext, patch: Partial<Omit<SettingsRow, "_id" | "ownerId">>): Promise<SettingsRow> {
   const existing = await getSettingsRow(ctx);
   if (existing) {
+    patch = { ...patch, joinedAt: existing.joinedAt };
     await ctx.db.patch("settings", existing._id, { ...patch, updatedAt: ctx.now });
     return { ...existing, ...patch, updatedAt: ctx.now };
   }

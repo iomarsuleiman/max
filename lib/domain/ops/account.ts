@@ -62,7 +62,7 @@ export const settingsGet = defineOp({
     const settings = row ?? ({ _id: "", ...defaultSettings(ctx.ownerId, ctx.now) } as SettingsRow);
     const card = profileCardSchema.safeParse(settings.profileCard);
     return {
-      settings: { ...settings, ...(card.success ? { profileCard: { ...card.data, name: settings.displayName?.trim() || card.data.name } } : {}), sidebarSections: normalizeSidebar(settings.sidebarSections), collapsedSections: (settings.collapsedSections ?? []).filter((s) => DEFAULT_SIDEBAR.includes(s)) },
+      settings: { ...settings, ...(card.success ? { profileCard: { ...card.data, createdAt: settings.joinedAt ?? card.data.createdAt, name: settings.displayName?.trim() || card.data.name } } : {}), sidebarSections: normalizeSidebar(settings.sidebarSections), collapsedSections: (settings.collapsedSections ?? []).filter((s) => DEFAULT_SIDEBAR.includes(s)) },
       saved: !!row,
     };
   },
@@ -88,7 +88,7 @@ export const settingsUpdate = defineOp({
     if (patch.profileCard) {
       const explicitName = patch.displayName?.trim();
       if (explicitName && explicitName !== patch.profileCard.name) throw new MaxError("VALIDATION", "Your workspace and card use one name. Pass the same name for both.");
-      patch.profileCard = { ...patch.profileCard, createdAt: previousCard.success ? previousCard.data.createdAt ?? ctx.now : ctx.now };
+      patch.profileCard = { ...patch.profileCard, createdAt: existing?.joinedAt ?? ctx.now };
       patch.displayName = patch.profileCard.name;
     } else if (patch.displayName !== undefined && previousCard.success && patch.profileCard !== null) {
       const name = patch.displayName?.trim() || previousCard.data.name;

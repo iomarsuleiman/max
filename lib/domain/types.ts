@@ -171,6 +171,8 @@ export interface DocumentRow {
 }
 
 export interface SettingsRow {
+  /** First creation of this Max workspace, independent of card edits. */
+  joinedAt?: number;
   _id: string;
   ownerId: string;
   theme: "system" | "light" | "dark";
