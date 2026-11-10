@@ -6,7 +6,7 @@ import { defaultSettings } from "@/lib/domain/ops/helpers";
 
 describe("legacy Max join dates", () => {
   it("reads the original Convex settings creation time instead of the last edit", async () => {
-    const t = convexTest(schema, { "../../convex/_generated/server.ts": () => import("@/convex/_generated/server") });
+    const t = convexTest(schema, { "../../convex/_generated/server.ts": async () => ({}) });
     await t.run(async (ctx) => {
       const { joinedAt: _joinedAt, ...legacy } = defaultSettings("member", Date.UTC(2026, 10, 10));
       const id = await ctx.db.insert("settings", legacy);
