@@ -129,18 +129,16 @@ describe("one workspace/card identity", () => {
       const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme, shape, createdAt: Date.UTC(2026, 10, 8) });
       expect(svg).toContain("8 Nov 2026");
       expect(svg).toContain("card-art-light");
-      expect(svg).toContain('fill="url(#card-grain)" mask="url(#card-art-mask)"');
+      expect(svg).toContain('filter="url(#card-grain)" mask="url(#card-art-mask)" opacity=".18"');
       expect(svg).not.toContain("data:image");
       expect(svg).toContain('mask="url(#card-art-mask)"');
       expect(svg).toContain('class="card-qr-modules"');
       expect(svg).toContain('<svg width="88" height="88"');
       expect(svg).toContain('class="card-foil-gradient"');
-      expect(svg).toMatch(/class="card-shine-gradient" id="[^"]+" x1="0" y1="0" x2="1" y2="0"/);
-      expect(svg).toContain('<rect class="card-shine" x="0" y="0" width="360"');
       expect(svg).not.toContain("card-qr-foil");
       expect(svg).not.toContain("YOUR WORKSPACE CARD");
-      expect(svg).not.toContain("<filter");
       expect(svg).not.toMatch(/(?:href|src)="https?:/);
+      expect(svg).toMatch(/<rect x="24" y="\d+" width="\d+" height="25"/);
     }
     expect(profileCardSvg(defaultProfileCard("New member")).svg).toContain("NEW CARD");
   });

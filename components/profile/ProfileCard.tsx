@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { Smartphone } from "lucide-react";
 import type { ProfileCard as Card } from "@/lib/domain/profileCard";
 import { profileCardSvg } from "@/lib/client/profileCardExport";
 import { Button } from "@/components/ui";
@@ -11,10 +12,6 @@ const clamp = (value: number) => Math.max(-1, Math.min(1, value));
 
 function applyTilt(element: HTMLElement, x: number, y: number) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.reduceMotion === "on") return;
-  element.querySelectorAll(".card-light-gradient, .card-foil-gradient, .card-shine-gradient").forEach((gradient) => {
-    gradient.setAttribute("gradientTransform", `rotate(${x * 50 + y * 20} .5 .5)`);
-  });
-  element.querySelector(".card-shine-gradient")?.setAttribute("gradientTransform", `translate(${x * 0.85} 0)`);
   element.style.transform = `perspective(800px) rotateX(${-y * 5}deg) rotateY(${x * 6}deg)`;
 }
 
@@ -39,7 +36,6 @@ export function ProfileCard({ card }: { card: Card }) {
   }, []);
   const reset = () => {
     preview.current?.style.removeProperty("transform");
-    preview.current?.querySelectorAll(".card-light-gradient, .card-foil-gradient, .card-shine-gradient").forEach((gradient) => gradient.removeAttribute("gradientTransform"));
   };
   return (
     <>
@@ -59,15 +55,17 @@ export function ProfileCard({ card }: { card: Card }) {
         <div className="[&>svg]:block [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
       </article>
       {permissionRequired && !permissionGranted && (
-        <Button size="sm" onClick={async () => {
-          if ("requestPermission" in DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
-            try {
-              setPermissionGranted(await DeviceOrientationEvent.requestPermission() === "granted");
-            } catch {
-              // Leave the control available if the browser cannot grant sensor access yet.
+        <div className="flex w-full justify-center pt-3">
+          <Button size="sm" icon={<Smartphone className="size-3.5" />} onClick={async () => {
+            if ("requestPermission" in DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
+              try {
+                setPermissionGranted(await DeviceOrientationEvent.requestPermission() === "granted");
+              } catch {
+                // Leave the control available if the browser cannot grant sensor access yet.
+              }
             }
-          }
-        }}>Enable phone tilt</Button>
+          }}>Enable phone tilt</Button>
+        </div>
       )}
     </>
   );
