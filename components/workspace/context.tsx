@@ -99,12 +99,15 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
     initRan.current = true;
     call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null })
       .then((r) => {
-        if (r.welcomeId && (pathname === "/home" || pathname === "/")) router.replace(`/p/${r.welcomeId}`);
+        if (r.welcomeId && (pathname === "/home" || pathname === "/")) {
+          const query = params.toString();
+          router.replace(`/p/${r.welcomeId}${query ? `?${query}` : ""}`);
+        }
       })
       .catch(() => {
         initRan.current = false;
       });
-  }, [settingsQ.data, call, identity.name, pathname, router]);
+  }, [settingsQ.data, call, identity.name, pathname, router, params]);
 
   // Keep the theme, font and motion preferences applied.
   useEffect(() => {

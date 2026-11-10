@@ -1,3 +1,5 @@
+import type { ProfileCard } from "./profileCard";
+
 /** Shared domain types. Every row is owned by exactly one account (`ownerId`). */
 
 export type PageKind = "page" | "database";
@@ -186,6 +188,8 @@ export interface SettingsRow {
   expandedPageIds: string[];
   lastPageId: string | null;
   displayName: string | null;
+  profileCard?: ProfileCard | null;
+  profileCardOnboarded?: boolean;
   onboarded: boolean;
   updatedAt: number;
 }

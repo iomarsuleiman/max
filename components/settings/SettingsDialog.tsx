@@ -18,6 +18,8 @@ import { Avatar } from "@/components/workspace/Sidebar";
 import { notifyError, useWorkspace, type SettingsSection } from "@/components/workspace/context";
 import { download } from "@/components/page/PageOptions";
 import { SHORTCUTS } from "@/lib/client/shortcuts";
+import { NotionConnection } from "./NotionConnection";
+import { ProfileCardEditor } from "@/components/profile/ProfileCardEditor";
 
 const NAV: { id: SettingsSection; label: string; icon: ReactNode; group: "Account" | "Workspace" }[] = [
   { id: "account", label: "My account", icon: <User />, group: "Account" },
@@ -178,6 +180,9 @@ function AccountSection() {
             </Button>
           </SettingRow>
         )}
+      </Group>
+      <Group title="Your profile card">
+        {s ? <ProfileCardEditor /> : <Skeleton className="h-64" />}
       </Group>
       <Group title="Danger zone">
         <SettingRow title="Delete all my data" description="Permanently removes every page, database, file, token and preference. Your sign-in stays.">
@@ -385,7 +390,8 @@ function ConnectionsSection() {
   };
   return (
     <>
-      <Heading title="Connections" description="Let an assistant such as ChatGPT or Claude read and organize your workspace through MCP. It can do what you can do in Max, except manage tokens or delete your account." />
+      <Heading title="Connections" description="Bring your work into Max and connect assistants to your private workspace." />
+      <NotionConnection />
       <Group title="Server address">
         <div className="grid gap-2 py-3">
           <Copyable value={mcpUrl} label="server address" />

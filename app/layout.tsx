@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { APP_URL, CLERK_KEY, CLOUD, CONVEX_URL } from "@/lib/config";
 import { Providers } from "@/components/providers";
 import { WebVitals } from "@/components/WebVitals";
+import { OfflineRegistration } from "@/components/feedback/OfflineSupport";
 import "./globals.css";
 import "@/components/editor/editor.css";
 
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <Providers>{children}</Providers>
         <WebVitals />
+        <OfflineRegistration />
       </body>
     </html>
   );

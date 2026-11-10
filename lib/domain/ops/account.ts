@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { profileCardSchema } from "../profileCard";
 import { MaxError } from "../errors";
 import { rankBetween } from "../rank";
 import { blocksToMarkdown, markdownToBlocks, parseContent } from "../blocks";
@@ -46,6 +47,8 @@ const settingsPatch = z.object({
   collapsedSections: z.array(z.enum(["favorites", "recents", "pages", "databases"])).optional(),
   expandedPageIds: z.array(z.string()).max(2000).optional(),
   displayName: z.string().max(80).nullable().optional(),
+  profileCard: profileCardSchema.nullable().optional(),
+  profileCardOnboarded: z.boolean().optional(),
 });
 
 export const settingsGet = defineOp({

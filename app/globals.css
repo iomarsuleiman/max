@@ -218,10 +218,24 @@
   border-radius: 4px;
 }
 
+/* Small feedback motions. Every transition remains covered by the motion preference below. */
+button[role="switch"] { transition: background-color 150ms ease, box-shadow 150ms ease; }
+button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 150ms ease; }
+[role="tab"], [role="radio"], nav a, nav button { transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease; }
+[role="tab"][aria-selected="true"] { animation: max-tab-settle 180ms ease-out; }
+[role="tabpanel"] { animation: max-panel-arrive 150ms ease-out; }
+[data-state="open"][role="dialog"] { animation: max-panel-arrive 180ms ease-out; }
+.joy-press { transition: transform 160ms cubic-bezier(.2,.8,.2,1), background-color 150ms ease, box-shadow 150ms ease; }
+.joy-press:active { transform: scale(.97); }
+@keyframes max-tab-settle { from { box-shadow: inset 0 -1px 0 transparent; } to { box-shadow: inset 0 -1px 0 var(--accent); } }
+@keyframes max-panel-arrive { from { opacity: .65; translate: 0 3px; } to { opacity: 1; translate: 0 0; } }
+
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 [data-reduce-motion="on"] *, [data-reduce-motion="on"] *::before, [data-reduce-motion="on"] *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+[data-reduce-motion="on"] .joy-press:active { transform: none; }
 @media (prefers-reduced-motion: reduce) {
+  .joy-press:active { transform: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 

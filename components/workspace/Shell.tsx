@@ -1,4 +1,5 @@
 "use client";
+import { OfflineNotice } from "@/components/feedback/OfflineSupport";
 
 import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -12,6 +13,7 @@ import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
 import { SearchDialog } from "./SearchDialog";
 import dynamic from "next/dynamic";
+import { ProfileCardInvitation } from "@/components/profile/ProfileCardInvitation";
 
 // Heavy dialogs load on first use and stay mounted afterwards, so closing still animates.
 const SettingsDialog = dynamic(() => import("@/components/settings/SettingsDialog").then((m) => m.SettingsDialog), { ssr: false });
@@ -121,9 +123,11 @@ function Frame({ children }: { children: ReactNode }) {
         </D.Portal>
       </D.Root>
       <main id="main" className="relative flex min-w-0 flex-1 flex-col">
+        <OfflineNotice />
         {children}
       </main>
       <SearchDialog />
+      <ProfileCardInvitation />
       <LazyDialogs />
     </div>
   );

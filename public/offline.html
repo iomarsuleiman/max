@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="light dark" /><title>
+    Take a little breather · Max</title
+  ><style>
+    body {
+      margin: 0;
+      background: #f8f7f4;
+      color: #292c29;
+      font-family: system-ui, sans-serif;
+    }
+    main {
+      max-width: 600px;
+      margin: 8vh auto;
+      padding: 24px;
+    }
+    h1 {
+      font-size: clamp(30px, 6vw, 48px);
+      letter-spacing: -0.04em;
+    }
+    p {
+      line-height: 1.7;
+      color: #60635f;
+    }
+    a {
+      color: #345f92;
+    }
+    section {
+      margin-top: 40px;
+    }
+    button {
+      font: inherit;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #1b1c20;
+        color: #ecece9;
+      }
+      p {
+        color: #b4b7bd;
+      }
+      a {
+        color: #a6c9f2;
+      }
+    }
+  </style>
+  <main>
+    <a href="/home">Max</a>
+    <h1>A little pause.<br />Your ideas can wait.</h1>
+    <p>
+      Max cannot reach the server. Reconnect and try again. This is an offline waiting room, not a saved copy of your workspace. Keep any tab with unsaved work
+      open.
+    </p>
+    <p><a href="/home">Try opening my pages again</a></p>
+    <section aria-label="Optional offline game"><div id="game"></div></section>
+  </main>
+  <script src="/offline-game.js"></script>
+  <script>
+    window.MaxPaperHop.mount(document.getElementById("game"));
+  </script>
+</html>

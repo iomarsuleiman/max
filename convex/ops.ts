@@ -1,8 +1,9 @@
-import { mutationGeneric, queryGeneric } from "convex/server";
+import { mutationGeneric, queryGeneric, type GenericDataModel, type GenericMutationCtx } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { execute } from "../lib/domain/ops";
 import { MaxError, serializeError } from "../lib/domain/errors";
 import { convexDb, convexStorage } from "./convexDb";
+import { purgeNotionAccount } from "./notionCleanup";
 
 /**
  * Every Max operation runs through these four functions. The browser calls `query`/`mutation`
@@ -24,9 +25,18 @@ function checkSecret(secret: string) {
   }
 }
 
-async function run(ctx: { db: never; storage: never }, op: string, args: unknown, ownerId: string, source: "ui" | "mcp", kind: "query" | "mutation") {
+async function run(
+  ctx: { db: never; storage: never; scheduler: GenericMutationCtx<GenericDataModel>["scheduler"] },
+  op: string,
+  args: unknown,
+  ownerId: string,
+  source: "ui" | "mcp",
+  kind: "query" | "mutation",
+) {
   try {
-    return await execute(op, args, { db: convexDb(ctx.db), storage: convexStorage(ctx.storage), ownerId, now: Date.now(), source }, kind);
+    const result = await execute(op, args, { db: convexDb(ctx.db), storage: convexStorage(ctx.storage), ownerId, now: Date.now(), source }, kind);
+    if (op === "account.deleteAllData") await purgeNotionAccount(ctx, ownerId);
+    return result;
   } catch (err) {
     if (err instanceof ConvexError) throw err;
     const e = serializeError(err);

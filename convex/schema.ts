@@ -1,10 +1,62 @@
-import { defineSchema, defineTable } from "convex/server";
+﻿import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 const nullableString = v.union(v.string(), v.null());
 const nullableNumber = v.union(v.number(), v.null());
 
 export default defineSchema({
+  notionConnections: defineTable({
+    ownerId: v.string(),
+    workspaceId: v.string(),
+    workspaceName: v.string(),
+    encryptedToken: v.string(),
+    connectedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
+  notionStates: defineTable({ ownerId: v.string(), hash: v.string(), expiresAt: v.number(), consumed: v.optional(v.boolean()) })
+    .index("by_hash", ["hash"])
+    .index("by_owner", ["ownerId"]),
+  notionJobs: defineTable({
+    ownerId: v.string(),
+    workspaceId: v.string(),
+    key: v.string(),
+    parentId: nullableString,
+    includeDescendants: v.boolean(),
+    status: v.string(),
+    phase: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    created: v.number(),
+    failed: v.number(),
+    skipped: v.number(),
+    attachments: v.number(),
+    warnings: v.array(v.object({ sourceId: v.string(), message: v.string() })),
+    error: nullableString,
+    rootIds: v.array(v.string()),
+    leaseUntil: v.number(),
+    generation: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_key", ["ownerId", "key"]),
+  notionItems: defineTable({
+    ownerId: v.string(),
+    jobId: v.id("notionJobs"),
+    key: v.string(),
+    sourceId: v.string(),
+    kind: v.string(),
+    parentSourceId: nullableString,
+    parentId: nullableString,
+    databaseId: nullableString,
+    cursor: nullableString,
+    depth: v.number(),
+    status: v.string(),
+    destinationId: nullableString,
+    revision: v.number(),
+    error: nullableString,
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_job_status", ["jobId", "status"])
+    .index("by_job_key", ["jobId", "key"])
+    .index("by_job", ["jobId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),

@@ -11,9 +11,10 @@ import * as account from "./account";
 import * as versions from "./versions";
 import * as comments from "./comments";
 import * as graph from "./graph";
+import * as profileCard from "./profileCard";
 
 const all: OpDef[] = [];
-for (const mod of [pages, documents, databases, templates, account, versions, comments, graph]) {
+for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard]) {
   for (const value of Object.values(mod)) {
     if (value && typeof value === "object" && "name" in value && "run" in value && "input" in value) all.push(value as OpDef);
   }
