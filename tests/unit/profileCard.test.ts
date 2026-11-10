@@ -118,6 +118,11 @@ describe("one workspace/card identity", () => {
     expect(exported.svg).not.toContain("A private older biography");
   });
 
+  it("renders the account card with a fractional Convex join timestamp", () => {
+    const joinedAt = Date.UTC(2026, 10, 8) + 0.125;
+    expect(profileCardSvg({ ...defaultProfileCard("Member"), createdAt: joinedAt }).svg).toContain("8 Nov 2026");
+  });
+
   it("renders all palettes and shapes with artwork-only grain and a dated hatch stamp", () => {
     expect(profileCardThemes.length).toBeGreaterThanOrEqual(10);
     for (const theme of profileCardThemes) for (const shape of profileCardShapes) {
