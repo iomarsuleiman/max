@@ -11,6 +11,9 @@ const clamp = (value: number) => Math.max(-1, Math.min(1, value));
 
 function applyTilt(element: HTMLElement, x: number, y: number) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.reduceMotion === "on") return;
+  const shine = element.querySelector(".card-shine-gradient");
+  shine?.setAttribute("cx", `${(x + 1) / 2}`);
+  shine?.setAttribute("cy", `${(y + 1) / 2}`);
   element.querySelectorAll(".card-light-gradient, .card-foil-gradient").forEach((gradient) => {
     gradient.setAttribute("gradientTransform", `rotate(${x * 50 + y * 20} .5 .5)`);
   });
@@ -38,6 +41,9 @@ export function ProfileCard({ card }: { card: Card }) {
   }, []);
   const reset = () => {
     preview.current?.style.removeProperty("transform");
+    const shine = preview.current?.querySelector(".card-shine-gradient");
+    shine?.removeAttribute("cx");
+    shine?.removeAttribute("cy");
     preview.current?.querySelectorAll(".card-light-gradient, .card-foil-gradient").forEach((gradient) => gradient.removeAttribute("gradientTransform"));
   };
   return (
