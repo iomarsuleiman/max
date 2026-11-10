@@ -13,6 +13,7 @@ export default defineSchema({
     title: v.string(),
     icon: nullableString,
     cover: nullableString,
+    coverPosition: v.optional(v.number()),
     rank: v.string(),
     favoriteRank: nullableString,
     archivedAt: nullableNumber,

@@ -30,11 +30,20 @@ export function useDocumentSync(pageId: string, serverRevision: number | undefin
   const pending = useRef<unknown[] | null>(null);
   const inflight = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attempts = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
 
   if (base.current === null && serverRevision !== undefined) base.current = serverRevision;
+
+  const persistDraft = useCallback(() => {
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = null;
+    if (pending.current && base.current !== null) {
+      writeLocal(draftKey(pageId), { baseRevision: base.current, blocks: pending.current, at: Date.now() } satisfies Draft);
+    }
+  }, [pageId]);
 
   const flush = useCallback(async (force = false): Promise<void> => {
     if (timer.current) {
@@ -43,6 +52,7 @@ export function useDocumentSync(pageId: string, serverRevision: number | undefin
     }
     if (inflight.current || !pending.current || base.current === null) return;
     if (stateRef.current === "conflict" && !force) return;
+    persistDraft();
     const blocks = pending.current;
     inflight.current = true;
     setState(attempts.current ? "retrying" : "saving");
@@ -57,6 +67,7 @@ export function useDocumentSync(pageId: string, serverRevision: number | undefin
         setState("saved");
         setLastSavedAt(Date.now());
       } else {
+        persistDraft();
         setState("unsaved");
       }
     } catch (err) {
@@ -81,17 +92,18 @@ export function useDocumentSync(pageId: string, serverRevision: number | undefin
         timer.current = setTimeout(() => void flush(), DEBOUNCE_MS);
       }
     }
-  }, [call, pageId]);
+  }, [call, pageId, persistDraft]);
 
   const change = useCallback(
     (blocks: unknown[]) => {
       pending.current = blocks;
-      if (base.current !== null) writeLocal(draftKey(pageId), { baseRevision: base.current, blocks, at: Date.now() } satisfies Draft);
+      // Coalesce synchronous JSON/localStorage work while the user is typing.
+      if (!draftTimer.current) draftTimer.current = setTimeout(persistDraft, 150);
       if (stateRef.current !== "conflict") setState((s) => (s === "saving" || s === "retrying" ? s : "unsaved"));
       if (timer.current) clearTimeout(timer.current);
       if (stateRef.current !== "conflict") timer.current = setTimeout(() => void flush(), DEBOUNCE_MS);
     },
-    [flush, pageId],
+    [flush, persistDraft],
   );
 
   /** Remote content replaced the editor (after "Load latest"): adopt its revision, drop local edits. */
@@ -99,6 +111,8 @@ export function useDocumentSync(pageId: string, serverRevision: number | undefin
     (revision: number) => {
       base.current = revision;
       pending.current = null;
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+      draftTimer.current = null;
       attempts.current = 0;
       writeLocal(draftKey(pageId), null);
       setError(null);
@@ -120,25 +134,30 @@ export function useDocumentSync(pageId: string, serverRevision: number | undefin
     };
     const beforeUnload = (e: BeforeUnloadEvent) => {
       if (pending.current || inflight.current) {
+        persistDraft();
         e.preventDefault();
         e.returnValue = "";
       }
     };
+    const onVisibility = () => { if (document.visibilityState === "hidden") persistDraft(); };
+    document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("online", online);
     window.addEventListener("beforeunload", beforeUnload);
     return () => {
       window.removeEventListener("online", online);
       window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [flush]);
+  }, [flush, persistDraft]);
 
   // Leaving the page: send what's pending (the draft stays on this device until it's acknowledged).
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      persistDraft();
       if (pending.current && stateRef.current !== "conflict") void flush();
     },
-    [flush],
+    [flush, persistDraft],
   );
 
   return {

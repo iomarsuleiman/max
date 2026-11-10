@@ -9,7 +9,7 @@ import type { PageRow } from "@/lib/client/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { IconPicker } from "./IconPicker";
 import { CoverPicker } from "./CoverPicker";
-import { CoverView } from "./CoverView";
+import { PageCover } from "./PageCover";
 import { PageIcon } from "@/components/workspace/PageIcon";
 
 export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: PageRow; readOnly: boolean; onEnter: () => void; widthClass: string }) {
@@ -48,21 +48,7 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
 
   return (
     <div className="group/header relative">
-      {cover && (
-        <div className="relative h-[30vh] max-h-[280px] min-h-[120px] w-full overflow-hidden bg-surface-2">
-          <CoverView cover={cover} className="size-full" />
-          {!readOnly && (
-            <div className="absolute bottom-3 end-4 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/header:opacity-100 max-md:opacity-100">
-              <CoverPicker
-                trigger={<button type="button" className="h-7 rounded-md bg-overlay/90 px-2.5 text-xs font-medium text-fg shadow-pop hover:bg-overlay">Change cover</button>}
-                onPick={(c) => update({ cover: c })}
-                onRemove={() => update({ cover: null })}
-                onUpload={async (f) => { await update({ cover: await upload(f, page._id) }); }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      {cover && <PageCover key={cover} page={page} readOnly={readOnly} />}
       <div className={cn("mx-auto px-4 sm:px-12", widthClass, cover ? "pt-0" : "pt-14 max-sm:pt-8")}>
         {page.icon && (
           <div className={cn("relative z-[1]", cover ? "-mt-10" : "")}>

@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-11-09T18:53:59.261Z",
+  "fetchedAt": "2026-11-10T03:48:57.705Z",
   "collections": [
     {
       "name": "The Met Museum",
@@ -86,6 +86,342 @@
           "label": "Imaginary Landscape",
           "creator": "Gaspard Dughet",
           "source": "https://www.metmuseum.org/art/collection/search/436229",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437139",
+          "label": "An Artist Painting a Heraldic Shield in a Cabinet of Curiosities",
+          "creator": "Monogrammist FA",
+          "source": "https://www.metmuseum.org/art/collection/search/437139",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436109",
+          "label": "Benjamin Franklin (1706–1790), after a Painting by Greuze of 1777",
+          "creator": "Charles Paul Jérôme de Bréa",
+          "source": "https://www.metmuseum.org/art/collection/search/436109",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-438467",
+          "label": "The Birth and Naming of Saint John the Baptist; (reverse) Trompe-l'oeil with Pai",
+          "creator": "Bernard van Orley",
+          "source": "https://www.metmuseum.org/art/collection/search/438467",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436347",
+          "label": "Trompe l'oeil with Palettes and Miniature",
+          "creator": "Jean François de Le Motte",
+          "source": "https://www.metmuseum.org/art/collection/search/436347",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435645",
+          "label": "Madonna and Child",
+          "creator": "Jacopo Bellini",
+          "source": "https://www.metmuseum.org/art/collection/search/435645",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437403",
+          "label": "Christ and the Woman of Samaria",
+          "creator": "Rembrandt",
+          "source": "https://www.metmuseum.org/art/collection/search/437403",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436010",
+          "label": "A Brook in the Forest",
+          "creator": "Gustave Courbet",
+          "source": "https://www.metmuseum.org/art/collection/search/436010",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436839",
+          "label": "The Penitent Magdalen",
+          "creator": "Georges de La Tour",
+          "source": "https://www.metmuseum.org/art/collection/search/436839",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437755",
+          "label": "In the Studio",
+          "creator": "Alfred Stevens",
+          "source": "https://www.metmuseum.org/art/collection/search/437755",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-770595",
+          "label": "The Crucifixion",
+          "creator": "Stefano da Verona (Stefano di Giovanni d'Arbosio di Francia)",
+          "source": "https://www.metmuseum.org/art/collection/search/770595",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436509",
+          "label": "The Adoration of the Magi",
+          "creator": "Giovanni di Paolo (Giovanni di Paolo di Grazia)",
+          "source": "https://www.metmuseum.org/art/collection/search/436509",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-438722",
+          "label": "The Potato Peeler (reverse: Self-Portrait with a Straw Hat)",
+          "creator": "Vincent van Gogh",
+          "source": "https://www.metmuseum.org/art/collection/search/438722",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437245",
+          "label": "Modern Rome",
+          "creator": "Giovanni Paolo Panini",
+          "source": "https://www.metmuseum.org/art/collection/search/437245",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436334",
+          "label": "Madonna and Child",
+          "creator": "Francesco Francia",
+          "source": "https://www.metmuseum.org/art/collection/search/436334",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435852",
+          "label": "Two Children Teasing a Cat",
+          "creator": "Annibale Carracci",
+          "source": "https://www.metmuseum.org/art/collection/search/435852",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437794",
+          "label": "The Battle of Vercellae",
+          "creator": "Giovanni Battista Tiepolo",
+          "source": "https://www.metmuseum.org/art/collection/search/437794",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436829",
+          "label": "Hugo van der Goes Making a Portrait of Mary of Burgundy",
+          "creator": "Wilhelm (Guillaume) Koller",
+          "source": "https://www.metmuseum.org/art/collection/search/436829",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437472",
+          "label": "Arches in Ruins",
+          "creator": "Hubert Robert",
+          "source": "https://www.metmuseum.org/art/collection/search/437472",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435766",
+          "label": "Virgin and Child",
+          "creator": "Dieric Bouts",
+          "source": "https://www.metmuseum.org/art/collection/search/435766",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437258",
+          "label": "The Golden Age",
+          "creator": "Jean-Baptiste Joseph Pater",
+          "source": "https://www.metmuseum.org/art/collection/search/437258",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436616",
+          "label": "Young Man and Woman in an Inn",
+          "creator": "Frans Hals",
+          "source": "https://www.metmuseum.org/art/collection/search/436616",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436114",
+          "label": "The Experts",
+          "creator": "Alexandre-Gabriel Decamps",
+          "source": "https://www.metmuseum.org/art/collection/search/436114",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436752",
+          "label": "Pomegranates and Other Fruit in a Landscape",
+          "creator": "Abraham Brueghel",
+          "source": "https://www.metmuseum.org/art/collection/search/436752",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435743",
+          "label": "The Dispatch of the Messenger",
+          "creator": "François Boucher",
+          "source": "https://www.metmuseum.org/art/collection/search/435743",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437986",
+          "label": "The Denial of Saint Peter",
+          "creator": "Caravaggio (Michelangelo Merisi)",
+          "source": "https://www.metmuseum.org/art/collection/search/437986",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435746",
+          "label": "Washerwomen",
+          "creator": "François Boucher",
+          "source": "https://www.metmuseum.org/art/collection/search/435746",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436680",
+          "label": "The Annunciation of the Death of the Virgin",
+          "creator": "Samuel van Hoogstraten",
+          "source": "https://www.metmuseum.org/art/collection/search/436680",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436325",
+          "label": "The Stolen Kiss",
+          "creator": "Jean Honoré Fragonard",
+          "source": "https://www.metmuseum.org/art/collection/search/436325",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-441230",
+          "label": "A Female Martyr Saint",
+          "creator": "Carlo Francesco Nuvolone",
+          "source": "https://www.metmuseum.org/art/collection/search/441230",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437919",
+          "label": "Two Tritons at the Feast of Acheloüs",
+          "creator": "Anthony van Dyck",
+          "source": "https://www.metmuseum.org/art/collection/search/437919",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436816",
+          "label": "The Lacemaker",
+          "creator": "Bernhard Keil",
+          "source": "https://www.metmuseum.org/art/collection/search/436816",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435672",
+          "label": "Angelica and Medoro",
+          "creator": "Jacques Blanchard",
+          "source": "https://www.metmuseum.org/art/collection/search/435672",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-438677",
+          "label": "The Banks of the Rance, Brittany",
+          "creator": "Pierre Henri de Valenciennes",
+          "source": "https://www.metmuseum.org/art/collection/search/438677",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-438127",
+          "label": "The Declaration of Love",
+          "creator": "Jean François de Troy",
+          "source": "https://www.metmuseum.org/art/collection/search/438127",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-438009",
+          "label": "The Pink Dress (Albertie-Marguerite Carré, later Madame Ferdinand-Henri Himmes, ",
+          "creator": "Berthe Morisot",
+          "source": "https://www.metmuseum.org/art/collection/search/438009",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-438012",
+          "label": "Bouquet of Chrysanthemums",
+          "creator": "Auguste Renoir",
+          "source": "https://www.metmuseum.org/art/collection/search/438012",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435639",
+          "label": "Vase of Flowers in a Niche",
+          "creator": "Michel Bruno Bellengé",
+          "source": "https://www.metmuseum.org/art/collection/search/435639",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437033",
+          "label": "Virgin and Child",
+          "creator": "Follower of Rogier van der Weyden (Master of the Saint Ursula Legend Group, Netherlandish, active late 15th century)",
+          "source": "https://www.metmuseum.org/art/collection/search/437033",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437646",
+          "label": "Madonna and Child with Saints and Donors",
+          "creator": "Sebastiano del Piombo",
+          "source": "https://www.metmuseum.org/art/collection/search/437646",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436906",
+          "label": "The Temptation",
+          "creator": "Pietro Longhi (Pietro Falca)",
+          "source": "https://www.metmuseum.org/art/collection/search/436906",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-437819",
+          "label": "Doge Alvise Mocenigo (1507–1577) Presented to the Redeemer",
+          "creator": "Jacopo Tintoretto (Jacopo Robusti)",
+          "source": "https://www.metmuseum.org/art/collection/search/437819",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435757",
+          "label": "Portrait of a Young Boy",
+          "creator": "Sébastien Bourdon",
+          "source": "https://www.metmuseum.org/art/collection/search/435757",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436644",
+          "label": "A Bather (Echo)",
+          "creator": "Jean-Jacques Henner",
+          "source": "https://www.metmuseum.org/art/collection/search/436644",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435647",
+          "label": "Vaprio d'Adda",
+          "creator": "Bernardo Bellotto",
+          "source": "https://www.metmuseum.org/art/collection/search/435647",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435744",
+          "label": "Virgin and Child with the Young Saint John the Baptist and Angels",
+          "creator": "François Boucher",
+          "source": "https://www.metmuseum.org/art/collection/search/435744",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435853",
+          "label": "The Coronation of the Virgin",
+          "creator": "Annibale Carracci",
+          "source": "https://www.metmuseum.org/art/collection/search/435853",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-435656",
+          "label": "The Assumption of the Virgin",
+          "creator": "Bergognone (Ambrogio di Stefano da Fossano)",
+          "source": "https://www.metmuseum.org/art/collection/search/435656",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:met-436875",
+          "label": "The Interior of a Woman Painter's Studio",
+          "creator": "Marie Victoire Lemoine",
+          "source": "https://www.metmuseum.org/art/collection/search/436875",
           "license": "Public domain (The Met Open Access, CC0)"
         }
       ]
@@ -176,6 +512,240 @@
           "creator": "Katsushika Hokusai",
           "source": "https://www.metmuseum.org/art/collection/search/36492",
           "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-56132",
+          "label": "Ushibori in Hitachi Province (Jōshū Ushibori), from the series Thirty-six Views ",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/56132",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-56787",
+          "label": "Fujimigahara in Owari Province (Bishū Fujimigahara), from the series Thirty-six ",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/56787",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-36500",
+          "label": "Fujimigahara in Owari Province (Bishū Fujimigahara), from the series Thirty-six ",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/36500",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-56216",
+          "label": "Noboto Bay (Noboto no ura), from the series Thirty-six Views of Mount Fuji (Fuga",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/56216",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-49934",
+          "label": "Evening Moon at Izumizaki (Izaumizaki yagetsu), from the series Eight Views of t",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/49934",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-49935",
+          "label": "Banana Garden at Nakashima (Nakashima shōen), from the series Eight Views of the",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/49935",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-49936",
+          "label": "Bamboo Hedge at Kumemura (Kumemura chikuri), from the series Eight Views of the ",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/49936",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-49937",
+          "label": "The Sacred Spring at Jōgaku (Jōgaku reisen), from the series Eight Views of the ",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/49937",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-49938",
+          "label": "Sound of the Lake at Rinkai (Rinkai kosei), from the series Eight Views of the R",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/49938",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-49939",
+          "label": "Evening Glow at Jungai (Jungai sekishō), from the series Eight Views of the Ryūk",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/49939",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-49940",
+          "label": "Autumn Sky at Chōkō (Chōkō shūsei), from the series Eight Views of the Ryūkyū Is",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/49940",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:japanese-prints-49941",
+          "label": "Pines and Waves at Ryūtō (Ryūtō shōtō), from the series Eight Views of the Ryūky",
+          "creator": "Katsushika Hokusai",
+          "source": "https://www.metmuseum.org/art/collection/search/49941",
+          "license": "Public domain (The Met Open Access, CC0)"
+        }
+      ]
+    },
+    {
+      "name": "The Met Museum — Hudson River School",
+      "items": [
+        {
+          "value": "cover:hudson-10500",
+          "label": "A View near Tivoli (Morning)",
+          "creator": "Thomas Cole",
+          "source": "https://www.metmuseum.org/art/collection/search/10500",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:hudson-20639",
+          "label": "Sketch for View from Mount Holyoke, Northampton, Massachusetts, after a Thunders",
+          "creator": "Thomas Cole",
+          "source": "https://www.metmuseum.org/art/collection/search/20639",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:hudson-21693",
+          "label": "Clouds",
+          "creator": "Thomas Cole",
+          "source": "https://www.metmuseum.org/art/collection/search/21693",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:hudson-10501",
+          "label": "View on the Catskill—Early Autumn",
+          "creator": "Thomas Cole",
+          "source": "https://www.metmuseum.org/art/collection/search/10501",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:hudson-10494",
+          "label": "The Fountain, No. 1: The Wounded Indian Slaking His Death Thirst",
+          "creator": "Thomas Cole",
+          "source": "https://www.metmuseum.org/art/collection/search/10494",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:hudson-10497",
+          "label": "View from Mount Holyoke, Northampton, Massachusetts, after a Thunderstorm—The Ox",
+          "creator": "Thomas Cole",
+          "source": "https://www.metmuseum.org/art/collection/search/10497",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:hudson-10495",
+          "label": "Landscape with Tower (from McGuire Scrapbook)",
+          "creator": "Thomas Cole",
+          "source": "https://www.metmuseum.org/art/collection/search/10495",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:hudson-10498",
+          "label": "Shipwreck",
+          "creator": "Thomas Cole",
+          "source": "https://www.metmuseum.org/art/collection/search/10498",
+          "license": "Public domain (The Met Open Access, CC0)"
+        }
+      ]
+    },
+    {
+      "name": "The Met Museum — Patterns",
+      "items": [
+        {
+          "value": "cover:patterns-365338",
+          "label": "Fruit (or Pomegranate)",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/365338",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-383485",
+          "label": "Jasmine",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/383485",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-384021",
+          "label": "Larkspur",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/384021",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-384022",
+          "label": "Willow Bough",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/384022",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-398344",
+          "label": "Willow",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/398344",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-384017",
+          "label": "Daisy",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/384017",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-384018",
+          "label": "Marigold",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/384018",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-337071",
+          "label": "Pink and Rose",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/337071",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-384020",
+          "label": "Trellis",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/384020",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-354288",
+          "label": "The Well at the World's End",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/354288",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-375808",
+          "label": "Wild Tulip",
+          "creator": "William Morris",
+          "source": "https://www.metmuseum.org/art/collection/search/375808",
+          "license": "Public domain (The Met Open Access, CC0)"
+        },
+        {
+          "value": "cover:patterns-355628",
+          "label": "Jane Morris: Study for \"Mariana\"",
+          "creator": "Dante Gabriel Rossetti",
+          "source": "https://www.metmuseum.org/art/collection/search/355628",
+          "license": "Public domain (The Met Open Access, CC0)"
         }
       ]
     },
@@ -265,6 +835,90 @@
           "creator": "JSC",
           "source": "https://images.nasa.gov/details/as12-50-7362",
           "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as17-148-22727",
+          "label": "View of the Earth seen by the Apollo 17 crew traveling toward the moon",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as17-148-22727",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as16-118-18880",
+          "label": "Apollo 16 view of the earth from translunar injection",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as16-118-18880",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as16-118-18885",
+          "label": "Apollo 16 view of the earth from translunar injection",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as16-118-18885",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as16-118-18873",
+          "label": "Apollo 16 view of the earth from translunar injection",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as16-118-18873",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as15-91-12343",
+          "label": "View of Earth photographed by Apollo 15 on voyage to the Moon",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as15-91-12343",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as10-34-5010",
+          "label": "Apollo 10 view of the Earth",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as10-34-5010",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as10-34-5013",
+          "label": "Apollo 10 view of the Earth",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as10-34-5013",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as10-27-3890",
+          "label": "Apollo 10 view of the Earth rising above the lunar horizon",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as10-27-3890",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as11-36-5299",
+          "label": "View of Earth showing clouds over water taken by Apollo 11 crewmembers",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as11-36-5299",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as11-36-5355",
+          "label": "View of Earth, showing Africa, Europe and Asia taken by Apollo 11 crewmember",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as11-36-5355",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as11-44-6689",
+          "label": "One-third of Earth's sphere as seen from Apollo 11 spacecraft",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as11-44-6689",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:nasa-as17-134-20466",
+          "label": "Close-up view of U.S. flag deployed on Moon by Apollo 17 crew",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/as17-134-20466",
+          "license": "Public domain (NASA media usage guidelines)"
         }
       ]
     },
@@ -318,6 +972,67 @@
           "label": "The Eagle Nebula Observed by WISE",
           "creator": "JPL",
           "source": "https://images.nasa.gov/details/PIA25433",
+          "license": "Public domain (NASA media usage guidelines)"
+        }
+      ]
+    },
+    {
+      "name": "Artemis II",
+      "items": [
+        {
+          "value": "cover:artemis-artemis-ii-at-the-pad-moon-01292026-4",
+          "label": "Moon Seen behind Full Artemis II Stack at Launch Pad 39B",
+          "creator": "MSFC",
+          "source": "https://images.nasa.gov/details/Artemis II at the pad Moon 01292026_4",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:artemis-artemis-ii-at-the-pad-moon-01292026-1",
+          "label": "Moon Seen Shining on Full Artemis II Stack at Launch Pad 39B",
+          "creator": "MSFC",
+          "source": "https://images.nasa.gov/details/Artemis II at the pad Moon 01292026_1",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:artemis-artemis-ii-at-the-pad-moon-01292026-3-alt",
+          "label": "Moon Seen Shining on Full Artemis II Stack at Launch Pad 39B",
+          "creator": "MSFC",
+          "source": "https://images.nasa.gov/details/Artemis II at the pad Moon 01292026_3 alt",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:artemis-artemis-ii-at-the-pad-full-snow-moon-02012026-4",
+          "label": "Full Moon rises Artemis II SLS at Pad 39b",
+          "creator": "MSFC",
+          "source": "https://images.nasa.gov/details/Artemis II at the pad Full Snow Moon 02012026_4",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:artemis-artemis-ii-at-the-pad-full-snow-moon-02012026-6",
+          "label": "Full Moon Rising Over Full Artemis II Stack at Launch Pad 39B",
+          "creator": "MSFC",
+          "source": "https://images.nasa.gov/details/Artemis II at the pad Full Snow Moon 02012026_6",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:artemis-artemis-ii-at-the-pad-full-snow-moon-02012026-7",
+          "label": "Full Moon Rising Over Full Artemis II Stack at Launch Pad 39B",
+          "creator": "MSFC",
+          "source": "https://images.nasa.gov/details/Artemis II at the pad Full Snow Moon 02012026_7",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:artemis-art002e024097",
+          "label": "Artemis II Approaches the Moon ",
+          "creator": "JSC",
+          "source": "https://images.nasa.gov/details/art002e024097",
+          "license": "Public domain (NASA media usage guidelines)"
+        },
+        {
+          "value": "cover:artemis-artemis-ii-at-the-pad-full-snow-moon-02012026-3",
+          "label": "Full Moon Rising Over Full Artemis II Stack at Launch Pad 39B",
+          "creator": "MSFC",
+          "source": "https://images.nasa.gov/details/Artemis II at the pad Full Snow Moon 02012026_3",
           "license": "Public domain (NASA media usage guidelines)"
         }
       ]

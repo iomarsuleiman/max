@@ -42,7 +42,7 @@ import { PageTree } from "./PageTree";
 import { TrashPanel } from "./TrashPanel";
 
 type SectionId = SettingsRow["sidebarSections"][number];
-const SECTION_LABEL: Partial<Record<SectionId, string>> = { favorites: "Favorites", recents: "Recents", pages: "Pages" };
+const SECTION_LABEL: Partial<Record<SectionId, string>> = { favorites: "Favorites", recents: "Recents", pages: "Private" };
 
 export function Sidebar({ mobile }: { mobile?: boolean }) {
   const ws = useWorkspace();

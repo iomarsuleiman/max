@@ -67,12 +67,12 @@
 
 .dark {
   color-scheme: dark;
-  --canvas: oklch(0.185 0.006 260);
-  --surface-1: oklch(0.16 0.006 260);
-  --surface-2: oklch(0.23 0.006 260);
-  --overlay: oklch(0.255 0.007 260);
-  --line: oklch(0.285 0.006 260);
-  --line-strong: oklch(0.36 0.007 260);
+  --canvas: #191919;
+  --surface-1: #202020;
+  --surface-2: #2c2c2c;
+  --overlay: #252525;
+  --line: #303030;
+  --line-strong: #434343;
   --fg: oklch(0.94 0.004 260);
   --fg-2: oklch(0.76 0.007 260);
   --fg-3: oklch(0.68 0.007 260);

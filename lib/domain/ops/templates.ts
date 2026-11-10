@@ -61,6 +61,7 @@ export const templatesCreate = defineOp({
       title: cleanTitle(input.title ?? source?.title ?? "Untitled template"),
       icon: source?.icon ?? null,
       cover: source?.cover ?? null,
+      coverPosition: source?.coverPosition ?? 50,
       rank: rankAt(siblings, undefined),
       values: source?.values ?? {},
     });
@@ -91,7 +92,7 @@ export const templatesApply = defineOp({
     if (tpl.databaseId) {
       const values = Object.fromEntries(Object.entries(tpl.values ?? {}).map(([k, v]) => [k, typeof v === "string" ? fillTemplateText(v, ctx.now) : v]));
       const siblings = pages.filter((p) => p.databaseId === tpl.databaseId && !p.parentId && !p.isTemplate && !p.archivedAt).sort(byRank);
-      const row = newPageRow(ctx, { databaseId: tpl.databaseId, title: filledTitle, icon: tpl.icon, cover: tpl.cover, rank: rankAt(siblings, index), values });
+      const row = newPageRow(ctx, { databaseId: tpl.databaseId, title: filledTitle, icon: tpl.icon, cover: tpl.cover, coverPosition: tpl.coverPosition ?? 50, rank: rankAt(siblings, index), values });
       newId = await ctx.db.insert("pages", row);
     } else {
       if (parentId) await requirePage(ctx, parentId);
@@ -101,6 +102,7 @@ export const templatesApply = defineOp({
         title: filledTitle,
         icon: tpl.icon,
         cover: tpl.cover,
+        coverPosition: tpl.coverPosition ?? 50,
         fullWidth: tpl.fullWidth,
         rank: rankAt(treeChildren(pages, parentId), index),
         ...(tpl.kind === "database" ? { properties: tpl.properties, views: tpl.views } : {}),

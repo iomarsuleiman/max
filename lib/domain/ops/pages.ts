@@ -196,13 +196,14 @@ export const pagesUpdate = defineOp({
     title: title.optional(),
     icon: icon.optional(),
     cover: z.string().max(2000).nullable().optional(),
+    coverPosition: z.number().min(0).max(100).optional(),
     fullWidth: z.boolean().optional(),
     smallText: z.boolean().optional(),
     locked: z.boolean().optional(),
   }),
   async run(ctx, { id: pageId, ...patch }) {
     const page = await requirePage(ctx, pageId);
-    if (page.locked && patch.locked !== false && (patch.title !== undefined || patch.icon !== undefined || patch.cover !== undefined)) assertWritable(page);
+    if (page.locked && patch.locked !== false && (patch.title !== undefined || patch.icon !== undefined || patch.cover !== undefined || patch.coverPosition !== undefined)) assertWritable(page);
     if (patch.cover && !/^(https:\/\/|max-asset:\/\/|gradient:\d+$|color:[a-z]+$|cover:[a-z0-9-]+$)/.test(patch.cover)) {
       throw new MaxError("VALIDATION", "Covers must be an https image link, an uploaded image, or a built-in gradient.");
     }

@@ -132,6 +132,8 @@ export interface PageRow {
   title: string;
   icon: string | null;
   cover: string | null;
+  /** Vertical cover crop, 0–100. Older pages default to the center. */
+  coverPosition?: number;
   rank: string;
   favoriteRank: string | null;
   archivedAt: number | null;

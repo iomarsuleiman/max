@@ -1,6 +1,6 @@
 /**
- * Cover gallery: CSS colors and gradients, plus public-domain images fetched from open
- * collections (see scripts/fetch-covers.mjs). Stored values: "cover:<id>", "color:<name>", "gradient:<n>", an https URL,
+ * Artwork gallery fetched from open collections (see scripts/fetch-covers.mjs).
+ * Stored values: "cover:<id>", legacy "color:<name>" and "gradient:<n>", an https URL,
  * or "max-asset://<id>" for uploads.
  */
 export interface CoverCollection {
@@ -34,11 +34,7 @@ export const SOLID_COLORS: Record<string, string> = {
 /** Public-domain artwork and photography fetched by scripts/fetch-covers.mjs (The Met, NASA, Webb). */
 const fetched = (manifest as { collections: { name: string; items: CoverCredit[] }[] }).collections;
 
-export const COVER_COLLECTIONS: CoverCollection[] = [
-  { name: "Colors", items: Object.keys(SOLID_COLORS).map((c) => ({ value: `color:${c}`, label: c })) },
-  { name: "Gradients", items: ["1", "2", "3", "4", "5", "6"].map((n) => ({ value: `gradient:${n}`, label: `Gradient ${n}` })) },
-  ...fetched.map((c) => ({ name: c.name, items: c.items.map((i) => ({ value: i.value, label: [i.label, i.creator].filter(Boolean).join(" · ") })) })),
-];
+export const COVER_COLLECTIONS: CoverCollection[] = fetched.map((c) => ({ name: c.name, items: c.items.map((i) => ({ value: i.value, label: [i.label, i.creator].filter(Boolean).join(" · ") })) }));
 
 export function coverCredit(value: string): CoverCredit | undefined {
   for (const c of fetched) for (const i of c.items) if (i.value === value) return i;
@@ -46,6 +42,12 @@ export function coverCredit(value: string): CoverCredit | undefined {
 }
 
 export const ALL_COVERS = COVER_COLLECTIONS.flatMap((c) => c.items.map((i) => i.value));
+
+export function coverImageUrl(cover: string | null | undefined): string | null {
+  if (cover?.startsWith("cover:")) return `/covers/${cover.slice(6).replace(/[^a-z0-9-]/g, "")}.jpg`;
+  if (cover?.startsWith("https://")) return cover;
+  return null;
+}
 
 /** CSS background for built-in covers, or null when it's an image URL to load. */
 export function coverStyle(cover: string | null | undefined): React.CSSProperties | null {

@@ -2,6 +2,21 @@ import { describe, expect, it } from "vitest";
 import { setup } from "./harness";
 
 describe("pages", () => {
+  it("persists cover crops, copies them into templates, and enforces crop bounds and page locks", async () => {
+    const { as } = setup();
+    const call = as("alice");
+    const id = (await call("pages.create", { title: "Cover crop" })).page._id;
+    await call("pages.update", { id, cover: "cover:met-435857", coverPosition: 78 });
+    expect((await call("pages.get", { id })).page.coverPosition).toBe(78);
+    const template = (await call("templates.create", { fromPageId: id })).template;
+    const copy = await call("templates.apply", { templateId: template._id });
+    expect((await call("pages.get", { id: copy.id })).page.coverPosition).toBe(78);
+    await expect(call("pages.update", { id, coverPosition: 101 })).rejects.toMatchObject({ code: "VALIDATION" });
+    await call("pages.update", { id, locked: true });
+    await expect(call("pages.update", { id, coverPosition: 20 })).rejects.toMatchObject({ code: "READ_ONLY" });
+    await expect(as("bob")("pages.update", { id, coverPosition: 20 })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
   it("creates, nests, orders and moves pages", async () => {
     const { as } = setup();
     const call = as("alice");

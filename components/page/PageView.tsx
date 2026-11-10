@@ -28,6 +28,7 @@ import { useDocumentSync } from "./useDocumentSync";
 import { CommentsPanel, requestComment, useCommentCount } from "./CommentsPanel";
 import { requestEditorFocus, takeEditorFocusRequest } from "@/lib/client/editorFocus";
 import { registerEditor } from "@/lib/client/saveFlush";
+import { DocumentOutline } from "./DocumentOutline";
 
 const MaxEditor = dynamic(() => import("@/components/editor/MaxEditor"), {
   ssr: false,
@@ -64,7 +65,10 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
   }, [pageId]);
   const page = q.data?.page;
   const isDatabase = page?.kind === "database";
-  const doc = useOp<DocumentGetResult>("documents.get", page && !isDatabase ? { pageId } : "skip");
+  const doc = useOp<DocumentGetResult>("documents.get", isDatabase ? "skip" : { pageId });
+
+  // Start the editor download while page data is in flight, not after both queries finish.
+  useEffect(() => { void import("@/components/editor/MaxEditor").catch(() => undefined); }, []);
 
   // Recents.
   const touched = useRef(false);
@@ -161,7 +165,7 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
           ) : !doc.data ? (
             <EditorSkeleton />
           ) : (
-            <DocumentEditor key={pageId} pageId={pageId} doc={doc.data} readOnly={readOnly || doc.data.readOnly} smallText={page.smallText} />
+            <DocumentEditor key={pageId} pageId={pageId} doc={doc.data} readOnly={readOnly || doc.data.readOnly} smallText={page.smallText} outline={!embedded && !commentsOpen} />
           )}
           {!isDatabase && data.children.length > 0 && <ChildPages pages={data.children} />}
         </div>
@@ -301,13 +305,14 @@ function ChildPages({ pages }: { pages: PageSummary[] }) {
   );
 }
 
-function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; doc: DocumentGetResult; readOnly: boolean; smallText: boolean }) {
+function DocumentEditor({ pageId, doc, readOnly, smallText, outline }: { pageId: string; doc: DocumentGetResult; readOnly: boolean; smallText: boolean; outline: boolean }) {
   const ws = useWorkspace();
   const router = useRouter();
   const upload = useUploader();
   const resolve = useAssetResolver();
   const sync = useDocumentSync(pageId, doc.revision);
   const editorRef = useRef<MaxEditorType | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const applyingRemote = useRef(false);
   const [initial] = useState(() => doc.blocks);
   const [editorKey, setEditorKey] = useState(0);
@@ -411,7 +416,8 @@ function DocumentEditor({ pageId, doc, readOnly, smallText }: { pageId: string; 
   const conflict = sync.state === "conflict" || remoteChanged;
 
   return (
-    <div>
+    <div ref={contentRef}>
+      {outline && <DocumentOutline contentRef={contentRef} />}
       <SaveSlot pageId={pageId}>
         <SaveStatus state={conflict ? "conflict" : sync.state} lastSavedAt={sync.lastSavedAt} error={sync.error} onRetry={() => void sync.flush()} updatedAt={doc.updatedAt} />
       </SaveSlot>
