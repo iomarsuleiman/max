@@ -43,19 +43,24 @@ export function PlayfulLogo() {
   const settle = () => {
     const s = motion.current;
     if (s.reduced || s.frame || document.hidden) return;
-    s.target = Math.round((s.angle + s.velocity * 100) / 360) * 360;
+    const start = s.angle;
+    const speed = Math.abs(s.velocity);
+    const direction = Math.sign(s.velocity) || 1;
+    const projected = start + s.velocity / 0.0012;
+    s.target = speed > 0.08 ? (direction > 0 ? Math.ceil(projected / 360) : Math.floor(projected / 360)) * 360 : Math.round(start / 360) * 360;
+    const distance = s.target - start;
+    const duration = speed > 0.08 ? Math.max(1400, Math.min(7000, (Math.abs(distance) * 3) / speed)) : 600;
     s.last = performance.now();
     const tick = (now: number) => {
-      const dt = Math.min(32, now - s.last);
-      s.last = now;
-      s.angle += s.velocity * dt;
-      s.velocity += (s.target - s.angle) * 0.00012 * dt;
-      s.velocity *= Math.exp(-dt * 0.022);
+      const progress = Math.min(1, (now - s.last) / duration);
+      s.angle = start + distance * (1 - (1 - progress) ** 3);
+      s.velocity = (distance * 3 * (1 - progress) ** 2) / duration;
       paint();
-      if (!s.dragging && !s.reduced && (Math.abs(s.velocity) > 0.003 || Math.abs(s.target - s.angle) > 0.1)) {
+      if (progress < 1 && !s.dragging && !s.reduced) {
         s.frame = requestAnimationFrame(tick);
       } else {
-        s.angle = s.target;
+        s.angle = 0;
+        s.target = 0;
         s.velocity = 0;
         s.frame = 0;
         paint();
@@ -89,10 +94,10 @@ export function PlayfulLogo() {
           const s = motion.current;
           if (!s.dragging || e.pointerId !== s.pointer) return;
           const now = performance.now();
-          const delta = (e.clientX - s.x) * 0.65;
+          const delta = (e.clientX - s.x) * 1.1;
           s.travel += Math.abs(e.clientX - s.x);
           s.angle += delta;
-          s.velocity = s.velocity * 0.65 + Math.max(-0.35, Math.min(0.35, delta / Math.max(16, now - s.time))) * 0.35;
+          s.velocity = s.velocity * 0.3 + Math.max(-3.5, Math.min(3.5, delta / Math.max(8, now - s.time))) * 0.7;
           s.x = e.clientX;
           s.time = now;
           paint();
@@ -116,11 +121,10 @@ export function PlayfulLogo() {
             cancelAnimationFrame(motion.current.frame);
             motion.current.frame = 0;
             if (motion.current.reduced) {
-              motion.current.angle += 45;
+              motion.current.angle = 0;
               paint();
             } else {
-              motion.current.angle += 30;
-              motion.current.velocity = 0.12;
+              motion.current.velocity = (Math.sign(motion.current.velocity) || 1) * Math.min(3.5, Math.abs(motion.current.velocity) + 1.5);
               paint();
               settle();
             }
@@ -131,8 +135,8 @@ export function PlayfulLogo() {
             e.preventDefault();
             cancelAnimationFrame(motion.current.frame);
             motion.current.frame = 0;
-            motion.current.velocity = 0;
-            motion.current.angle += e.key === "ArrowLeft" ? -30 : 30;
+            motion.current.velocity = e.key === "ArrowLeft" ? -1.6 : 1.6;
+            if (motion.current.reduced) motion.current.angle += e.key === "ArrowLeft" ? -30 : 30;
             paint();
             settle();
           }

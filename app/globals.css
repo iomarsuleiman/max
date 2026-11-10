@@ -289,3 +289,27 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
   .lx-editor .bn-editor { padding-bottom: 0 !important; min-height: 0 !important; }
   a { color: inherit; }
 }
+
+/* Membership cards stay a keepsake size, even on narrow screens. */
+.profile-card { width: 100%; max-width: 248px; margin: auto; overflow: hidden; border-radius: 8px; box-shadow: 0 10px 28px #0002; transition: transform 220ms ease-out; transform-origin: center; }
+.card-studio { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; padding-block: 12px; }
+.card-studio-intro { grid-column: 2; grid-row: 1; align-self: end; }
+.card-studio-intro h3 { font-size: 26px; letter-spacing: -.04em; }
+.card-studio-preview { grid-row: 1 / span 2; display: grid; justify-items: center; gap: 16px; min-width: 0; perspective: 800px; }
+.card-outline { position: relative; width: 100%; max-width: 276px; padding: 16px 13px 13px; border: 1px dashed var(--line-strong); }
+.card-outline-label { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 0 7px; color: var(--fg-3); background: var(--overlay); font: 9px/12px var(--font-mono); letter-spacing: .06em; }
+.card-studio-controls { display: grid; gap: 16px; min-width: 0; align-self: start; }
+.card-details summary { color: var(--fg-2); font-size: 13px; cursor: pointer; padding: 8px 0; }
+.card-details[open] { display: grid; gap: 12px; }
+.profile-card:hover .card-qr-foil { opacity: .3; }
+.card-qr-foil { transition: opacity 220ms ease; }
+@media(max-width: 600px) {
+ .card-studio { grid-template-columns: minmax(0,1fr); gap: 24px; }
+ .card-studio-intro { grid-column: 1; grid-row: 1; }
+ .card-studio-preview { grid-row: 2; }
+ .profile-card { max-width: 210px; }
+ .card-outline { max-width: 238px; }
+ .card-studio-controls input, .card-studio-controls textarea { font-size: 16px; }
+}
+@media(prefers-reduced-motion: reduce) { .profile-card { transform: none !important; transition: none; } }
+[data-reduce-motion="on"] .profile-card { transform: none !important; }

@@ -145,8 +145,8 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
           <PageTopbarActions page={page} saveSlotId={`save-${pageId}`} onToggleComments={commentsEnabled ? () => setCommentsOpen((o) => !o) : undefined} />
         </Topbar>
       )}
-      <div className="flex min-h-0 flex-1">
-      <div className="min-h-0 flex-1 overflow-y-auto" id={embedded ? undefined : "page-scroll"}>
+      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" id={embedded ? undefined : "page-scroll"}>
         {page.archivedAt && <TrashBanner data={data} />}
         {page.isTemplate && (
           <div className="bg-accent-soft px-4 py-2 text-center text-[13px] text-fg">

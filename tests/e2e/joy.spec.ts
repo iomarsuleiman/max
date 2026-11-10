@@ -8,7 +8,7 @@ test("landing butterfly responds to keyboard, drag and reduced motion", async ({
   await logo.focus();
   await page.keyboard.press("ArrowRight");
   await expect(logo.locator("span")).not.toHaveAttribute("style", /rotate\(0deg\)/);
-  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 4000 });
+  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 8500 });
   const box = await logo.boundingBox();
   expect(box).not.toBeNull();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -16,9 +16,12 @@ test("landing butterfly responds to keyboard, drag and reduced motion", async ({
   await page.mouse.move(box!.x + box!.width - 10, box!.y + box!.height / 2, { steps: 6 });
   await page.mouse.up();
   await expect(logo.locator("span")).not.toHaveAttribute("style", /rotate\(30deg\)/);
-  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 4000 });
+  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 8500 });
   await logo.click();
-  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 4000 });
+  await expect(logo.locator("span")).not.toHaveAttribute("style", /rotate\(0deg\)/);
+  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 8500 });
+  await logo.focus();
+  await page.keyboard.press("ArrowLeft");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.waitForTimeout(60);
   const paused = await logo.locator("span").getAttribute("style");
@@ -110,7 +113,7 @@ test("offline fallback and optional Paper hop work without caching private pages
   });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   const cached = await page.evaluate(async () => {
-    const cache = await caches.open("max-offline-v2");
+    const cache = await caches.open("max-offline-v3");
     return (await cache.keys()).map((request) => new URL(request.url).pathname).sort();
   });
   expect(cached).toEqual(["/offline-game.js", "/offline.html"]);
@@ -120,6 +123,8 @@ test("offline fallback and optional Paper hop work without caching private pages
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Switch color theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Sound off" }).click();
+  await expect(page.getByRole("button", { name: "Sound on" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Start playing" }).click();
   await expect(page.getByRole("button", { name: "Pause game" })).toBeVisible();
   await page.getByRole("img", { name: /Paper hop playfield/ }).press("Space");

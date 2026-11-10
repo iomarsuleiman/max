@@ -27,9 +27,13 @@ export default function Walkthrough() {
   const [active, setActive] = useState(0);
   const [palette, setPalette] = useState<keyof typeof palettes>("ocean");
   const [view, setView] = useState<"table" | "board">("table");
+  const manualSelection = useRef(false);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") return;
+    const resumeScrollSelection = () => { manualSelection.current = false; };
+    window.addEventListener("wheel", resumeScrollSelection, { passive: true });
+    window.addEventListener("touchmove", resumeScrollSelection, { passive: true });
     const desktop = matchMedia("(min-width: 1024px)");
     let observer: IntersectionObserver | undefined;
     const observe = () => {
@@ -37,6 +41,7 @@ export default function Walkthrough() {
       if (!desktop.matches) return;
       observer = new IntersectionObserver(
         (entries) => {
+          if (manualSelection.current) return;
           const visible = entries
             .filter((entry) => entry.isIntersecting)
             .sort(
@@ -57,6 +62,8 @@ export default function Walkthrough() {
     desktop.addEventListener("change", observe);
     return () => {
       observer?.disconnect();
+      window.removeEventListener("wheel", resumeScrollSelection);
+      window.removeEventListener("touchmove", resumeScrollSelection);
       desktop.removeEventListener("change", observe);
     };
   }, []);
@@ -84,7 +91,7 @@ export default function Walkthrough() {
                 aria-selected={active === index}
                 aria-controls={`${id}-preview`}
                 tabIndex={active === index ? 0 : -1}
-                onClick={() => setActive(index)}
+                onClick={() => { manualSelection.current = true; setActive(index); }}
                 onKeyDown={(event) => {
                   const next =
                     event.key === "ArrowDown"
@@ -98,6 +105,7 @@ export default function Walkthrough() {
                             : null;
                   if (next !== null) {
                     event.preventDefault();
+                    manualSelection.current = true;
                     setActive(next);
                     tabs.current[next]?.focus();
                   }

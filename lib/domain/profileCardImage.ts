@@ -1,3 +1,4 @@
+import qrcode from "qrcode-generator";
 import { profileCardSchema, type ProfileCard } from "./profileCard";
 
 const palettes = {
@@ -52,29 +53,38 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
   const names = wrap(card.name, nameSize === 28 ? 18 : 23);
   const subtitles = wrap(card.subtitle, 33);
   const bios = wrap(card.bio, 44);
-  const nameY = 346;
+  const nameY = 330;
   const subtitleY = nameY + names.length * (nameSize + 4) + 2;
   const bioY = subtitleY + subtitles.length * 21 + (bios.length ? 8 : 0);
-  const footerY = Math.max(492, bioY + bios.length * 18 + 36);
-  const height = footerY + 40;
+  const footerY = Math.max(480, bioY + bios.length * 18 + 42);
+  const height = footerY + 54;
+  const qr = qrcode(0, "M");
+  qr.addData("https://max.chaos.fail");
+  qr.make();
+  const modules = qr.getModuleCount();
+  const qrPath = Array.from({ length: modules }, (_, row) =>
+    Array.from({ length: modules }, (_, col) => (qr.isDark(row, col) ? `M${col + 4} ${row + 4}h1v1h-1z` : "")).join(""),
+  ).join("");
   const fill = card.pattern === "plain" ? palette.first : `url(#${gradientId})`;
   const shape =
     card.shape === "arch"
-      ? `<path d="M 38 304 L 38 158 A 142 142 0 0 1 322 158 L 322 304 Z" fill="${fill}"/><path d="M 126 304 L 126 185 A 98 98 0 0 1 322 185 L 322 304 Z" fill="${palette.glow}" opacity=".28"/>`
+      ? `<path d="M 24 298 L 24 180 A 156 156 0 0 1 336 180 L 336 298 Z" fill="${fill}"/>`
       : card.shape === "leaf"
-        ? `<path d="M 46 282 C 16 122 142 27 314 49 C 341 218 228 322 46 282 Z" fill="${fill}"/><path d="M 49 279 Q 145 201 297 65" fill="none" stroke="${palette.glow}" stroke-width="15" opacity=".65"/><path d="M 122 217 Q 94 159 102 126 M 193 156 Q 251 166 281 146" fill="none" stroke="${palette.glow}" stroke-width="8" opacity=".45"/>`
+        ? `<path d="M24 298 V180 Q24 24 180 24 H336 V142 Q336 298 180 298 Z" fill="${fill}"/>`
         : `<circle cx="180" cy="164" r="120" fill="${fill}"/><circle cx="180" cy="164" r="65" fill="${palette.glow}" opacity=".35"/><ellipse cx="180" cy="173" rx="183" ry="44" transform="rotate(-24 180 173)" fill="none" stroke="#fff8ec" stroke-width="18"/><circle cx="273" cy="75" r="23" fill="${palette.dark}"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="${height}" viewBox="0 0 360 ${height}" role="img" aria-labelledby="${titleId}" style="font-family:Arial,sans-serif">
     <title id="${titleId}">${escapeXml(card.name)}'s Max workspace card</title>
+    <desc>Membership artwork with a QR code that opens Max. No private workspace information is published.</desc>
     <defs>
+      <linearGradient class="card-foil-gradient" id="${safePrefix}-foil" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#69ccd4"/><stop offset=".3" stop-color="#bd80d5"/><stop offset=".5" stop-color="#fff8c4"/><stop offset=".7" stop-color="#82d8b9"/><stop offset="1" stop-color="#aca1ec"/></linearGradient>
       <linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${palette.first}"/><stop offset=".52" stop-color="${palette.dark}"/><stop offset="1" stop-color="${palette.second}"/></linearGradient>
       <radialGradient id="${glowId}"><stop stop-color="${palette.glow}" stop-opacity=".6"/><stop offset="1" stop-color="${palette.glow}" stop-opacity="0"/></radialGradient>
       <pattern id="${dotsId}" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".8" fill="#fff8ec" opacity=".5"/></pattern>
-      <clipPath id="${clipId}"><rect x="24" y="24" width="312" height="280" rx="16"/></clipPath>
+      <clipPath id="${clipId}"><rect x="24" y="24" width="312" height="274" rx="3"/></clipPath>
     </defs>
-    <rect width="360" height="${height}" rx="22" fill="#fff9f0"/>
+    <rect width="360" height="${height}" rx="10" fill="#fffdf0" stroke="${palette.ink}" stroke-opacity=".18" stroke-width="1"/>
     <g clip-path="url(#${clipId})">
-      <rect x="24" y="24" width="312" height="280" rx="16" fill="${palette.glow}" opacity=".24"/>
+      <rect x="24" y="24" width="312" height="274" rx="3" fill="${palette.glow}" opacity=".24"/>
       ${shape}
       ${card.pattern !== "plain" ? `<ellipse cx="100" cy="112" rx="150" ry="138" fill="url(#${glowId})"/>` : ""}
       ${card.pattern === "dots" ? `<rect x="24" y="24" width="312" height="280" fill="url(#${dotsId})"/>` : ""}
@@ -82,12 +92,15 @@ export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: stri
     ${textLines(names, nameY, nameSize, palette.ink, 700, nameSize + 4)}
     ${textLines(subtitles, subtitleY, 16, palette.ink, 500, 21)}
     ${textLines(bios, bioY, 12, "#70645c", 400, 18)}
-    <rect x="24" y="${footerY - 12}" width="223" height="25" rx="5" fill="none" stroke="${palette.ink}" stroke-width="1.4"/>
+    <rect x="24" y="${footerY - 12}" width="219" height="25" rx="2" fill="none" stroke="${palette.ink}" stroke-width="1.4"/>
     <path d="M 71 ${footerY - 12} v 25" stroke="${palette.ink}" stroke-width="1"/>
     <text x="35" y="${footerY + 5}" fill="${palette.ink}" font-size="11" font-weight="700">MAX</text>
     <text x="81" y="${footerY + 4}" fill="${palette.ink}" font-size="9" letter-spacing=".6">YOUR WORKSPACE CARD</text>
-    <text x="336" y="${footerY - 1}" text-anchor="end" fill="${palette.ink}" font-size="10" font-weight="700">PERSONAL</text>
-    <text x="336" y="${footerY + 12}" text-anchor="end" fill="#70645c" font-size="8" letter-spacing="1">PRIVATE</text>
+    <g class="card-qr" transform="translate(272 ${footerY - 32})">
+      <rect width="64" height="64" rx="3" fill="#fffdf0"/>
+      <svg width="64" height="64" viewBox="0 0 ${modules + 8} ${modules + 8}"><path d="${qrPath}" fill="#24282a" shape-rendering="crispEdges"/></svg>
+      <rect class="card-qr-foil" width="64" height="64" rx="3" fill="url(#${safePrefix}-foil)" opacity=".16" pointer-events="none"/>
+    </g>
   </svg>`;
   return { svg, width: 360, height };
 }

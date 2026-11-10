@@ -16,7 +16,7 @@ import { SuggestionMenu } from "@blocknote/core/extensions";
 import { SyntaxHighlightingExtension } from "@blocknote/core";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/shadcn";
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays, Plus, Ellipsis, Check, Undo2, Redo2, Copy, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { PageIcon } from "@/components/workspace/PageIcon";
 import { pageIdFromPath } from "@/lib/pageUrl";
 import { EditorBridge, maxSchema, type EditorBridgeValue, type MaxEditorType } from "./blocks";
@@ -247,14 +247,7 @@ export default function MaxEditor(props: MaxEditorProps) {
         >
           <SuggestionMenuController triggerCharacter="/" getItems={async (query) => searchSlashItems(slashItems(), query)} />
           <SuggestionMenuController triggerCharacter="@" getItems={async (query) => mentionItems(query)} />
-          <FormattingToolbarController
-            formattingToolbar={() => (
-              <FormattingToolbar>
-                <MobileInsertButton />
-                {getFormattingToolbarItems()}
-              </FormattingToolbar>
-            )}
-          />
+          <FormattingToolbarController formattingToolbar={MaxFormattingToolbar} />
           <MaxSideMenuController dir={dir === "rtl" ? "rtl" : "ltr"} />
         </BlockNoteView>
       </div>
@@ -262,12 +255,54 @@ export default function MaxEditor(props: MaxEditorProps) {
   );
 }
 
+/** Keep the touch row small; secondary formatting stays available without sideways hunting. */
+function MaxFormattingToolbar() {
+  const mode = useUIMode();
+  const editor = useBlockNoteEditor(maxSchema);
+  const Components = useComponentsContext()!;
+  const [narrow, setNarrow] = useState(false);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const media = matchMedia("(max-width: 767px)");
+    const update = () => setNarrow(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const items = getFormattingToolbarItems();
+  if (mode !== "mobile" && !narrow) return <FormattingToolbar>{items}</FormattingToolbar>;
+  const primary = new Set(["blockTypeSelect", "boldStyleButton", "italicStyleButton"]);
+  return (
+    <div className="max-touch-formatting" data-expanded={more || undefined}>
+      {more && <div className="max-touch-secondary" role="group" aria-label="More formatting">
+        {items.filter((item) => !primary.has(String(item.key)))}
+        <Components.FormattingToolbar.Button className="bn-button" label="Undo" mainTooltip="Undo" icon={<Undo2 size={18} />} onClick={() => editor.undo()} />
+        <Components.FormattingToolbar.Button className="bn-button" label="Redo" mainTooltip="Redo" icon={<Redo2 size={18} />} onClick={() => editor.redo()} />
+        {([
+          { action: "duplicate", label: "Duplicate block", icon: <Copy size={18} /> },
+          { action: "up", label: "Move block up", icon: <ArrowUp size={18} /> },
+          { action: "down", label: "Move block down", icon: <ArrowDown size={18} /> },
+          { action: "delete", label: "Delete block", icon: <Trash2 size={18} /> },
+        ] as const).map(({ action, label, icon }) => <Components.FormattingToolbar.Button key={action} className="bn-button" label={label} mainTooltip={label} icon={icon} onClick={() => {
+          const blocks = editor.getSelection()?.blocks ?? [editor.getTextCursorPosition().block];
+          runBlockAction(editor, action, blocks as never);
+          announce(action === "delete" ? "Block deleted. Undo is available in More formatting." : label);
+        }} />)}
+      </div>}
+      <FormattingToolbar>
+        <MobileInsertButton />
+        {items.filter((item) => primary.has(String(item.key)))}
+        <Components.FormattingToolbar.Button className="bn-button" label="More formatting" mainTooltip="More formatting" icon={<Ellipsis size={20} />} isSelected={more} onClick={() => setMore(!more)} />
+        <Components.FormattingToolbar.Button className="bn-button" label="Done editing" mainTooltip="Done editing" icon={<Check size={20} />} onClick={() => { setMore(false); editor.blur(); }} />
+      </FormattingToolbar>
+    </div>
+  );
+}
+
 /** On phones the formatting toolbar sits above the keyboard; it starts with "+" to open the block menu. */
 function MobileInsertButton() {
   const Components = useComponentsContext()!;
   const editor = useBlockNoteEditor(maxSchema);
-  const mode = useUIMode();
-  if (mode !== "mobile") return null;
   return (
     <Components.FormattingToolbar.Button
       className="bn-button"

@@ -3,11 +3,41 @@
   window.MaxPaperHop = {
     mount(host) {
       const root = host.shadowRoot || host.attachShadow({ mode: "open" });
-      root.innerHTML = `<style>:host{display:block;color:inherit;font:14px system-ui,sans-serif}button{font:inherit;cursor:pointer;border:1px solid #92969b;background:transparent;color:inherit;border-radius:8px;padding:9px 16px}button:focus-visible{outline:3px solid #3c6ea8;outline-offset:3px}canvas{width:100%;height:auto;display:block;border-bottom:1px solid #92969b;touch-action:manipulation}p{line-height:1.6;margin:12px 0}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.score{margin-inline-start:auto;font-variant-numeric:tabular-nums}small{opacity:.8}</style><div class="row"><strong>Paper hop</strong><span class="score" role="status" aria-live="polite">Score: 0</span></div><canvas width="600" height="200" role="img" aria-label="A butterfly jumping over stacks of paper"></canvas><p>Give your ideas a little lift. Space, ↑, or tap the game to hop over the paper stacks.</p><div class="row"><button type="button">Start playing</button><small>Just for fun. No account, sound, or uploads.</small></div>`;
+      root.innerHTML = `<style>:host{display:block;color:inherit;font:14px system-ui,sans-serif}button{font:inherit;cursor:pointer;border:1px solid #92969b;background:transparent;color:inherit;border-radius:8px;padding:9px 16px}button:focus-visible{outline:3px solid #3c6ea8;outline-offset:3px}canvas{width:100%;height:auto;display:block;border:1px solid #92969b55;border-radius:14px;margin-top:14px;background:linear-gradient(180deg,#859dbb13,transparent);touch-action:manipulation}p{line-height:1.6;margin:12px 0}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.best{opacity:.7;font-size:12px}.row button{min-height:44px}.sound{margin-inline-start:auto}button:hover{background:#8882}.score{margin-inline-start:auto;font-variant-numeric:tabular-nums}small{opacity:.8}</style><div class="row"><strong>Paper hop</strong><span class="best">Best: 0</span><span class="score" role="status" aria-live="polite">Score: 0</span></div><canvas width="600" height="200" role="img" aria-label="A butterfly jumping over stacks of paper"></canvas><p>Give your ideas a little lift. Space, ↑, or tap the game to hop over the paper stacks.</p><div class="row"><button type="button">Start playing</button><small><span class="hint">One more hop?</span></small><button class="sound" type="button" aria-pressed="false">Sound off</button><button class="hop" type="button">Hop ?</button></div>`;
       const canvas = root.querySelector("canvas");
       const context = canvas.getContext("2d");
       const button = root.querySelector("button");
       const scoreText = root.querySelector(".score");
+      const soundButton = root.querySelector(".sound");
+      const hopButton = root.querySelector(".hop");
+      const bestText = root.querySelector(".best");
+      let best = 0;
+      try { best = Number(localStorage.getItem("max:paper-hop-best")) || 0; } catch {}
+      bestText.textContent = `Best: ${best}`;
+      let sound = false;
+      let audio;
+      const tone = (frequency, length = .09, slide = 1.4) => {
+        if (!sound) return;
+        try {
+          audio ||= new (window.AudioContext || window.webkitAudioContext)();
+          void audio.resume();
+          const oscillator = audio.createOscillator();
+          const gain = audio.createGain();
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(frequency, audio.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(frequency * slide, audio.currentTime + length);
+          gain.gain.setValueAtTime(.045, audio.currentTime);
+          gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + length);
+          oscillator.connect(gain); gain.connect(audio.destination);
+          oscillator.start(); oscillator.stop(audio.currentTime + length);
+        } catch { sound = false; soundButton.textContent = "Sound unavailable"; soundButton.setAttribute("aria-pressed", "false"); soundButton.disabled = true; }
+      };
+      soundButton.addEventListener("click", () => {
+        sound = !sound;
+        soundButton.textContent = sound ? "Sound on" : "Sound off";
+        soundButton.setAttribute("aria-pressed", String(sound));
+        if (sound) tone(480);
+      });
       if (!context) {
         scoreText.textContent = "This browser cannot draw the game.";
         return () => {
@@ -39,6 +69,13 @@
         context.fillStyle = ink();
         context.strokeStyle = ink();
         context.lineWidth = 2;
+        context.globalAlpha = .16;
+        context.beginPath(); context.moveTo(0, 182); context.lineTo(600, 182); context.stroke();
+        for (let i = 0; i < 6; i++) {
+          const x = ((i * 121 - score * 19) % 680 + 680) % 680;
+          context.beginPath(); context.ellipse(x, 40 + (i % 3) * 20, 25, 5, 0, 0, Math.PI * 2); context.stroke();
+        }
+        context.globalAlpha = 1;
         context.beginPath();
         context.ellipse(57, 160 + y, 10, 16, -0.7, 0, Math.PI * 2);
         context.ellipse(73, 160 + y, 10, 16, 0.7, 0, Math.PI * 2);
@@ -81,6 +118,7 @@
         obstacles = obstacles.filter((obstacle) => {
           if (obstacle.x < -24) {
             score++;
+            tone(660, .07, 1.2);
             return false;
           }
           return true;
@@ -91,6 +129,12 @@
         }
         if (obstacles.some((obstacle) => obstacle.x < 82 && obstacle.x + 23 > 51 && 175 + y > 180 - obstacle.height)) {
           over = true;
+          tone(220, .22, .35);
+          if (score > best) {
+            best = score;
+            bestText.textContent = `Best: ${best}`;
+            try { localStorage.setItem("max:paper-hop-best", String(best)); } catch {}
+          }
           stop();
           return;
         }
@@ -117,11 +161,12 @@
         frame = requestAnimationFrame(tick);
       };
       const jump = () => {
-        if (running && y === 0) velocity = -0.65;
+        if (!running) start();
+        if (running && y === 0) { velocity = -0.65; tone(340, .12, 2); }
       };
       const key = (event) => {
-        if (event.target === button) return;
-        if ((event.code === "Space" || event.code === "ArrowUp") && running) {
+        if (event.target instanceof HTMLButtonElement) return;
+        if ((event.code === "Space" || event.code === "ArrowUp") ) {
           event.preventDefault();
           jump();
         }
@@ -132,6 +177,7 @@
       canvas.tabIndex = 0;
       canvas.setAttribute("aria-label", "Paper hop playfield. Press Space or Up to jump while playing.");
       button.addEventListener("click", start);
+      hopButton.addEventListener("click", jump);
       canvas.addEventListener("pointerdown", jump);
       root.addEventListener("keydown", key);
       document.addEventListener("visibilitychange", pause);
@@ -143,6 +189,7 @@
         themeObserver.disconnect();
         colorScheme.removeEventListener("change", themeChanged);
         root.removeEventListener("keydown", key);
+        void audio?.close();
         root.replaceChildren();
       };
     },

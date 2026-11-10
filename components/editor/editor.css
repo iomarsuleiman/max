@@ -298,3 +298,49 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .mx-inline-db { width: 100%; cursor: default; }
 .mx-inline-db section { padding-top: 0 !important; }
 .mx-date { display: inline-flex; padding: 0 3px; border-radius: 4px; color: var(--fg-2); background: var(--hover); font-size: 0.95em; white-space: nowrap; }
+
+/* The mobile strip fits the phone. Extra commands open upwards in a wrapped tray. */
+.max-touch-formatting { width: min(100vw, 460px); background: var(--overlay); border: 1px solid var(--line); border-radius: 12px 12px 0 0; box-shadow: 0 -4px 20px #0001; }
+.max-touch-formatting .bn-toolbar { width: 100%; display: flex; justify-content: space-between; gap: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 3px 4px !important; }
+.max-touch-formatting .bn-toolbar .bn-button { min-width: 44px; height: 44px !important; flex-shrink: 0; }
+.max-touch-formatting [data-slot="select-trigger"] { max-width: 106px; min-width: 70px; height: 44px !important; overflow: hidden; font-size: 13px; }
+.max-touch-secondary { display: flex; flex-wrap: wrap; gap: 3px; padding: 8px; max-height: min(180px, 30svh); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); }
+.max-touch-secondary .bn-button { min-width: 44px; min-height: 44px; border-radius: 6px; color: var(--fg); }
+.bn-mobile-formatting-toolbar { padding-bottom: 0 !important; transition: none !important; width: var(--bn-vv-width, 100vw); }
+@media(max-width:767px) {
+ .max-workspace-frame { height: min(100dvh, var(--bn-vv-height, 100dvh)); }
+ #page-scroll { overscroll-behavior-y: contain; scroll-padding-block: 32px 120px; -webkit-overflow-scrolling: touch; }
+ .lx-editor .bn-editor { font-size: 16px; line-height: 1.65; padding-bottom: 120px; }
+ .bn-suggestion-menu { max-height: min(320px, calc(var(--bn-vv-height, 100dvh) - 100px)); }
+ .bn-suggestion-menu [role="option"], .bn-menu-dropdown [role="menuitem"] { min-height: 44px; }
+ .lx-editor .bn-block-content { overflow-wrap: anywhere; }
+ .lx-editor .bn-block-content[data-content-type="table"] { overflow-x: auto; }
+ .lx-editor input, .lx-editor textarea, .bn-menu-dropdown input { font-size: 16px; }
+}
+
+@media(max-width:767px) {
+ .max-topbar { height: 48px; gap: 0; padding-inline: 4px; }
+ .max-topbar button { min-height: 44px; min-width: 44px; justify-content: center; }
+ .max-topbar nav[aria-label="Breadcrumb"] li:not(:last-child), .max-topbar nav[aria-label="Breadcrumb"] li:last-child > span { display: none; }
+ .max-page-header button { min-height: 44px; }
+}
+
+/* A phone has no hover gutter. Touch block actions live in the keyboard tray. */
+@media(max-width:767px) {
+ .lx-editor .bn-side-menu, .lx-side-menu { display: none !important; }
+}
+@media(max-width:767px) {
+ #page-scroll { overflow-x: hidden; }
+ .lx-editor, .lx-editor .bn-container, .lx-editor .bn-editor, .lx-editor .bn-block-group, .lx-editor .bn-block-outer, .lx-editor .bn-block { min-width: 0; max-width: 100%; }
+ .lx-editor .bn-block-content { min-width: 0; max-width: 100%; }
+ .lx-editor .bn-block-column-list { flex-direction: column; gap: 12px; }
+ .lx-editor .bn-block-column { width: 100% !important; min-width: 0 !important; max-width: 100%; }
+ .lx-editor .bn-block-content[data-content-type="codeBlock"] pre { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+ .lx-editor .bn-block-content[data-content-type="table"] { max-width: 100%; overscroll-behavior-x: contain; }
+ .lx-editor .mx-inline-db, .lx-editor .mx-embed, .lx-editor .lx-figure { min-width: 0; max-width: 100%; }
+}
+
+@media(max-width:767px) {
+ .lx-editor .bn-block-content[data-content-type="codeBlock"] .bn-inline-content { white-space: pre; overflow-wrap: normal; word-break: normal; }
+ .lx-editor .bn-block-content[data-content-type="table"] .tableWrapper { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+}

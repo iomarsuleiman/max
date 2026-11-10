@@ -1,4 +1,7 @@
 ﻿import Link from "next/link";
+import { Space_Grotesk } from "next/font/google";
+
+const heroFont = Space_Grotesk({ subsets: ["latin"], display: "swap", weight: ["500"] });
 import { CLOUD } from "@/lib/config";
 import { PlayfulLogo } from "@/components/brand/PlayfulLogo";
 import Walkthrough from "./Walkthrough";
@@ -9,7 +12,9 @@ export function LandingContent() {
     <main className="landing-system paper-grain bg-canvas text-fg">
       <section className="mx-auto flex min-h-svh max-w-5xl flex-col items-center justify-center px-6 py-20 text-center">
         <PlayfulLogo />
-        <h1 className="max-w-4xl font-serif text-5xl leading-[1.08] tracking-tight text-balance sm:text-7xl lg:text-8xl">A home for your ideas.</h1>
+        <h1 className={`${heroFont.className} max-w-4xl text-5xl leading-[1.04] font-medium tracking-[-.065em] text-balance sm:text-7xl lg:text-8xl`}>
+          A home for your ideas.
+        </h1>
         <p className="text-fg-2 mt-7 max-w-xl text-base leading-relaxed text-balance sm:text-xl">
           Your notes, pages and databases.
           <br />

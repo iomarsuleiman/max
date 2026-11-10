@@ -47,7 +47,7 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
   const cover = page.cover;
 
   return (
-    <div className="group/header relative">
+    <div className="max-page-header group/header relative">
       {cover && <PageCover key={cover} page={page} readOnly={readOnly} />}
       <div className={cn("mx-auto px-4 sm:px-12", widthClass, cover ? "pt-0" : "pt-14 max-sm:pt-8")}>
         {page.icon && (
@@ -69,7 +69,7 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
           </div>
         )}
         {!readOnly && (
-          <div className="flex h-8 items-center gap-1 pt-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/header:opacity-100 max-md:opacity-100">
+          <div className="flex h-8 max-md:h-auto max-md:flex-wrap items-center gap-1 pt-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/header:opacity-100 max-md:opacity-100">
             {!page.icon && (
               <IconPicker
                 trigger={
