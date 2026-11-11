@@ -51,3 +51,17 @@
 - [x] Final verification: production build, both TypeScript projects, ESLint (existing warnings only), 81 unit/integration tests, and all 30 browser cases (29 full-suite passes plus corrected Arabic-name assertion rerun).
 - [ ] Merge the final presentation PR after GitHub checks.
 - [ ] Publish v1.0.0, then begin phase 00 of the saved Max Collaboration 2.0 plan.
+
+## Max 2.0
+
+- [x] Read the saved collaboration plan and phase 00 acceptance criteria.
+- [x] Create a source-history backup before v2 changes.
+- [x] Add snapshot and export/import recovery regression checks.
+- [x] Record current boundaries and recovery limits in docs/MAX_2_BASELINE.md.
+- [x] Add the full block corpus, damaged/oversized recovery and relation-copy checks.
+- [x] Fix JSON restore reference mapping without rewriting authored text or block IDs.
+- [x] Add full local backup/verify/restore commands and eight filesystem tests to CI.
+- [x] Restore a stopped synthetic instance and verify 22 documents and 28 attachment downloads.
+- [x] Reproduce and fix WebKit's RTL auto-margin overflow with a browser regression.
+- [x] Finish corpus keyboard/accessibility checks and full browser regression after the audit fixes: 33 browser cases pass, including Chromium and WebKit.
+- [ ] Complete remaining phase 00 gates listed in the baseline before shared storage.

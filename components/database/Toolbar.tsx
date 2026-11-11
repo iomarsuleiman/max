@@ -98,7 +98,7 @@ export function FilterButton({ view, properties, onChange }: { view: DatabaseVie
       className="w-[min(460px,calc(100vw-24px))] p-2"
       trigger={
         <Button size="sm" variant="ghost" icon={<Filter className="size-3.5" />} className={cn(filters.length && "text-accent-text")}>
-          <span className="max-sm:hidden">Filter</span>
+          <span className="max-sm:sr-only">Filter</span>
           {filters.length > 0 && <span className="rounded bg-accent-soft px-1 text-[11px]">{filters.length}</span>}
         </Button>
       }
@@ -164,7 +164,7 @@ export function SortButton({ view, properties, onChange }: { view: DatabaseView;
       className="w-[min(380px,calc(100vw-24px))] p-2"
       trigger={
         <Button size="sm" variant="ghost" icon={<ArrowUpDown className="size-3.5" />} className={cn(sorts.length && "text-accent-text")}>
-          <span className="max-sm:hidden">Sort</span>
+          <span className="max-sm:sr-only">Sort</span>
           {sorts.length > 0 && <span className="rounded bg-accent-soft px-1 text-[11px]">{sorts.length}</span>}
         </Button>
       }
@@ -218,7 +218,7 @@ export function SortButton({ view, properties, onChange }: { view: DatabaseView;
 export function PropertiesButton({ view, properties, onChange }: { view: DatabaseView; properties: PropertyDef[]; onChange: (hidden: string[]) => void }) {
   const hidden = new Set(view.hiddenPropertyIds);
   return (
-    <Popover align="end" className="w-64 p-1.5" trigger={<Button size="sm" variant="ghost" icon={<Eye className="size-3.5" />}><span className="max-sm:hidden">Properties</span></Button>}>
+    <Popover align="end" className="w-64 p-1.5" trigger={<Button size="sm" variant="ghost" icon={<Eye className="size-3.5" />}><span className="max-sm:sr-only">Properties</span></Button>}>
       <p className="px-1.5 pb-1 text-[11.5px] font-medium text-fg-3">Shown in this view</p>
       <ul className="grid max-h-72 overflow-y-auto">
         {properties.map((p) => (

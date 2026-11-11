@@ -1,8 +1,71 @@
 diff --git a/dist/blocks-DaEUT0O1.js b/dist/blocks-DaEUT0O1.js
-index f27910dc4b95b8bad149070d5dd851e7470a5074..294d83e265b25af27a2c904c8f73e9a78cdf0bdd 100644
+index f27910dc4b95b8bad149070d5dd851e7470a5074..845ecf9025c012bf70be831ef358c71143b58448 100644
 --- a/dist/blocks-DaEUT0O1.js
 +++ b/dist/blocks-DaEUT0O1.js
-@@ -2353,7 +2353,7 @@ var fr = F(() => ({
+@@ -1839,6 +1839,7 @@ var Fn = (e) => (t, r) => n({
+ }), In = (e, t, n, r) => {
+ 	if (!(n in r)) throw Error(`Language ${n} is not supported.`);
+ 	let i = document.createElement("select");
++	i.setAttribute("aria-label", "Code language");
+ 	Object.entries(r).forEach(([e, { name: t }]) => {
+ 		let n = document.createElement("option");
+ 		n.value = e, n.text = t, i.appendChild(n);
+@@ -1975,12 +1976,22 @@ var Jn = {
+ 	let i = document.createElement("div"), a = document.createElement("div");
+ 	a.className = "bn-toggle-wrapper";
+ 	let o = document.createElement("button");
++	o.setAttribute("aria-label", "Toggle content");
++	o.contentEditable = "false";
++	const setExpanded = (expanded) => {
++		a.setAttribute("data-show-children", String(expanded));
++		o.setAttribute("aria-expanded", String(expanded));
++	};
+ 	o.className = "bn-toggle-button", o.type = "button", o.innerHTML = "<svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\" viewBox=\"0 -960 960 960\" width=\"24px\" fill=\"CURRENTCOLOR\"><path d=\"M320-200v-560l440 280-440 280Z\"/></svg>";
+ 	let s = (e) => e.preventDefault();
+ 	o.addEventListener("mousedown", s);
++	const toggleKeyDown = (event) => {
++		if (event.key === " " || event.key === "Enter") event.stopPropagation();
++	};
++	o.addEventListener("keydown", toggleKeyDown);
+ 	let c = () => {
+ 		let n = t.getBlock(e);
+-		n && (a.getAttribute("data-show-children") === "true" ? (a.setAttribute("data-show-children", "false"), r.set(n, !1), i.contains(l) && i.removeChild(l)) : (a.setAttribute("data-show-children", "true"), r.set(n, !0), t.isEditable && n.children.length === 0 && !i.contains(l) && i.appendChild(l)));
++		n && (a.getAttribute("data-show-children") === "true" ? (setExpanded(false), r.set(n, !1), i.contains(l) && i.removeChild(l)) : (setExpanded(true), r.set(n, !0), t.isEditable && n.children.length === 0 && !i.contains(l) && i.appendChild(l)));
+ 	};
+ 	o.addEventListener("click", c), a.appendChild(o), a.appendChild(n);
+ 	let l = document.createElement("button");
+@@ -1998,14 +2009,14 @@ var Jn = {
+ 		let n = t.getBlock(e)?.children.length ?? 0;
+ 		if (n > f) {
+ 			if (a.getAttribute("data-show-children") === "false") {
+-				a.setAttribute("data-show-children", "true");
++				setExpanded(true);
+ 				let n = t.getBlock(e);
+ 				n && r.set(n, !0);
+ 			}
+ 			i.contains(l) && i.removeChild(l);
+ 		} else if (n === 0 && n < f) {
+ 			if (a.getAttribute("data-show-children") === "true") {
+-				a.setAttribute("data-show-children", "false");
++				setExpanded(false);
+ 				let n = t.getBlock(e);
+ 				n && r.set(n, !1);
+ 			}
+@@ -2013,10 +2024,11 @@ var Jn = {
+ 		}
+ 		f = n;
+ 	});
+-	return r.get(e) ? (a.setAttribute("data-show-children", "true"), t.isEditable && e.children.length === 0 && i.appendChild(l)) : a.setAttribute("data-show-children", "false"), {
++	return r.get(e) ? (setExpanded(true), t.isEditable && e.children.length === 0 && i.appendChild(l)) : setExpanded(false), {
+ 		dom: i,
+-		ignoreMutation: (e) => e instanceof MutationRecord && (e.type === "attributes" && e.target === a && e.attributeName === "data-show-children" || e.type === "childList" && (e.addedNodes[0] === l || e.removedNodes[0] === l)),
++		ignoreMutation: (e) => e instanceof MutationRecord && (e.type === "attributes" && e.target === a && e.attributeName === "data-show-children" || e.type === "attributes" && e.target === o && e.attributeName === "aria-expanded" || e.type === "childList" && (e.addedNodes[0] === l || e.removedNodes[0] === l)),
+ 		destroy: () => {
++			o.removeEventListener("keydown", toggleKeyDown);
+ 			o.removeEventListener("mousedown", s), o.removeEventListener("click", c), l.removeEventListener("mousedown", u), l.removeEventListener("click", d), p?.();
+ 		}
+ 	};
+@@ -2353,7 +2365,7 @@ var fr = F(() => ({
  	parseContent: ({ el: e, schema: t }) => dr(e, t, "checkListItem"),
  	render(e, t) {
  		let n = document.createDocumentFragment(), r = document.createElement("input");
@@ -11,7 +74,7 @@ index f27910dc4b95b8bad149070d5dd851e7470a5074..294d83e265b25af27a2c904c8f73e9a7
  			t.isEditable && t.updateBlock(e, { props: { checked: !e.props.checked } });
  		});
  		let i = document.createElement("p"), a = document.createElement("div");
-@@ -2364,7 +2364,7 @@ var fr = F(() => ({
+@@ -2364,7 +2376,7 @@ var fr = F(() => ({
  	},
  	toExternalHTML(e) {
  		let t = document.createElement("li"), n = document.createElement("input");
@@ -20,3 +83,110 @@ index f27910dc4b95b8bad149070d5dd851e7470a5074..294d83e265b25af27a2c904c8f73e9a7
  		let r = document.createElement("p");
  		return q(e.props, t), t.appendChild(n), t.appendChild(r), {
  			dom: t,
+diff --git a/src/blocks/Code/helpers/render/createCodeBlock.ts b/src/blocks/Code/helpers/render/createCodeBlock.ts
+index ed1e73edf32b259addc5c869594faf915ff8a265..c066e8ffe23c5291f3bf08af3dddf34ac463e858 100644
+--- a/src/blocks/Code/helpers/render/createCodeBlock.ts
++++ b/src/blocks/Code/helpers/render/createCodeBlock.ts
+@@ -18,6 +18,7 @@ export const createLanguageSelect = (
+   }
+ 
+   const select = document.createElement("select");
++  select.setAttribute("aria-label", "Code language");
+   Object.entries(supportedLanguages).forEach(([id, { name }]) => {
+     const option = document.createElement("option");
+     option.value = id;
+diff --git a/src/blocks/ToggleWrapper/createToggleWrapper.ts b/src/blocks/ToggleWrapper/createToggleWrapper.ts
+index 257fd7ce6f72b4a7cc650c9b21202d1d617c770f..35c955d5c7ccdca6a5505f458084fd472f75b89b 100644
+--- a/src/blocks/ToggleWrapper/createToggleWrapper.ts
++++ b/src/blocks/ToggleWrapper/createToggleWrapper.ts
+@@ -42,11 +42,21 @@ export const createToggleWrapper = (
+   const toggleButton = document.createElement("button");
+   toggleButton.className = "bn-toggle-button";
+   toggleButton.type = "button";
++  toggleButton.contentEditable = "false";
++  toggleButton.setAttribute("aria-label", "Toggle content");
++  const setExpanded = (expanded: boolean) => {
++    toggleWrapper.setAttribute("data-show-children", String(expanded));
++    toggleButton.setAttribute("aria-expanded", String(expanded));
++  };
+   toggleButton.innerHTML =
+     // https://fonts.google.com/icons?selected=Material+Symbols+Rounded:chevron_right:FILL@0;wght@700;GRAD@0;opsz@24&icon.query=chevron&icon.style=Rounded&icon.size=24&icon.color=%23e8eaed
+     '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="CURRENTCOLOR"><path d="M320-200v-560l440 280-440 280Z"/></svg>';
+   const toggleButtonMouseDown = (event: MouseEvent) => event.preventDefault();
+   toggleButton.addEventListener("mousedown", toggleButtonMouseDown);
++  const toggleButtonKeyDown = (event: KeyboardEvent) => {
++    if (event.key === " " || event.key === "Enter") event.stopPropagation();
++  };
++  toggleButton.addEventListener("keydown", toggleButtonKeyDown);
+   const toggleButtonOnClick = () => {
+     // Toggles visibility of child blocks. Also adds/removes the "add block"
+     // button if there are no child blocks.
+@@ -56,14 +66,14 @@ export const createToggleWrapper = (
+     }
+ 
+     if (toggleWrapper.getAttribute("data-show-children") === "true") {
+-      toggleWrapper.setAttribute("data-show-children", "false");
++      setExpanded(false);
+       toggledState.set(currentBlock, false);
+ 
+       if (dom.contains(toggleAddBlockButton)) {
+         dom.removeChild(toggleAddBlockButton);
+       }
+     } else {
+-      toggleWrapper.setAttribute("data-show-children", "true");
++      setExpanded(true);
+       toggledState.set(currentBlock, true);
+ 
+       if (
+@@ -115,7 +125,7 @@ export const createToggleWrapper = (
+     if (newChildCount > childCount) {
+       // If a child block is added while children are hidden, show children.
+       if (toggleWrapper.getAttribute("data-show-children") === "false") {
+-        toggleWrapper.setAttribute("data-show-children", "true");
++        setExpanded(true);
+         const currentBlock = editor.getBlock(block);
+         if (currentBlock) {
+           toggledState.set(currentBlock, true);
+@@ -131,7 +141,7 @@ export const createToggleWrapper = (
+       // If the last child block is removed while children are shown, hide
+       // children.
+       if (toggleWrapper.getAttribute("data-show-children") === "true") {
+-        toggleWrapper.setAttribute("data-show-children", "false");
++        setExpanded(false);
+         const currentBlock = editor.getBlock(block);
+         if (currentBlock) {
+           toggledState.set(currentBlock, false);
+@@ -149,7 +159,7 @@ export const createToggleWrapper = (
+   });
+ 
+   if (toggledState.get(block)) {
+-    toggleWrapper.setAttribute("data-show-children", "true");
++    setExpanded(true);
+ 
+     if (editor.isEditable && block.children.length === 0) {
+       // If the toggle is set to show children, but there are no children,
+@@ -157,7 +167,7 @@ export const createToggleWrapper = (
+       dom.appendChild(toggleAddBlockButton);
+     }
+   } else {
+-    toggleWrapper.setAttribute("data-show-children", "false");
++    setExpanded(false);
+   }
+ 
+   return {
+@@ -172,6 +182,7 @@ export const createToggleWrapper = (
+         ((mutation.type === "attributes" &&
+           mutation.target === toggleWrapper &&
+           mutation.attributeName === "data-show-children") ||
++          (mutation.type === "attributes" && mutation.target === toggleButton && mutation.attributeName === "aria-expanded") ||
+           (mutation.type === "childList" &&
+             (mutation.addedNodes[0] === toggleAddBlockButton ||
+               mutation.removedNodes[0] === toggleAddBlockButton)))
+@@ -182,6 +193,7 @@ export const createToggleWrapper = (
+     },
+     destroy: () => {
+       toggleButton.removeEventListener("mousedown", toggleButtonMouseDown);
++      toggleButton.removeEventListener("keydown", toggleButtonKeyDown);
+       toggleButton.removeEventListener("click", toggleButtonOnClick);
+       toggleAddBlockButton.removeEventListener(
+         "mousedown",

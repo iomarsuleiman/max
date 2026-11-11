@@ -154,7 +154,9 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
           </div>
         )}
         <PageHeader page={page} readOnly={readOnly} widthClass={embedded ? "max-w-[760px]" : widthClass} onEnter={() => requestEditorFocus(pageId)} />
-        <div className={cn("mx-auto w-full px-4 pb-24 sm:px-12", embedded && !isDatabase ? "max-w-[760px]" : widthClass)}>
+        {/* Flex centering avoids WebKit's auto-margin offset beside an RTL scrollbar. */}
+        <div className="flex min-w-0 justify-center">
+        <div className={cn("min-w-0 w-full px-4 pb-24 sm:px-12", embedded && !isDatabase ? "max-w-[760px]" : widthClass)}>
           {page.locked && !page.archivedAt && (
             <p className="mb-2 inline-flex items-center gap-1.5 text-[12.5px] text-fg-3">
               <Lock className="size-3.5" /> Locked. Unlock from the ⋯ menu to edit.
@@ -176,6 +178,7 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
             <DocumentEditor key={pageId} pageId={pageId} doc={doc.data} readOnly={readOnly || doc.data.readOnly} smallText={page.smallText} outline={!embedded && !commentsOpen} />
           )}
           {!isDatabase && data.children.length > 0 && <ChildPages pages={data.children} />}
+        </div>
         </div>
       </div>
       {commentsEnabled && <CommentsPanel pageId={pageId} open={commentsOpen} onClose={() => setCommentsOpen(false)} focusBlock={commentFocus} />}

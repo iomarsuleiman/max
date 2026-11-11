@@ -23,6 +23,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm test:backup
       - run: pnpm build
         env:
           MAX_LOCAL_MODE: "true"
@@ -41,7 +42,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm e2e
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: playwright-results
           path: test-results/
