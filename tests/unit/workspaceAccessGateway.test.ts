@@ -10,7 +10,7 @@ import {
 } from "@/lib/domain/workspaceAccessGateway";
 
 function fixture() {
-  const workspaces: WorkspaceRow[] = [{ workspaceId: "acme", ownerId: "alice", status: "active" }];
+  const workspaces: WorkspaceRow[] = [{ workspaceId: "acme01", ownerId: "alice", status: "active" }];
   const memberships: MembershipRow[] = [
     { accountId: "alice", role: "owner", status: "active" },
     { accountId: "bob", role: "member", status: "active" },
@@ -19,9 +19,9 @@ function fixture() {
   const groups = new Map<string, AffiliationRow[]>([["bob", [{ id: "writers", status: "active" }]]]);
   const teamspaces = new Map<string, AffiliationRow[]>([["bob", [{ id: "ts1", status: "active" }]]]);
   const scopes: ScopeRow[] = [
-    { pageId: "root", workspaceId: "acme", parentId: null, teamspaceId: null },
-    { pageId: "child", workspaceId: "acme", parentId: "root", teamspaceId: null },
-    { pageId: "secret", workspaceId: "acme", parentId: "root", teamspaceId: "ts1" },
+    { pageId: "root", workspaceId: "acme01", parentId: null, teamspaceId: null },
+    { pageId: "child", workspaceId: "acme01", parentId: "root", teamspaceId: null },
+    { pageId: "secret", workspaceId: "acme01", parentId: "root", teamspaceId: "ts1" },
   ];
   const grants = new Map<string, GrantRow[]>([["root", [{ subjectType: "group", subjectId: "writers", effect: "allow", level: "edit" }]]]);
   let scopeReads = 0;
@@ -30,10 +30,14 @@ function fixture() {
     memberships: async (_id, account) => memberships.filter((m) => m.accountId === account),
     groups: async (_id, account) => groups.get(account) ?? [],
     teamspaces: async (_id, account) => teamspaces.get(account) ?? [],
+    groupRegistrations: async (id, groupId) => id === "acme01" && groupId === "writers"
+      ? [{ workspaceId: id, groupId }] : [],
+    teamspaceRegistrations: async (id, teamspaceId) => id === "acme01" && teamspaceId === "ts1"
+      ? [{ workspaceId: id, teamspaceId }] : [],
     scopes: async (id, page) => { scopeReads++; return scopes.filter((p) => p.workspaceId === id && p.pageId === page); },
     grants: async (_id, page) => grants.get(page) ?? [],
   };
-  const access = (account: string | null, page: string, capability: "view" | "edit" | "manage" = "view", workspace = "acme") =>
+  const access = (account: string | null, page: string, capability: "view" | "edit" | "manage" = "view", workspace = "acme01") =>
     canAccessWorkspacePageFromServer(store, account, workspace, page, capability);
   return { workspaces, memberships, groups, teamspaces, scopes, grants, access, store, scopeReadCount: () => scopeReads };
 }
@@ -97,7 +101,7 @@ describe("Max 2.0 authenticated workspace gateway", () => {
     a.scopes[1].parentId = "root";
     a.scopes[0].workspaceId = "other";
     expect(await a.access("alice", "child")).toBe(false);
-    a.scopes[0].workspaceId = "acme";
+    a.scopes[0].workspaceId = "acme01";
     a.scopes[0].parentId = "child";
     expect(await a.access("alice", "child")).toBe(false);
     a.scopes[0].parentId = null;

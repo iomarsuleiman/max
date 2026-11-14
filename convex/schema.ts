@@ -92,6 +92,11 @@ export default defineSchema({
     createdByAccountId: v.string(),
     createdAt: v.number(),
   }).index("by_workspace_teamspace", ["workspaceId", "teamspaceId"]),
+  // Registered shadow workspace groups. Unknown group IDs cannot become ACL subjects.
+  workspaceGroups: defineTable({
+    workspaceId: v.string(), groupId: v.string(),
+    createdByAccountId: v.string(), createdAt: v.number(),
+  }).index("by_workspace_group", ["workspaceId", "groupId"]),
   workspaceGroupMemberships: defineTable({
     workspaceId: v.string(),
     accountId: v.string(),

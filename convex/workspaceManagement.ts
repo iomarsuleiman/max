@@ -78,7 +78,7 @@ export const createWorkspace = mutationGeneric({
     writeGate();
     const actorId = await authenticated(ctx);
     if (!validWorkspaceId(workspaceId)) denied();
-    const [existing, oldMembers, oldGroups, oldTeams, oldScopes, oldGrants, oldInvites, oldTeamspaceRegistry] = await Promise.all([
+    const [existing, oldMembers, oldGroups, oldTeams, oldScopes, oldGrants, oldInvites, oldTeamspaceRegistry, oldGroupRegistry] = await Promise.all([
       ctx.db.query("workspaces").withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspaceMemberships").withIndex("by_workspace_account", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) => q.eq("workspaceId", workspaceId)).take(1),
@@ -87,8 +87,9 @@ export const createWorkspace = mutationGeneric({
       ctx.db.query("workspacePageGrants").withIndex("by_workspace_page", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspaceInvitations").withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspaceTeamspaces").withIndex("by_workspace_teamspace", (q) => q.eq("workspaceId", workspaceId)).take(1),
+      ctx.db.query("workspaceGroups").withIndex("by_workspace_group", (q) => q.eq("workspaceId", workspaceId)).take(1),
     ]);
-    if ([existing, oldMembers, oldGroups, oldTeams, oldScopes, oldGrants, oldInvites, oldTeamspaceRegistry].some((rows) => rows.length > 0)) denied();
+    if ([existing, oldMembers, oldGroups, oldTeams, oldScopes, oldGrants, oldInvites, oldTeamspaceRegistry, oldGroupRegistry].some((rows) => rows.length > 0)) denied();
     await ctx.db.insert("workspaces", { workspaceId, ownerId: actorId, status: "active" });
     await ctx.db.insert("workspaceMemberships", { workspaceId, accountId: actorId, role: "owner", status: "active" });
     await logChange(ctx, workspaceId, actorId, "workspace.created", workspaceId, null, "active");
@@ -158,6 +159,15 @@ export const setAffiliation = mutationGeneric({
     const target = await membership(ctx, a.workspaceId, a.accountId);
     if (!canManageAffiliation(actor, workspace.ownerId, target)) denied();
     if (a.status === "active" && target?.status !== "active") denied();
+    // Phantom group memberships must never inherit a future group ACL.
+    if (a.kind === "group" && a.status === "active") {
+      const registered = await ctx.db.query("workspaceGroups")
+        .withIndex("by_workspace_group", (q) =>
+          (q.eq("workspaceId", a.workspaceId) as unknown as { eq(field: string, value: string): never })
+            .eq("groupId", a.affiliationId)).take(2);
+      if (registered.length !== 1 || registered[0].workspaceId !== a.workspaceId ||
+          registered[0].groupId !== a.affiliationId) denied();
+    }
     // A teamspace affiliation may only be activated for an existing registered
     // workspace teamspace. Otherwise a phantom ID could later gain privileges.
     if (a.kind === "teamspace" && a.status === "active") {
@@ -230,6 +240,13 @@ export const setPageGrant = mutationGeneric({
     if (a.subjectType === "account") {
       const subject = await membership(ctx, a.workspaceId, a.subjectId);
       if (!subject || (actor.role === "admin" && (subject.role === "owner" || subject.role === "admin"))) denied();
+    }
+    if (a.subjectType === "group") {
+      const registered = await ctx.db.query("workspaceGroups").withIndex("by_workspace_group", (q) =>
+        (q.eq("workspaceId", a.workspaceId) as unknown as { eq(field: string, value: string): never })
+          .eq("groupId", a.subjectId)).take(2);
+      if (registered.length !== 1 || registered[0].workspaceId !== a.workspaceId ||
+          registered[0].groupId !== a.subjectId) denied();
     }
     const existing = await pageGrants(ctx, a.workspaceId, a.pageId, a.subjectType, a.subjectId);
     if (existing?.effect === a.effect && existing.level === a.level) return false;
