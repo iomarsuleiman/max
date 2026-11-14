@@ -158,3 +158,12 @@ User priority: complete create-workspace, invite, join, share, edit from both ac
 - [x] Pass the production build and all 38 desktop/mobile browser regressions. Compare all 48 editor corpus tiles with zero changed pixels. Include local shared-route navigation, private-route indexing metadata and invitation referrer protection.
 - [ ] Verify the signed-in two-account browser journey against configured disposable cloud accounts. This checkout still has no configured Clerk/cloud app pair; local-mode browser tests do not substitute for this gate.
 - [ ] Enable shared attachments and databases only after fresh delivery authorization and their complete permission-aware flows are implemented.
+
+## Shared history continuation, 2026-11-14
+
+- [x] Add actor-scoped shared history, text preview and content restore controls to the shared workspace page.
+- [x] Require fresh page access on history reads and history.restore capability on writes; deny locked, cross-page, cross-workspace, stale and revoked restores.
+- [x] Preserve the replaced document before restore, increment its revision and retain its current title. Existing pending editor drafts enter conflict review instead of silently being overwritten.
+- [x] Paginate five historical documents per query and use a revision index for bounded retention without reading all historical content on every save.
+- [x] Pass the production build and full check suite: 488 unit cases, 24 backup cases and four cloud archive cases. Compile/push the anonymous local backend and repeat its real upload proof. Live signed-in history UI remains unverified with the deferred Clerk/cloud check.
+- [x] Stop after this feature as requested; do not start another implementation slice.

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, type DatabaseReader } from "./_generated/server";
+import { mutation, query, type DatabaseReader, type DatabaseWriter } from "./_generated/server";
 import type { Id, Doc } from "./_generated/dataModel";
 import { requireSharedActor, sharedBoundary } from "./sharedAuth";
 import { convexCollaborationStore } from "./collaborationStore";
@@ -34,6 +34,12 @@ async function allowed(db: DatabaseReader, actor: Awaited<ReturnType<typeof requ
   catch (e) { if (e instanceof MaxError && e.code === "NOT_FOUND") return false; throw e; }
 }
 function title(value: string) { const result = value.trim(); if (!result || result.length > 500) throw invalid(); return result; }
+
+async function keepVersion(db: DatabaseWriter, p: Doc<"pages">, doc: Doc<"documents">, reason: "edit" | "before-restore") {
+  const oldest = await db.query("versions").withIndex("by_owner_pageId_revision", q => q.eq("ownerId", p.ownerId).eq("pageId", p._id)).order("asc").first();
+  if (oldest && doc.revision - oldest.revision >= 100) await db.delete(oldest._id);
+  await db.insert("versions", { ownerId: p.ownerId, pageId: p._id, revision: doc.revision, title: p.title, content: doc.content, wordCount: doc.wordCount, at: doc.updatedAt, source: "ui", reason });
+}
 
 export const list = query({
   args: { workspaceId: v.string(), cursor: v.optional(v.union(v.string(), v.null())) },
@@ -96,10 +102,52 @@ export const save = mutation({
     if (content === doc.content) return { revision: doc.revision, updatedAt: doc.updatedAt };
     if (!Number.isSafeInteger(args.baseRevision) || args.baseRevision !== doc.revision) throw new MaxError("CONFLICT", "This page changed. Reload it before saving.");
     const now = Date.now();
-    const previous = await ctx.db.query("versions").withIndex("by_owner_pageId", q => q.eq("ownerId", p.ownerId).eq("pageId", p._id)).order("desc").take(100);
-    if (previous.length === 100) await ctx.db.delete(previous[99]._id);
-    await ctx.db.insert("versions", { ownerId: p.ownerId, pageId: p._id, revision: doc.revision, title: p.title, content: doc.content, wordCount: doc.wordCount, at: doc.updatedAt, source: "ui", reason: "edit" });
+    await keepVersion(ctx.db, p, doc, "edit");
     const text = documentText(blocks), revision = doc.revision + 1; await ctx.db.patch(doc._id, { content, text, wordCount: countWords(text), revision, updatedAt: now }); await ctx.db.patch(p._id, { updatedAt: now }); return { revision, updatedAt: now };
+  }),
+});
+
+export const history = query({
+  args: { workspaceId: v.string(), pageId: v.id("pages"), cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.object({ actorId: v.string(), canRestore: v.boolean(), nextCursor: v.union(v.string(), v.null()), versions: v.array(v.object({ id: v.id("versions"), revision: v.number(), at: v.number(), wordCount: v.number(), reason: v.string() })) }),
+  handler: (ctx, args) => sharedBoundary(async () => {
+    const actor = await requireSharedActor(ctx);
+    await auth(ctx.db, actor, args.workspaceId, args.pageId, "page.read");
+    const p = await page(ctx.db, args.pageId);
+    const versions = await ctx.db.query("versions").withIndex("by_owner_pageId_revision", q => q.eq("ownerId", p.ownerId).eq("pageId", p._id)).order("desc").paginate({ cursor: args.cursor ?? null, numItems: 5 });
+    return { actorId: actor.userId, canRestore: !p.locked && await allowed(ctx.db, actor, args.workspaceId, p._id, "history.restore"), nextCursor: versions.isDone ? null : versions.continueCursor, versions: versions.page.map(row => ({ id: row._id, revision: row.revision, at: row.at, wordCount: row.wordCount, reason: row.reason })) };
+  }),
+});
+
+export const historicalDocument = query({
+  args: { workspaceId: v.string(), pageId: v.id("pages"), versionId: v.id("versions") },
+  returns: v.object({ actorId: v.string(), revision: v.number(), content: v.string() }),
+  handler: (ctx, args) => sharedBoundary(async () => {
+    const actor = await requireSharedActor(ctx);
+    await auth(ctx.db, actor, args.workspaceId, args.pageId, "page.read");
+    const p = await page(ctx.db, args.pageId), version = await ctx.db.get(args.versionId);
+    if (!version || version.pageId !== p._id || version.ownerId !== p.ownerId) throw notFound("version");
+    return { actorId: actor.userId, revision: version.revision, content: version.content };
+  }),
+});
+
+export const restoreVersion = mutation({
+  args: { workspaceId: v.string(), pageId: v.id("pages"), versionId: v.id("versions"), baseRevision: v.number() },
+  returns: v.object({ revision: v.number(), updatedAt: v.number() }),
+  handler: (ctx, args) => sharedBoundary(async () => {
+    const actor = await requireSharedActor(ctx);
+    await auth(ctx.db, actor, args.workspaceId, args.pageId, "history.restore");
+    const p = await page(ctx.db, args.pageId); if (p.locked) throw notFound();
+    const doc = await document(ctx.db, p), version = await ctx.db.get(args.versionId);
+    if (!version || version.pageId !== p._id || version.ownerId !== p.ownerId) throw notFound("version");
+    if (!Number.isSafeInteger(args.baseRevision) || args.baseRevision !== doc.revision) throw new MaxError("CONFLICT", "This page changed. Review the latest version before restoring.");
+    const blocks = parseContent(JSON.parse(version.content)), content = JSON.stringify(blocks), text = documentText(blocks);
+    if (new TextEncoder().encode(content).length > MAX_CONTENT_BYTES) throw new MaxError("LIMIT", "This version is too large to restore.");
+    await keepVersion(ctx.db, p, doc, "before-restore");
+    const revision = doc.revision + 1, updatedAt = Date.now();
+    await ctx.db.patch(doc._id, { content, text, wordCount: countWords(text), schemaVersion: DOCUMENT_SCHEMA_VERSION, revision, updatedAt });
+    await ctx.db.patch(p._id, { updatedAt });
+    return { revision, updatedAt };
   }),
 });
 export const rename = mutation({

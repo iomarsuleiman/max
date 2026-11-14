@@ -2,6 +2,7 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import { describe, it, expect } from "vitest";
 import schema from "@/convex/schema";
+import { sharedHistory } from "@/lib/domain/collaboration/sharedContract";
 
 const modules = { "../../convex/_generated/server.ts": async () => ({}), "../../convex/sharedPages.ts": () => import("@/convex/sharedPages"), "../../convex/ops.ts": () => import("@/convex/ops") };
 const create = makeFunctionReference<"mutation">("sharedPages:create");
@@ -13,6 +14,28 @@ const legacy = makeFunctionReference<"query">("ops:query");
 const blocks = (text: string) => [{ id: "a", type: "paragraph", props: {}, content: [{ type: "text", text, styles: {} }], children: [] }];
 
 describe("shared text pages", () => {
+  it("pages through bounded history and retains the latest hundred saved revisions", async () => {
+    const t = convexTest(schema, modules), alice = t.withIdentity({ subject: "alice" });
+    await t.run(async ctx => {
+      await ctx.db.insert("collabWorkspaces", { logicalId: "w", kind: "organization", name: "Team", state: "active", createdAt: 1, updatedAt: 1 });
+      await ctx.db.insert("collabMemberships", { workspaceId: "w", userId: "alice", role: "owner", state: "active", joinedAt: 1, updatedAt: 1 });
+      await ctx.db.insert("collabTeamspaces", { logicalId: "t", workspaceId: "w", name: "Team", state: "active", visibility: "open", defaultGrant: "edit", memberUserIds: [], memberGroupIds: [], managerUserIds: ["alice"], createdAt: 1, updatedAt: 1 });
+    });
+    const { pageId } = await alice.mutation(create, { workspaceId: "w", teamspaceId: "t", title: "History" });
+    for (let revision = 1; revision <= 105; revision++) await alice.mutation(save, { workspaceId: "w", pageId, blocks: blocks(`Edit ${revision}`), baseRevision: revision });
+    const history = makeFunctionReference<"query">("sharedPages:history");
+    const revisions: number[] = [];
+    let cursor: string | null = null;
+    do {
+      const result = sharedHistory.parse(await alice.query(history, { workspaceId: "w", pageId, cursor }));
+      expect(result.versions.length).toBeLessThanOrEqual(5);
+      expect(result.versions.every((version: object) => !("content" in version))).toBe(true);
+      revisions.push(...result.versions.map((version: { revision: number }) => version.revision));
+      cursor = result.nextCursor;
+    } while (cursor);
+    expect(revisions).toEqual(Array.from({ length: 100 }, (_, index) => 105 - index));
+    expect((await alice.query(get, { workspaceId: "w", pageId })).document.revision).toBe(106);
+  });
   it("enforces fresh grants, revisions, membership and legacy isolation for two identities", async () => {
     const t = convexTest(schema, modules), alice = t.withIdentity({ subject: "alice" }), bob = t.withIdentity({ subject: "bob" });
     await t.run(async ctx => {

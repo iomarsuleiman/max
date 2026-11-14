@@ -22,3 +22,8 @@ export type WorkspaceList = z.infer<typeof workspaceList>;
 export type WorkspaceOverview = z.infer<typeof workspaceOverview>;
 export type SharedPageList = z.infer<typeof sharedPageList>;
 export type SharedPageView = z.infer<typeof sharedPageView>;
+export const sharedHistory = z.object({
+  actorId: z.string(), canRestore: z.boolean(), nextCursor: z.string().nullable(),
+  versions: z.array(z.object({ id: z.string(), revision: z.number(), at: z.number(), wordCount: z.number(), reason: z.string() })),
+});
+export const sharedHistoricalDocument = z.object({ actorId: z.string(), revision: z.number(), content: z.string() });

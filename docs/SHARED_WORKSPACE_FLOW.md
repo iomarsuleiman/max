@@ -8,13 +8,15 @@ Use **Page access** to give a member View, Comment, Edit content, Edit or Full a
 
 The shared editor uses the existing Max block schema. Saves carry a base revision. A stale save preserves the local branch and asks the user to review the latest version; this is not simultaneous character merging. Drafts are scoped by actor, workspace and page. Access loss hides the document and quarantines its draft. Account changes also discard the rendered session and require matching actor identities on fresh query results.
 
-Shared attachments, databases, presence, comments and collaborative history controls remain outside this first flow. Their editor actions explicitly report their availability. Personal Max remains independently usable in local mode.
+**Page history** lists earlier revisions in small pages and previews their text. Users with Edit or Full access can restore a revision. Restore keeps the current title, retains the replaced content in history, and rejects a stale base revision. Content-only editors can preview history but cannot restore it. Locked pages cannot be restored. Up to 100 saved revisions are retained. The preview shows text; restoring preserves the saved blocks and formatting.
+
+Shared attachments, databases, presence and comments remain outside this flow. Their editor actions explicitly report their availability. Personal Max remains independently usable in local mode.
 
 ## Verification
 
 `tests/unit/sharedJourney.test.ts` runs the public registered backend functions through workspace creation, invitation, verified acceptance, private-page access, permission changes, both-account edits, stale revision conflict and membership revocation. It does not seed workspace membership. Additional native tests cover expiry, scope isolation and transaction rollback.
 
-The complete check suite passes 487 unit cases, 24 backup cases and four cloud archive cases. The production build and all 38 desktop/mobile browser regressions pass; all 48 editor corpus tiles have zero changed pixels. The anonymous local verifier compiles and pushes the functions and verifies actual 50 MiB uploads. Browser tests cover personal navigation into the local setup screen and return to personal Max. These checks do not establish that a real Clerk deployment is configured correctly.
+With shared history included, the production build and complete check suite pass 488 unit cases, 24 backup cases and four cloud archive cases. Before the history addition, all 38 desktop/mobile browser regressions passed and all 48 editor corpus tiles had zero changed pixels. The anonymous local verifier compiles and pushes the functions and verifies actual 50 MiB uploads. Browser tests cover personal navigation into the local setup screen and return to personal Max. The live signed-in shared history UI and real Clerk deployment remain unverified.
 
 ## Remaining live check
 

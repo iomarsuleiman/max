@@ -153,7 +153,8 @@ export default defineSchema({
     reason: v.string(),
   })
     .index("by_owner", ["ownerId"])
-    .index("by_owner_pageId", ["ownerId", "pageId"]),
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_owner_pageId_revision", ["ownerId", "pageId", "revision"]),
   idempotency: defineTable({ ownerId: v.string(), key: v.string(), op: v.string(), result: v.string(), at: v.number(), resultPolicyVersion: v.optional(v.literal(1)) })
     .index("by_owner", ["ownerId"])
     .index("by_owner_key", ["ownerId", "key"]),

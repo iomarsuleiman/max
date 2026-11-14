@@ -18,6 +18,9 @@ const listPages = makeFunctionReference<"query">("sharedPages:list");
 const share = makeFunctionReference<"mutation">("sharedPages:setMemberGrant");
 const save = makeFunctionReference<"mutation">("sharedPages:save");
 const rename = makeFunctionReference<"mutation">("sharedPages:rename");
+const history = makeFunctionReference<"query">("sharedPages:history");
+const historicalDocument = makeFunctionReference<"query">("sharedPages:historicalDocument");
+const restoreVersion = makeFunctionReference<"mutation">("sharedPages:restoreVersion");
 const blocks = (text: string) => [{ id: "a", type: "paragraph", props: {}, content: [{ type: "text", text, styles: {} }], children: [] }];
 
 describe("shared workspace and page journey", () => {
@@ -52,6 +55,7 @@ describe("shared workspace and page journey", () => {
     expect(await bob.query(getPage, pageArgs)).toMatchObject({ canEdit: true, canRename: true });
     await expect(bob.mutation(rename, { ...pageArgs, title: "Renamed" })).resolves.toBeNull();
     expect((await alice.query(getPage, pageArgs)).page.title).toBe("Renamed");
+
     expect((await bob.mutation(save, { ...pageArgs, blocks: blocks("Bob's edit"), baseRevision: 1 })).revision).toBe(2);
     expect((await alice.mutation(save, { ...pageArgs, blocks: blocks("Alice's edit"), baseRevision: 2 })).revision).toBe(3);
     await expect(bob.mutation(save, { ...pageArgs, blocks: blocks("stale edit"), baseRevision: 2 })).rejects.toThrow();
@@ -59,8 +63,37 @@ describe("shared workspace and page journey", () => {
     expect(latest.document.revision).toBe(3);
     expect(latest.document.content).toContain("Alice's edit");
 
+    const versions = await bob.query(history, pageArgs);
+    expect(versions.canRestore).toBe(true);
+    const previous = versions.versions.find((v: { revision: number }) => v.revision === 2);
+    expect(previous).toBeDefined();
+    const previewArgs = { ...pageArgs, versionId: previous.id };
+    const restoreArgs = { ...previewArgs, baseRevision: 3 };
+    expect((await bob.query(historicalDocument, previewArgs)).content).toContain("Bob's edit");
+    await expect(alice.query(historicalDocument, { ...previewArgs, workspaceId: other.workspaceId })).rejects.toThrow();
+    const unrelated = await alice.mutation(createPage, { ...workspace, title: "Unrelated" });
+    await expect(alice.mutation(restoreVersion, { ...restoreArgs, pageId: unrelated.pageId })).rejects.toThrow();
+    await expect(bob.mutation(restoreVersion, { ...restoreArgs, baseRevision: 2 })).rejects.toThrow();
+    await alice.mutation(share, { ...pageArgs, userId: "bob", grant: "edit_content", baseRevision: 4 });
+    expect((await bob.query(history, pageArgs)).canRestore).toBe(false);
+    await expect(bob.mutation(restoreVersion, restoreArgs)).rejects.toThrow();
+    expect((await alice.mutation(restoreVersion, restoreArgs)).revision).toBe(4);
+    expect((await alice.query(getPage, pageArgs)).document.content).toContain("Bob's edit");
+    const undo = (await alice.query(history, pageArgs)).versions.find((v: { revision: number }) => v.revision === 3);
+    expect(undo.reason).toBe("before-restore");
+    expect((await alice.mutation(restoreVersion, { ...pageArgs, versionId: undo.id, baseRevision: 4 })).revision).toBe(5);
+    expect((await alice.query(getPage, pageArgs)).page.title).toBe("Renamed");
+
+    await t.run(ctx => ctx.db.patch(pageId, { locked: true }));
+    await expect(alice.mutation(restoreVersion, { ...restoreArgs, baseRevision: 5 })).rejects.toThrow();
+    expect((await alice.query(history, pageArgs)).canRestore).toBe(false);
+    await t.run(ctx => ctx.db.patch(pageId, { locked: false }));
+
     await expect(alice.mutation(revoke, { workspaceId: workspace.workspaceId, userId: "bob" })).resolves.toEqual({ revoked: true });
     await expect(bob.query(getPage, pageArgs)).rejects.toThrow();
+    await expect(bob.query(history, pageArgs)).rejects.toThrow();
+    await expect(bob.query(historicalDocument, previewArgs)).rejects.toThrow();
+    await expect(bob.mutation(restoreVersion, { ...restoreArgs, baseRevision: 5 })).rejects.toThrow();
     await expect(bob.mutation(save, { ...pageArgs, blocks: blocks("after revoke"), baseRevision: 3 })).rejects.toThrow();
     expect((await alice.query(getPage, pageArgs)).document.content).toContain("Alice's edit");
   });

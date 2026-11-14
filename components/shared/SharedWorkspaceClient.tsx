@@ -13,6 +13,7 @@ import { Button, Input, Spinner } from "@/components/ui";
 import WorkspaceHome from "./WorkspaceHome";
 import { WorkspaceMembers } from "./WorkspaceMembers";
 import { SharedDocument, quarantineSharedDraft } from "./SharedDocument";
+import { SharedHistory } from "./SharedHistory";
 
 type Route = { kind: "home" } | { kind: "workspace"; workspaceId: string; pageId?: string } | { kind: "join"; token: string };
 export default function SharedWorkspaceClient({ route }: { route: Route }) {
@@ -89,7 +90,7 @@ function Workspace({ actorId, workspaceId, pageId }: { actorId: string; workspac
     <section className="rounded-xl border border-line bg-canvas p-5"><h2 className="font-semibold">Pages</h2><ul className="mt-3 space-y-2">{pages.map(p => <li key={p.id}><Link className="underline" href={`/spaces/${encodeURIComponent(workspaceId)}/pages/${encodeURIComponent(p.id)}`}>{p.title}</Link></li>)}</ul>{!pages.length && <p className="mt-3 text-sm text-fg-2">No visible pages in this batch.</p>}{nextCursor && <Button className="mt-3" onClick={() => setCursors(c => [...c, nextCursor])}>Load more</Button>}
     {workspace.role !== "guest" && workspace.teamspaces.length > 0 && <form onSubmit={createPage} className="mt-4 flex gap-2"><Input aria-label="New page title" placeholder="Page title" value={title} onChange={e => setTitle(e.target.value)} maxLength={500} /><Button variant="primary" pending={busy} disabled={!title.trim()}>Create page</Button></form>}</section>
     {error && <p role="alert">{error}</p>}
-    {view && <section className="rounded-xl border border-line bg-canvas p-5"><PageTitle view={view} /><SharedDocument view={view} pages={pages} onNavigate={navigate} onCreateSubpage={createSubpage} onAccessLost={() => setLost(true)} /><PageGrants view={view} members={workspace.members} /></section>}
+    {view && <section className="rounded-xl border border-line bg-canvas p-5"><PageTitle view={view} /><SharedDocument view={view} pages={pages} onNavigate={navigate} onCreateSubpage={createSubpage} onAccessLost={() => setLost(true)} /><SharedHistory view={view} /><PageGrants view={view} members={workspace.members} /></section>}
     <WorkspaceMembers workspace={workspace} /></main>;
 }
 function PageTitle({ view }: { view: SharedPageView }) {
