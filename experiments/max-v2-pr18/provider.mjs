@@ -25,6 +25,7 @@ export class AuthorizedYjsProvider {
     this.cursor = 0;
     this.accountId = null;
     this.canEdit = false;
+    this.lastAuthorizedCanEdit = false;
     this.session = null;
     this.unsubscribe = null;
     this.poll = null;
@@ -67,6 +68,7 @@ export class AuthorizedYjsProvider {
     if (this.state === "destroyed") return;
     this._stopNetwork();
     this.canEdit = false;
+    this.lastAuthorizedCanEdit = false;
     this.lastError = error instanceof Error ? error : new Error(String(error));
     this.state = "blocked";
     this._emit();
@@ -91,6 +93,7 @@ export class AuthorizedYjsProvider {
         throw Error("ACCOUNT_SWITCH: never replay another account's pending changes");
       this.accountId = lease.accountId;
       this.canEdit = lease.canEdit === true;
+      this.lastAuthorizedCanEdit = this.canEdit;
       this.session = lease;
       this.cursor = 0; // rehydrate from server log; Y.applyUpdate is idempotent
       await this.pull();
