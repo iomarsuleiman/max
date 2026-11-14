@@ -176,8 +176,9 @@ export function WorkspacePreviewSidebar() {
   const switchGuard = useWorkspaceSwitchGuard();
 
   useEffect(() => {
-    const next = workspaceId && scopeKey
-      ? (previewStorage() ? readPreviewNavigationState(previewStorage()!, accountId, workspaceId) : { ...DEFAULT_PREVIEW_NAVIGATION_STATE })
+    const storage = previewStorage();
+    const next = workspaceId && scopeKey && storage
+      ? readPreviewNavigationState(storage, accountId, workspaceId)
       : { ...DEFAULT_PREVIEW_NAVIGATION_STATE };
     setMemory(next);
     setLoadedKey(scopeKey);
@@ -188,7 +189,7 @@ export function WorkspacePreviewSidebar() {
   // Hidden scrollers cannot reliably restore a non-zero offset; retry on expand.
   useEffect(() => {
     if (ready && !memory.collapsed && scroller.current) scroller.current.scrollTop = memory.scrollTop;
-  }, [ready, memory.collapsed, scopeKey]);
+  }, [ready, memory.collapsed, memory.scrollTop, scopeKey]);
   const collapsed = ready && memory.collapsed;
   const toggle = () => {
     if (!ready || !workspaceId) return;
