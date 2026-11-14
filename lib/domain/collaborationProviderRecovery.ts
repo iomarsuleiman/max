@@ -69,9 +69,13 @@ export function assessProviderTrials(
     const failing = COLLAB_TRIAL_SCENARIOS.filter((scenario) => trial?.outcomes[scenario] === "fail");
     const invalid = !trial || !validId(trial.runId) ||
       (trial.environment !== "synthetic" && trial.environment !== "real-editor-isolated") ||
-      trial.codec.candidate !== candidate || !trial.codec.compatible ||
+      !trial.codec || !trial.outcomes || trial.codec.candidate !== candidate || !trial.codec.compatible ||
       trial.codec.blockCount !== verified.blockIds.length ||
-      (trial.codec.reason !== null);
+      trial.codec.reason !== null ||
+      COLLAB_TRIAL_SCENARIOS.some((scenario) => {
+        const value = trial.outcomes[scenario];
+        return value !== undefined && value !== "pass" && value !== "fail" && value !== "not-run";
+      });
     return {
       candidate,
       status: invalid || failing.length > 0
