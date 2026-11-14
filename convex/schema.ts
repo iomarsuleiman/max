@@ -70,6 +70,28 @@ export default defineSchema({
     role: v.union(v.literal("owner"), v.literal("admin"), v.literal("member"), v.literal("guest")),
     status: v.union(v.literal("active"), v.literal("suspended"), v.literal("revoked")),
   }).index("by_workspace_account", ["workspaceId", "accountId"]),
+  // Identity-bound invitations contain no bearer credentials. Acceptance verifies
+  // the caller's authenticated subject, not an email or user-supplied role.
+  workspaceInvitations: defineTable({
+    workspaceId: v.string(),
+    targetAccountId: v.string(),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("guest")),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("revoked"), v.literal("expired"), v.literal("declined")),
+    createdByAccountId: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    resolvedAt: nullableNumber,
+  })
+    .index("by_workspace_target_status", ["workspaceId", "targetAccountId", "status"])
+    .index("by_target_status", ["targetAccountId", "status"])
+    .index("by_workspace", ["workspaceId"]),
+  // Registry for shadow teamspaces ONLY, not for personal content or user-facing pages.
+  workspaceTeamspaces: defineTable({
+    workspaceId: v.string(),
+    teamspaceId: v.string(),
+    createdByAccountId: v.string(),
+    createdAt: v.number(),
+  }).index("by_workspace_teamspace", ["workspaceId", "teamspaceId"]),
   workspaceGroupMemberships: defineTable({
     workspaceId: v.string(),
     accountId: v.string(),
@@ -87,7 +109,9 @@ export default defineSchema({
     pageId: v.string(),
     parentId: nullableString,
     teamspaceId: nullableString,
-  }).index("by_workspace_page", ["workspaceId", "pageId"]),
+  })
+    .index("by_workspace_page", ["workspaceId", "pageId"])
+    .index("by_pageId", ["pageId"]),
   workspacePageGrants: defineTable({
     workspaceId: v.string(),
     pageId: v.string(),
@@ -95,7 +119,9 @@ export default defineSchema({
     subjectId: v.string(),
     effect: v.union(v.literal("allow"), v.literal("deny")),
     level: v.union(v.literal("view"), v.literal("comment"), v.literal("edit_content"), v.literal("edit"), v.literal("full_access")),
-  }).index("by_workspace_page", ["workspaceId", "pageId"]),
+  })
+    .index("by_workspace_page", ["workspaceId", "pageId"])
+    .index("by_workspace_subject", ["workspaceId", "subjectType", "subjectId"]),
   // Append-only audit for staged workspace security writers. No shared content.
   workspaceSecurityEvents: defineTable({
     workspaceId: v.string(),

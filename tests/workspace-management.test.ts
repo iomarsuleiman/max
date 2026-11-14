@@ -23,9 +23,11 @@ describe("Max 2.0 workspace management policy (closed rollout)", () => {
     expect(validScopeId("page_abc-1")).toBe(true);
     expect(validScopeId("")).toBe(false);
   });
-  it("allows the verified owner to grant admin or member roles", () => {
-    expect(canManageMember(owner, owner.accountId, null, { accountId: "user_new", role: "admin", status: "active" })).toBe(true);
+  it("allows owners to change existing non-owner roles but not create uninvited accounts", () => {
+    expect(canManageMember(owner, owner.accountId, currentMember, { accountId: member.accountId, role: "admin", status: "active" })).toBe(true);
     expect(canManageMember(owner, owner.accountId, currentMember, { accountId: member.accountId, role: "guest", status: "suspended" })).toBe(true);
+    expect(canManageMember(owner, owner.accountId, null, { accountId: "user_new", role: "admin", status: "active" })).toBe(false);
+    expect(canManageMember(admin, owner.accountId, null, { accountId: "user_new", role: "member", status: "active" })).toBe(false);
   });
   it("never permits modifying the sole owner with the generic membership writer", () => {
     expect(canManageMember(owner, owner.accountId, currentOwner, { accountId: owner.accountId, role: "admin", status: "revoked" })).toBe(false);
