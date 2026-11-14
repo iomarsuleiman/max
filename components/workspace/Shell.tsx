@@ -94,14 +94,55 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 }
 
 function WorkspaceRoot({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isPreview = WORKSPACE_NAVIGATION_PREVIEW && pathname.startsWith("/w/");
   const inner = (identity: Identity) => (
     <Suspense fallback={<Splash />}>
-      <WorkspaceProvider identity={identity}>
-        <Frame>{children}</Frame>
-      </WorkspaceProvider>
+      {isPreview ? (
+        <WorkspacePreviewFrame>{children}</WorkspacePreviewFrame>
+      ) : (
+        <WorkspaceProvider identity={identity}>
+          <Frame>{children}</Frame>
+        </WorkspaceProvider>
+      )}
     </Suspense>
   );
   return CLOUD ? <CloudGate>{inner}</CloudGate> : inner(LOCAL_IDENTITY);
+}
+
+/** Preview paths cannot mount personal data providers, editors or search. */
+function WorkspacePreviewFrame({ children }: { children: ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  return (
+    <div className="max-workspace-frame flex h-dvh overflow-hidden bg-canvas">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[90] focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2">
+        Skip to content
+      </a>
+      <WorkspaceRail />
+      <div className="hidden md:flex"><WorkspacePreviewSidebar /></div>
+      <D.Root open={mobileOpen} onOpenChange={setMobileOpen}>
+        <D.Portal>
+          <D.Overlay className="fixed inset-0 z-[55] bg-[var(--scrim)] md:hidden" />
+          <D.Content className="fixed inset-y-0 start-0 z-[56] flex shadow-dialog outline-none md:hidden" aria-describedby={undefined}>
+            <D.Title className="sr-only">Workspace navigation</D.Title>
+            <WorkspacePreviewSidebar />
+            <D.Close className="absolute end-3 top-3 rounded-md px-2 py-1 text-xs text-fg-2 hover:bg-hover" aria-label="Close workspace navigation">
+              Close
+            </D.Close>
+          </D.Content>
+        </D.Portal>
+      </D.Root>
+      <main id="main" className="relative flex min-w-0 flex-1 flex-col">
+        <div className="border-b border-line p-2 md:hidden">
+          <button type="button" onClick={() => setMobileOpen(true)}
+            className="rounded-md border border-line px-3 py-1.5 text-[13px] text-fg hover:bg-hover">
+            Workspaces
+          </button>
+        </div>
+        {children}
+      </main>
+    </div>
+  );
 }
 
 function Frame({ children }: { children: ReactNode }) {
