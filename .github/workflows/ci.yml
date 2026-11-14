@@ -102,3 +102,24 @@ jobs:
           name: pr16-browser-lab-results
           path: test-results/
           retention-days: 7
+
+  # PR18: node-level simulated transport plus a static build of the real
+  # Max-schema browser entry. No live Convex/Clerk credentials or deployment.
+  remote-provider-contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+        working-directory: experiments/max-v2-pr18
+      - run: npm test
+        working-directory: experiments/max-v2-pr18
+      - run: npm run build
+        working-directory: experiments/max-v2-pr18

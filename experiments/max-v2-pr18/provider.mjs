@@ -42,7 +42,7 @@ export class AuthorizedYjsProvider {
       }
       this.pending.push({ operationId: operationId(), base64: toBase64(update), size: update.byteLength });
       this._emit();
-      if (this.state === "online") void this.flush();
+      if (this.state === "online") void this.flush().catch(() => {});
     };
     doc.on("update", this._onLocal);
   }
@@ -100,11 +100,11 @@ export class AuthorizedYjsProvider {
       this._emit();
       this.unsubscribe = this.transport.watch({
         sessionId: lease.sessionId, afterSeq: this.cursor,
-      }, () => { void this.pull(); }, (err) => this._block(err));
+      }, () => { void this.pull().catch(() => {}); }, (err) => this._block(err));
       this.poll = setInterval(() => {
         if (this.state !== "online") return;
         if (Date.now() >= lease.expiresAt) { this._block(Error("LEASE_EXPIRED")); return; }
-        void this.pull();
+        void this.pull().catch(() => {});
       }, 20_000);
       if (this.pending.length) {
         if (!this.canEdit) throw Error("READ_ONLY: unsent changes require manual export; server will not accept writes");
