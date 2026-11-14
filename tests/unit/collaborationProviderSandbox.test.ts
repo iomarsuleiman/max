@@ -3,7 +3,11 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import schema from "../../experiments/max-v2-pr17/convex/schema";
 
+// convex-test's module loader detects its root from a _generated/ module key.
+// This is a test-only discovery marker, not codegen, an auth token, or a
+// production function; the real sandbox schema/provider are loaded below.
 const modules = {
+  "./_generated/api.ts": async () => ({}),
   "./provider.ts": () => import("../../experiments/max-v2-pr17/convex/provider"),
 };
 const join = makeFunctionReference<"mutation">("provider:join");
