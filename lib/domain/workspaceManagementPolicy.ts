@@ -23,7 +23,10 @@ export function canManageMember(
   if (actor.role === "owner" && actor.accountId !== ownerId) return false;
   if (actor.role === "admin" && actor.accountId === ownerId) return false;
   if (!validPrincipalId(next.accountId) || next.accountId === ownerId) return false;
-  if (target?.accountId !== undefined && target.accountId !== next.accountId) return false;
+  // PR 05: direct creation is forbidden. An account joins only by accepting
+  // a pending invitation bound to its authenticated Clerk subject.
+  if (!target) return false;
+  if (target.accountId !== next.accountId) return false;
   if (target?.role === "owner" || target?.status === "revoked") return false;
   if (actor.role === "admin" &&
       (next.accountId === actor.accountId || next.role === "admin" || target?.role === "admin")) return false;
