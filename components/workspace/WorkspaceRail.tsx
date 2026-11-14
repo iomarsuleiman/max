@@ -1,12 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { useQueries } from "convex/react";
 import { anyApi } from "convex/server";
 import { Layers3, LockKeyhole, NotebookPen } from "lucide-react";
 import { cn } from "@/components/ui";
 import { CLOUD } from "@/lib/config";
+import {
+  DEFAULT_PREVIEW_NAVIGATION_STATE, previewNavigationStorageKey,
+  readPreviewNavigationState, verifiedNavigationSummaries,
+  workspaceSwitchIntent, writePreviewNavigationState,
+  type ScopedPreviewNavigationState,
+} from "@/lib/domain/workspaceNavigationState";
 import {
   workspacePreviewHref, type WorkspaceNavigationSummary,
 } from "@/lib/domain/workspaceNavigation";
@@ -26,17 +33,9 @@ export function useWorkspaceNavigation(): {
   }), []);
   const result = useQueries(queries as never) as { list?: unknown };
   const loading = result.list === undefined;
-  const error = result.list instanceof Error ||
-    (result.list !== undefined && !Array.isArray(result.list));
-  const workspaces = !error && Array.isArray(result.list)
-    ? (result.list as unknown[]).filter((row): row is WorkspaceNavigationSummary => {
-      if (!row || typeof row !== "object") return false;
-      const item = row as Record<string, unknown>;
-      return typeof item.workspaceId === "string" &&
-        workspacePreviewHref(item.workspaceId) !== null &&
-        ["owner", "admin", "member", "guest"].includes(String(item.role));
-    })
-    : [];
+  const verified = loading || result.list instanceof Error ? null : verifiedNavigationSummaries(result.list);
+  const error = !loading && verified === null;
+  const workspaces: WorkspaceNavigationSummary[] = verified ?? [];
   return { workspaces, loading, error };
 }
 
@@ -59,11 +58,12 @@ export function WorkspaceRail() {
       </a>
       <span aria-hidden className="my-1 w-6 border-t border-line" />
       {workspaces.map(({ workspaceId, role }) => {
-        const href = workspacePreviewHref(workspaceId);
-        if (!href) return null;
+        const intent = workspaceSwitchIntent(pathname, workspaceId, workspaces);
+        if (!intent) return null;
+        const href = intent.href;
         const active = pathname === href;
         return (
-          <a key={workspaceId} href={href} {...workspaceLinkProps(preview)}
+          <a key={workspaceId} href={href} {...workspaceLinkProps(!intent.newTab)}
             aria-label={`Workspace ${workspaceId} (${role}, preview only)`}
             title={`${workspaceId} · ${role} · read-only preview`}
             aria-current={active ? "page" : undefined}
@@ -92,9 +92,9 @@ export function MobileWorkspacePicker() {
       <div className="mt-2 grid gap-1 text-[13px]">
         <a href="/home" className="rounded-md px-2 py-2 text-fg hover:bg-hover" aria-current={!preview ? "page" : undefined}>Private notes</a>
         {workspaces.map(({ workspaceId, role }) => {
-          const href = workspacePreviewHref(workspaceId);
-          return href ? (
-            <a key={workspaceId} href={href} {...workspaceLinkProps(preview)} aria-current={pathname === href ? "page" : undefined}
+          const intent = workspaceSwitchIntent(pathname, workspaceId, workspaces);
+          return intent ? (
+            <a key={workspaceId} href={intent.href} {...workspaceLinkProps(!intent.newTab)} aria-current={pathname === intent.href ? "page" : undefined}
               className="rounded-md px-2 py-2 text-fg hover:bg-hover">{workspaceId} · {role}</a>
           ) : null;
         })}
@@ -107,15 +107,84 @@ export function MobileWorkspacePicker() {
   );
 }
 
+/** Metadata-only workspace sidebar. Stored state is strictly per account + workspace.
+ * Unlike the personal sidebar, it never invokes legacy pages.tree or search. */
 export function WorkspacePreviewSidebar() {
+  const pathname = usePathname();
+  const { user } = useUser();
+  const { workspaces, loading, error } = useWorkspaceNavigation();
+  const active = workspaces.find((row) => workspacePreviewHref(row.workspaceId) === pathname);
+  const accountId = user?.id ?? null;
+  const workspaceId = active?.workspaceId ?? null;
+  const scopeKey = workspaceId ? previewNavigationStorageKey(accountId, workspaceId) : null;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [memory, setMemory] = useState<ScopedPreviewNavigationState>({ ...DEFAULT_PREVIEW_NAVIGATION_STATE });
+  const scroller = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const next = workspaceId && scopeKey
+      ? readPreviewNavigationState(window.sessionStorage, accountId, workspaceId)
+      : { ...DEFAULT_PREVIEW_NAVIGATION_STATE };
+    setMemory(next);
+    setLoadedKey(scopeKey);
+    if (scroller.current) scroller.current.scrollTop = next.scrollTop;
+  }, [accountId, workspaceId, scopeKey]);
+
+  const ready = !!scopeKey && loadedKey === scopeKey;
+  const collapsed = ready && memory.collapsed;
+  const toggle = () => {
+    if (!ready || !workspaceId) return;
+    const next = { ...memory, collapsed: !memory.collapsed };
+    setMemory(next);
+    writePreviewNavigationState(window.sessionStorage, accountId, workspaceId, next);
+  };
+
   return (
-    <aside aria-label="Workspace preview navigation" className="flex h-full w-[min(82vw,260px)] shrink-0 flex-col border-e border-line bg-surface py-4">
+    <aside aria-label="Workspace preview navigation"
+      className="flex h-full w-[min(86vw,280px)] shrink-0 flex-col border-e border-line bg-surface py-4">
       <div className="px-4 text-[13px] font-semibold text-fg">Max workspaces</div>
-      <p className="px-4 pt-1 text-xs text-fg-3">Navigation foundation · read-only</p>
-      <div className="mt-4"><MobileWorkspacePicker /></div>
-      <a href="/home" className="mx-3 mt-2 rounded-md px-3 py-2 text-[13px] text-fg hover:bg-hover">Private notes</a>
-      <p className="mt-auto px-4 text-xs leading-relaxed text-fg-3">
-        Shared pages, search, editors, exports and MCP remain disabled until their own security reviews.
+      <p className="px-4 pt-1 text-xs text-fg-3">Membership preview · no shared pages</p>
+      <div className="mt-4 px-3">
+        <button type="button" disabled={!ready}
+          aria-expanded={!collapsed} aria-controls="workspace-preview-contexts"
+          onClick={toggle}
+          className="flex min-h-9 w-full items-center justify-between rounded-md border border-line px-3 py-2 text-start text-[13px] text-fg hover:bg-hover disabled:opacity-60">
+          <span>Workspace contexts</span><span aria-hidden>{collapsed ? "+" : "−"}</span>
+        </button>
+      </div>
+      <div id="workspace-preview-contexts" ref={scroller}
+        onScroll={(event) => {
+          if (!ready || !workspaceId) return;
+          const next = { ...memory, scrollTop: Math.min(100000, Math.max(0, Math.round(event.currentTarget.scrollTop))) };
+          writePreviewNavigationState(window.sessionStorage, accountId, workspaceId, next);
+        }}
+        className="scroll-quiet mt-2 min-h-0 flex-1 overflow-y-auto px-3"
+        hidden={collapsed}>
+        {loading && <p role="status" className="px-2 py-2 text-xs text-fg-3">Checking memberships…</p>}
+        {error && <p role="status" className="px-2 py-2 text-xs text-fg-3">Workspaces unavailable. Access must be verified again.</p>}
+        {!loading && !error && !active && <p role="status" className="px-2 py-2 text-xs text-fg-3">Workspace access unavailable.</p>}
+        {!loading && !error && workspaces.map((workspace) => {
+          const intent = workspaceSwitchIntent(pathname, workspace.workspaceId, workspaces);
+          if (!intent) return null;
+          return (
+            <a key={workspace.workspaceId} href={intent.href}
+              aria-current={pathname === intent.href ? "page" : undefined}
+              className={cn("mt-1 flex min-h-9 items-center gap-2 rounded-md px-3 text-[13px] text-fg-2 hover:bg-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-accent",
+                pathname === intent.href && "bg-hover font-medium text-fg")}>
+              <Layers3 className="size-4 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{workspace.workspaceId}</span>
+              <span className="text-[11px] text-fg-3">{workspace.role}</span>
+            </a>
+          );
+        })}
+        {!loading && !error && workspaces.length === 0 &&
+          <p className="px-2 py-2 text-xs text-fg-3">No active shared memberships.</p>}
+      </div>
+      <a href="/home" className="mx-3 mt-3 rounded-md border border-line px-3 py-2 text-[13px] text-fg hover:bg-hover">
+        Return to private notes
+      </a>
+      <p className="mt-3 px-4 text-xs leading-relaxed text-fg-3">
+        Shared pages, search, editing, exports and MCP remain unavailable.
       </p>
     </aside>
   );
