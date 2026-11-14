@@ -7,6 +7,7 @@ import { Dialog as D } from "radix-ui";
 import { useConvexAuth } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { CLOUD } from "@/lib/config";
+import { isWorkspacePreviewRoute } from "@/lib/domain/workspaceNavigationState";
 import { LogoMark } from "@/components/brand/Logo";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
@@ -95,7 +96,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
 function WorkspaceRoot({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isPreview = WORKSPACE_NAVIGATION_PREVIEW && pathname.startsWith("/w/");
+  const isPreview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   const inner = (identity: Identity) => (
     <Suspense fallback={<Splash />}>
       {isPreview ? (
@@ -123,19 +124,19 @@ function WorkspacePreviewFrame({ children }: { children: ReactNode }) {
       <D.Root open={mobileOpen} onOpenChange={setMobileOpen}>
         <D.Portal>
           <D.Overlay className="fixed inset-0 z-[55] bg-[var(--scrim)] md:hidden" />
-          <D.Content className="fixed inset-y-0 start-0 z-[56] flex shadow-dialog outline-none md:hidden" aria-describedby={undefined}>
+          <D.Content className="fixed inset-y-0 start-0 z-[56] flex w-[min(86vw,320px)] shadow-dialog outline-none md:hidden" aria-describedby={undefined}>
             <D.Title className="sr-only">Workspace navigation</D.Title>
             <WorkspacePreviewSidebar />
-            <D.Close className="absolute end-3 top-3 rounded-md px-2 py-1 text-xs text-fg-2 hover:bg-hover" aria-label="Close workspace navigation">
+            <D.Close className="absolute end-2 top-2 grid size-11 place-items-center rounded-md text-xs text-fg-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent" aria-label="Close workspace navigation">
               Close
             </D.Close>
           </D.Content>
         </D.Portal>
       </D.Root>
-      <main id="main" className="relative flex min-w-0 flex-1 flex-col">
-        <div className="border-b border-line p-2 md:hidden">
-          <button type="button" onClick={() => setMobileOpen(true)}
-            className="rounded-md border border-line px-3 py-1.5 text-[13px] text-fg hover:bg-hover">
+      <main id="main" tabIndex={-1} className="relative flex min-h-0 min-w-0 flex-1 flex-col outline-none">
+        <div className="border-b border-line px-3 py-2 pt-[max(8px,env(safe-area-inset-top))] md:hidden">
+          <button type="button" onClick={() => setMobileOpen(true)} aria-haspopup="dialog" aria-expanded={mobileOpen}
+            className="min-h-11 rounded-md border border-line px-4 text-[13px] text-fg hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent">
             Workspaces
           </button>
         </div>
@@ -148,7 +149,7 @@ function WorkspacePreviewFrame({ children }: { children: ReactNode }) {
 function Frame({ children }: { children: ReactNode }) {
   const ws = useWorkspace();
   const pathname = usePathname();
-  const preview = WORKSPACE_NAVIGATION_PREVIEW && pathname.startsWith("/w/");
+  const preview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   return (
     <div className="max-workspace-frame flex h-dvh overflow-hidden bg-canvas" data-font={ws.settings?.font}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[90] focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2 focus:shadow-pop">
