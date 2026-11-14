@@ -10,13 +10,14 @@
  * currently validate CRDT content/schema or guarantee a provider wire adapter.
  * No snapshot overwrite, migration, untrusted replay or room-wide data export.
  */
-import { mutationGeneric, queryGeneric, type GenericDataModel, type GenericMutationCtx, type GenericQueryCtx } from "convex/server";
-import { ConvexError, v } from "convex/values";
+import { mutationGeneric, queryGeneric, type DataModelFromSchemaDefinition, type GenericMutationCtx, type GenericQueryCtx } from "convex/server";
+import { ConvexError, v, type Id } from "convex/values";
 import { canAccessWorkspacePageFromServer, type WorkspaceAuthorizationStore } from "../../../lib/domain/workspaceAccessGateway";
 import { validPrincipalId, validScopeId, validWorkspaceId } from "../../../lib/domain/workspaceManagementPolicy";
+import schema from "./schema";
 
-type Ctx = GenericQueryCtx<GenericDataModel> | GenericMutationCtx<GenericDataModel>;
-type MutationCtx = GenericMutationCtx<GenericDataModel>;
+type LabDataModel = DataModelFromSchemaDefinition<typeof schema>;
+type Ctx = GenericQueryCtx<LabDataModel> | GenericMutationCtx<LabDataModel>;
 const MAX_AGE_MS = 5 * 60_000;
 const MAX_UPDATE_BASE64 = 21_848; // <= 16 KiB decoded
 const MAX_ROOM_BYTES = 1024 * 1024;
@@ -90,17 +91,17 @@ async function roomByScope(ctx: Ctx, workspaceId: string, pageId: string) {
 
 /** All session checks take place in the SAME Convex transaction as the data read
  * or write. A prior successful join is never an access capability. */
-async function requireSession(ctx: Ctx, sessionId: string, capability: "view" | "edit_content") {
+async function requireSession(ctx: Ctx, sessionId: Id<"labSessions">, capability: "view" | "edit_content") {
   gate();
   const accountId = await principal(ctx);
-  const session = await ctx.db.get(sessionId as never);
+  const session = await ctx.db.get(sessionId);
   const now = Date.now();
   if (!session || session.accountId !== accountId || session.revokedAt !== null ||
       !Number.isSafeInteger(session.issuedAt) || !Number.isSafeInteger(session.expiresAt) ||
       session.issuedAt > now || session.expiresAt <= now ||
       session.expiresAt <= session.issuedAt ||
       session.expiresAt - session.issuedAt > MAX_AGE_MS) denied();
-  const room = await ctx.db.get(session.roomId as never);
+  const room = await ctx.db.get(session.roomId);
   if (!room || session.workspaceId !== room.workspaceId ||
       session.pageId !== room.pageId || room.provider !== "blocknote-yjs") denied();
   if (!(await authorized(ctx, accountId, session.workspaceId, session.pageId, capability))) denied();
