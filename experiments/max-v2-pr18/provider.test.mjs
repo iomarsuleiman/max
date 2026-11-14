@@ -6,7 +6,7 @@ import {AuthorizedYjsProvider,toBase64,fromBase64} from "./provider.mjs";
 class SyntheticServer {
  constructor(){this.log=[];this.watchers=new Set();this.roles={alice:"edit",bob:"edit",carol:"view"};}
  as(accountId){
-  const server=this;
+  const server={log:this.log,watchers:this.watchers,roles:this.roles};
   const allow=(write=false)=>{
    if(!server.roles[accountId]||(write&&server.roles[accountId]!=="edit"))throw Error("FORBIDDEN");
   };
