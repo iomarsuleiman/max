@@ -28,17 +28,17 @@ export const canAccessPage = queryGeneric({
       workspaces: (id) =>
         ctx.db.query("workspaces").withIndex("by_workspaceId", (q) => q.eq("workspaceId", id)).collect(),
       memberships: (id, account) =>
-        ctx.db.query("workspaceMemberships").withIndex("by_workspace_account", (q) => q.eq("workspaceId", id).eq("accountId", account)).collect(),
+        ctx.db.query("workspaceMemberships").withIndex("by_workspace_account", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).collect(),
       groups: async (id, account) =>
-        (await ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) => q.eq("workspaceId", id).eq("accountId", account)).collect())
+        (await ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).collect())
           .map((row) => ({ id: row.groupId, status: row.status })),
       teamspaces: async (id, account) =>
-        (await ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) => q.eq("workspaceId", id).eq("accountId", account)).collect())
+        (await ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).collect())
           .map((row) => ({ id: row.teamspaceId, status: row.status })),
       scopes: (id, page) =>
-        ctx.db.query("workspacePageScopes").withIndex("by_workspace_page", (q) => q.eq("workspaceId", id).eq("pageId", page)).collect(),
+        ctx.db.query("workspacePageScopes").withIndex("by_workspace_page", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("pageId", page)).collect(),
       grants: async (id, page) =>
-        (await ctx.db.query("workspacePageGrants").withIndex("by_workspace_page", (q) => q.eq("workspaceId", id).eq("pageId", page)).collect())
+        (await ctx.db.query("workspacePageGrants").withIndex("by_workspace_page", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("pageId", page)).collect())
           .map((row) => ({
             subjectType: row.subjectType,
             subjectId: row.subjectId,
