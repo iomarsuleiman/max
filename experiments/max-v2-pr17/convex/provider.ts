@@ -23,6 +23,8 @@ const MAX_AGE_MS = 5 * 60_000;
 const MAX_UPDATE_BASE64 = 21_848; // <= 16 KiB decoded
 const MAX_ROOM_BYTES = 1024 * 1024;
 const MAX_ROOM_UPDATES = 256;
+const MAX_PACK_ENTRIES = 8;
+const MAX_PACK_BYTES = 64 * 1024;
 const MAX_SESSIONS_PER_ACCOUNT = 32;
 const MIN_OP = /^[A-Za-z0-9_-]{8,96}$/;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
@@ -123,7 +125,7 @@ export const join = mutationGeneric({
       if (!(await authorized(ctx, accountId, workspaceId, pageId, "edit_content"))) denied();
       const roomId = await ctx.db.insert("labRooms", {
         workspaceId, pageId, provider: "blocknote-yjs", nextSeq: 0,
-        storedBytes: 0, createdBy: accountId, createdAt: Date.now(),
+        storedBytes: 0, checkpointThrough: 0, createdBy: accountId, createdAt: Date.now(),
       });
       room = await ctx.db.get(roomId);
       if (!room) denied();
@@ -142,6 +144,39 @@ export const join = mutationGeneric({
   },
 });
 
+
+function decodedBytes(base64: string) {
+  return Math.floor(base64.length * 3 / 4) -
+    (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0);
+}
+/** Cross-check every archived record, watermark and ordering before trusting
+ * checkpointed content. All packs retain ORIGINAL bytes and operation IDs. */
+async function checkpointPacks(ctx: Ctx, room: { _id: string; nextSeq: number; checkpointThrough?: number }) {
+  const watermark = room.checkpointThrough ?? 0;
+  if (!Number.isSafeInteger(watermark) || watermark < 0 || watermark > room.nextSeq) denied();
+  const packs = await ctx.db.query("labCheckpointSegments")
+    .withIndex("by_room_start", q => q.eq("roomId", room._id as never)).take(257);
+  if (packs.length > 256) denied();
+  let expected = 1;
+  for (const pack of packs) {
+    if (pack.roomId !== room._id || pack.startSeq !== expected ||
+        !Number.isSafeInteger(pack.endSeq) || pack.endSeq < expected ||
+        pack.updates.length < 1 || pack.updates.length > MAX_PACK_ENTRIES) denied();
+    let total = 0;
+    for (const item of pack.updates) {
+      if (item.seq !== expected++ || !MIN_OP.test(item.operationId) ||
+          !validPrincipalId(item.actorId) || !BASE64.test(item.base64) ||
+          item.base64.length > MAX_UPDATE_BASE64) denied();
+      const n = decodedBytes(item.base64);
+      if (n < 1 || n > 16_384) denied();
+      total += n;
+    }
+    if (pack.endSeq !== expected - 1 || pack.bytes !== total || total > MAX_PACK_BYTES) denied();
+  }
+  if (expected - 1 !== watermark) denied();
+  return packs;
+}
+
 /** A reactive Convex query is a server-authorized subscription source. Each
  * reexecution revalidates identity, room scope, lease and live read ACL. */
 export const readUpdates = queryGeneric({
@@ -158,17 +193,31 @@ export const readUpdates = queryGeneric({
     const count = limit ?? 32;
     if (!Number.isSafeInteger(afterSeq) || afterSeq < 0 || afterSeq > room.nextSeq ||
         !Number.isSafeInteger(count) || count < 1 || count > 64) denied();
-    const rows = await ctx.db.query("labUpdates")
-      .withIndex("by_room_seq", (q) => (q.eq("roomId", room._id) as unknown as { gt(field: string, value: number): never }).gt("seq", afterSeq))
-      .take(count + 1);
-    if (rows.some((row) => row.roomId !== room._id || row.seq <= afterSeq)) denied();
+    const watermark = room.checkpointThrough ?? 0;
+    const result: Array<{ seq: number; actorId: string; operationId: string; base64: string }> = [];
+    if (afterSeq < watermark) {
+      for (const pack of await checkpointPacks(ctx, room)) for (const item of pack.updates) {
+        if (item.seq > afterSeq && result.length < count + 1) result.push(item);
+      }
+    }
+    if (result.length < count + 1) {
+      const start = Math.max(afterSeq, watermark);
+      const rows = await ctx.db.query("labUpdates")
+        .withIndex("by_room_seq", q => (q.eq("roomId", room._id) as unknown as { gt(field: string, value: number): never }).gt("seq", start))
+        .take(count + 1 - result.length);
+      if (rows.some(row => row.roomId !== room._id || row.seq <= start)) denied();
+      result.push(...rows);
+    }
+    const visible = result.slice(0, count);
+    for (let i = 0; i < visible.length; i++)
+      if (visible[i].seq !== afterSeq + i + 1) denied();
+    const cursor = visible.at(-1)?.seq ?? afterSeq;
+    if (cursor < room.nextSeq && !visible.length) denied();
     return {
       headSeq: room.nextSeq,
-      hasMore: rows.length > count,
-      updates: rows.slice(0, count).map((row) => ({
-        seq: row.seq, actorId: row.actorId,
-        operationId: row.operationId, base64: row.base64,
-      })),
+      hasMore: cursor < room.nextSeq,
+      updates: visible.map(({ seq, actorId, operationId, base64 }) =>
+        ({ seq, actorId, operationId, base64 })),
     };
   },
 });
@@ -202,16 +251,22 @@ export const appendUpdate = mutationGeneric({
     const { room, accountId } = await requireSession(ctx, sessionId, "edit_content");
     if (!MIN_OP.test(operationId) || base64.length === 0 ||
         base64.length > MAX_UPDATE_BASE64 || !BASE64.test(base64)) denied();
-    const bytes = Math.floor(base64.length * 3 / 4) - (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0);
+    const bytes = decodedBytes(base64);
     if (bytes < 1 || bytes > 16_384) denied();
     const duplicates = await ctx.db.query("labUpdates")
       .withIndex("by_room_actor_operation", (q) =>
         (q.eq("roomId", room._id) as unknown as { eq(field: string, value: string): { eq(field: string, value: string): never } }).eq("actorId", accountId).eq("operationId", operationId))
       .take(2);
     if (duplicates.length > 1) denied();
-    if (duplicates.length === 1) {
-      if (duplicates[0].base64 !== base64) denied();
-      return { seq: duplicates[0].seq, duplicate: true };
+    const packed = (room.checkpointThrough ?? 0) > 0
+      ? (await checkpointPacks(ctx, room)).flatMap(pack => pack.updates)
+          .filter(item => item.actorId === accountId && item.operationId === operationId)
+      : [];
+    if (packed.length + duplicates.length > 1) denied();
+    const existing = duplicates[0] ?? packed[0];
+    if (existing) {
+      if (existing.base64 !== base64) denied();
+      return { seq: existing.seq, duplicate: true };
     }
     if (room.nextSeq >= MAX_ROOM_UPDATES || room.storedBytes + bytes > MAX_ROOM_BYTES) denied();
     const seq = room.nextSeq + 1;
@@ -220,6 +275,59 @@ export const appendUpdate = mutationGeneric({
     });
     await ctx.db.patch(room._id, { nextSeq: seq, storedBytes: room.storedBytes + bytes });
     return { seq, duplicate: false };
+  },
+});
+
+
+/** Owner-only lossless repack. Original rows are deleted only in the same
+ * Convex transaction that validates, inserts the pack and advances its cursor.
+ * This is NOT Yjs merging; original byte and update quotas still apply. */
+export const compactLog = mutationGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.object({
+    startSeq: v.number(), endSeq: v.number(), count: v.number(),
+    headSeq: v.number(), complete: v.boolean(),
+  }),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "view");
+    if (!(await authorized(ctx, accountId, session.workspaceId, session.pageId, "manage"))) denied();
+    const owners = await ctx.db.query("workspaces")
+      .withIndex("by_workspaceId", q => q.eq("workspaceId", session.workspaceId)).take(2);
+    if (owners.length !== 1 || owners[0].ownerId !== accountId) denied();
+    await checkpointPacks(ctx, room);
+    const from = (room.checkpointThrough ?? 0) + 1;
+    if (from > room.nextSeq) return { startSeq: from, endSeq: room.nextSeq,
+      count: 0, headSeq: room.nextSeq, complete: true };
+    const raw = await ctx.db.query("labUpdates")
+      .withIndex("by_room_seq", q => (q.eq("roomId", room._id) as unknown as { gt(field: string, value: number): never }).gt("seq", from - 1))
+      .take(MAX_PACK_ENTRIES);
+    let bytes = 0;
+    const chosen: typeof raw = [];
+    for (const item of raw) {
+      const size = decodedBytes(item.base64);
+      if (item.roomId !== room._id || item.seq !== from + chosen.length ||
+          !MIN_OP.test(item.operationId) || !validPrincipalId(item.actorId) ||
+          !BASE64.test(item.base64) || size < 1 || size > 16_384) denied();
+      if (bytes + size > MAX_PACK_BYTES) break;
+      bytes += size;
+      chosen.push(item);
+    }
+    if (!chosen.length) denied();
+    const endSeq = chosen[chosen.length - 1].seq;
+    await ctx.db.insert("labCheckpointSegments", {
+      roomId: room._id, startSeq: from, endSeq,
+      updates: chosen.map(({ seq, actorId, operationId, base64, createdAt }) =>
+        ({ seq, actorId, operationId, base64, createdAt })),
+      bytes, createdBy: accountId, createdAt: Date.now(),
+    });
+    for (const item of chosen) await ctx.db.delete(item._id);
+    await ctx.db.patch(room._id, { checkpointThrough: endSeq });
+    await ctx.db.insert("labAuditEvents", {
+      workspaceId: room.workspaceId, actorId: accountId, targetId: room.pageId,
+      operation: "room.lossless_pack_compacted", at: Date.now(),
+    });
+    return { startSeq: from, endSeq, count: chosen.length, headSeq: room.nextSeq,
+      complete: endSeq === room.nextSeq };
   },
 });
 

@@ -42,8 +42,15 @@ export default defineSchema({
   }).index("by_workspace_page", ["workspaceId", "pageId"]),
   labRooms: defineTable({
     workspaceId: v.string(), pageId: v.string(), provider: v.literal("blocknote-yjs"),
-    nextSeq: v.number(), storedBytes: v.number(), createdBy: v.string(), createdAt: v.number(),
+    nextSeq: v.number(), storedBytes: v.number(), checkpointThrough: v.optional(v.number()), createdBy: v.string(), createdAt: v.number(),
   }).index("by_scope", ["workspaceId", "pageId"]),
+  // Lossless immutable packs, not Yjs semantic snapshots.
+  labCheckpointSegments: defineTable({
+    roomId: v.id("labRooms"), startSeq: v.number(), endSeq: v.number(),
+    updates: v.array(v.object({ seq: v.number(), actorId: v.string(), operationId: v.string(),
+      base64: v.string(), createdAt: v.number() })),
+    bytes: v.number(), createdBy: v.string(), createdAt: v.number(),
+  }).index("by_room_start", ["roomId", "startSeq"]),
   labSessions: defineTable({
     roomId: v.id("labRooms"), workspaceId: v.string(), pageId: v.string(),
     accountId: v.string(), issuedAt: v.number(), expiresAt: v.number(),

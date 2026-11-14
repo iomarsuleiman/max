@@ -17,6 +17,7 @@ const leave = makeFunctionReference<"mutation">("provider:leave");
 const status = makeFunctionReference<"query">("provider:sessionStatus");
 const downgrade = makeFunctionReference<"mutation">("provider:downgradeMemberEdit");
 const revoke = makeFunctionReference<"mutation">("provider:revokeMember");
+const compact = makeFunctionReference<"mutation">("provider:compactLog");
 const root = "lab-page";
 const ws = "lab-workspace";
 
@@ -258,6 +259,61 @@ describe("PR17 standalone Convex sandbox provider: authenticated server operatio
     await expect(alice.mutation(append, {
       sessionId: a.sessionId, operationId: "pr20_denied_0002", base64: packet,
     })).rejects.toThrow();
+  });
+
+  it("compacts the original byte log losslessly, retaining cursors and retry identity", async () => {
+    const {alice,bob,carol,t}=await fixture();
+    const a=await alice.mutation(join,{workspaceId:ws,pageId:root});
+    const b=await bob.mutation(join,{workspaceId:ws,pageId:root});
+    const c=await carol.mutation(join,{workspaceId:ws,pageId:root});
+    for(let i=1;i<=10;i++) await alice.mutation(append,{
+      sessionId:a.sessionId,operationId:"compact_000"+i,base64:packet});
+    await expect(bob.mutation(compact,{sessionId:b.sessionId})).rejects.toThrow();
+    await expect(carol.mutation(compact,{sessionId:c.sessionId})).rejects.toThrow();
+    expect(await alice.mutation(compact,{sessionId:a.sessionId}))
+      .toMatchObject({startSeq:1,endSeq:8,count:8,complete:false});
+    expect((await bob.query(read,{sessionId:b.sessionId,afterSeq:0,limit:6}))
+      .updates.map((x:{seq:number})=>x.seq)).toEqual([1,2,3,4,5,6]);
+    expect(await alice.mutation(compact,{sessionId:a.sessionId}))
+      .toMatchObject({startSeq:9,endSeq:10,count:2,complete:true});
+    expect((await alice.mutation(compact,{sessionId:a.sessionId})).count).toBe(0);
+    const page=await carol.query(read,{sessionId:c.sessionId,afterSeq:6,limit:4});
+    expect(page).toMatchObject({headSeq:10,hasMore:false});
+    expect(page.updates.map((x:{seq:number})=>x.seq)).toEqual([7,8,9,10]);
+    expect(await alice.mutation(append,{sessionId:a.sessionId,
+      operationId:"compact_0001",base64:packet})).toMatchObject({seq:1,duplicate:true});
+    await expect(alice.mutation(append,{sessionId:a.sessionId,
+      operationId:"compact_0001",base64:"BwgJCg=="})).rejects.toThrow();
+    expect(await t.run(async ctx=>({raw:(await ctx.db.query("labUpdates").collect()).length,
+      packs:(await ctx.db.query("labCheckpointSegments").collect()).length})))
+      .toEqual({raw:0,packs:2});
+  });
+  it("fails closed on an update gap without deleting any additional source rows",async()=>{
+    const {alice,t}=await fixture();
+    const a=await alice.mutation(join,{workspaceId:ws,pageId:root});
+    for(let i=1;i<=3;i++) await alice.mutation(append,{
+      sessionId:a.sessionId,operationId:"gap_test_000"+i,base64:packet});
+    await t.run(async ctx=>{
+      const rows=await ctx.db.query("labUpdates").collect();
+      const row=rows.find(x=>x.seq===2);
+      if(!row)throw Error("missing fixture");
+      await ctx.db.delete(row._id);
+    });
+    await expect(alice.mutation(compact,{sessionId:a.sessionId})).rejects.toThrow();
+    expect(await t.run(async ctx=>({
+      raw:(await ctx.db.query("labUpdates").collect()).map(x=>x.seq),
+      packs:(await ctx.db.query("labCheckpointSegments").collect()).length,
+    }))).toEqual({raw:[1,3],packs:0});
+  });
+  it("does not compact with a revoked lease or a disabled sandbox",async()=>{
+    const {alice,bob,t}=await fixture();
+    const a=await alice.mutation(join,{workspaceId:ws,pageId:root});
+    const b=await bob.mutation(join,{workspaceId:ws,pageId:root});
+    await alice.mutation(revoke,{workspaceId:ws,pageId:root,targetAccountId:"bob"});
+    await expect(bob.mutation(compact,{sessionId:b.sessionId})).rejects.toThrow();
+    process.env.MAX_V2_PR17_PROVIDER_SANDBOX="false";
+    await expect(alice.mutation(compact,{sessionId:a.sessionId})).rejects.toThrow();
+    expect(await t.run(async ctx=>ctx.db.query("labCheckpointSegments").collect())).toHaveLength(0);
   });
 
 });
