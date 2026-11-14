@@ -4,6 +4,7 @@ import {
   canManageAffiliation, canManageGrant, canManageMember, canTransferOwnership,
   validPrincipalId, validScopeId, validWorkspaceId,
 } from "../lib/domain/workspaceManagementPolicy";
+import { validAffiliationRows, validPageGrantRows } from "../lib/domain/workspaceMutationIntegrity";
 
 type Ctx = GenericMutationCtx<GenericDataModel>;
 type Role = "owner" | "admin" | "member" | "guest";
@@ -110,6 +111,10 @@ export const setMembership = mutationGeneric({
     // PR 05: a new account cannot bypass identity-bound invitation acceptance.
     if (!target || !canManageMember(actor, workspace.ownerId, target, a)) denied();
     if (target?.role === a.role && target.status === a.status) return false;
+    if (a.status === "revoked" && target.status !== "revoked") {
+      // Revoke historical affiliation and direct-grant access in this transaction.
+      await clearRevokedAccess(ctx, a.workspaceId, a.accountId, actor.accountId);
+    }
     if (target) {
       await ctx.db.patch(target._id as never, { role: a.role, status: a.status });
     } else {
@@ -122,6 +127,40 @@ export const setMembership = mutationGeneric({
     return true;
   },
 });
+
+
+/** Prevent a later invitation or data repair from resurrecting stale grants.
+ * Convex mutation atomicity covers both this cleanup and the member status. */
+async function clearRevokedAccess(
+  ctx: Ctx, workspaceId: string, accountId: string, actorId: string,
+): Promise<void> {
+  const [groups, teams, grants] = await Promise.all([
+    ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) =>
+      (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never })
+        .eq("accountId", accountId)).take(101),
+    ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) =>
+      (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never })
+        .eq("accountId", accountId)).take(101),
+    ctx.db.query("workspacePageGrants").withIndex("by_workspace_subject", (q) =>
+      (q.eq("workspaceId", workspaceId) as unknown as {
+        eq(field: string, value: string): { eq(field: string, value: string): never };
+      }).eq("subjectType", "account").eq("subjectId", accountId)).take(201),
+  ]);
+  if (!validAffiliationRows(groups, workspaceId, accountId, "group") ||
+      !validAffiliationRows(teams, workspaceId, accountId, "teamspace") ||
+      grants.length > 200 ||
+      grants.some((grant) => grant.workspaceId !== workspaceId ||
+        grant.subjectType !== "account" || grant.subjectId !== accountId)) denied();
+  for (const group of groups) {
+    if (group.status !== "revoked") await ctx.db.patch(group._id as never, { status: "revoked" });
+  }
+  for (const team of teams) {
+    if (team.status !== "revoked") await ctx.db.patch(team._id as never, { status: "revoked" });
+  }
+  for (const grant of grants) await ctx.db.delete(grant._id as never);
+  await logChange(ctx, workspaceId, actorId, "member.revoked.access_reset", accountId, null,
+    groups.length + " groups / " + teams.length + " teamspaces / " + grants.length + " grants");
+}
 
 /** Single-owner handoff: promote an existing active admin/member while demoting
  * the prior active owner to admin in the SAME Convex transaction.
@@ -184,7 +223,7 @@ export const setAffiliation = mutationGeneric({
           (q.eq("workspaceId", a.workspaceId) as unknown as { eq(field: string, value: string): never }).eq("accountId", a.accountId)).take(101)
       : await ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) =>
           (q.eq("workspaceId", a.workspaceId) as unknown as { eq(field: string, value: string): never }).eq("accountId", a.accountId)).take(101);
-    if (rows.length > 100) denied();
+    if (!validAffiliationRows(rows, a.workspaceId, a.accountId, a.kind)) denied();
     const matches = rows.filter((row) => (a.kind === "group" ? row.groupId : row.teamspaceId) === a.affiliationId);
     if (matches.length > 1) denied();
     const existing = matches[0];
@@ -211,7 +250,7 @@ async function pageGrants(ctx: Ctx, workspaceId: string, pageId: string, subject
     .withIndex("by_workspace_page", (q) =>
       (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never }).eq("pageId", pageId))
     .take(101);
-  if (rows.length > 100) denied();
+  if (!validPageGrantRows(rows, workspaceId, pageId)) denied();
   const matches = rows.filter((row) => row.subjectType === subjectType && row.subjectId === subjectId);
   if (matches.length > 1) denied(); // corrupted duplicated grant must be reviewed, not overwritten
   return matches[0] ?? null;
@@ -239,7 +278,7 @@ export const setPageGrant = mutationGeneric({
     await scopedPage(ctx, a.workspaceId, a.pageId);
     if (a.subjectType === "account") {
       const subject = await membership(ctx, a.workspaceId, a.subjectId);
-      if (!subject || (actor.role === "admin" && (subject.role === "owner" || subject.role === "admin"))) denied();
+      if (!subject || subject.status === "revoked" || (actor.role === "admin" && (subject.role === "owner" || subject.role === "admin"))) denied();
     }
     if (a.subjectType === "group") {
       const registered = await ctx.db.query("workspaceGroups").withIndex("by_workspace_group", (q) =>

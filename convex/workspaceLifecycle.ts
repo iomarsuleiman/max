@@ -1,6 +1,6 @@
 import { mutationGeneric, queryGeneric, type GenericDataModel, type GenericMutationCtx } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import { canIssueInvitation, validNewPageScope } from "../lib/domain/workspaceInvitationPolicy";
+import { canIssueInvitation, isActionableInvitation, validNewPageScope } from "../lib/domain/workspaceInvitationPolicy";
 import { validPrincipalId, validScopeId, validWorkspaceId } from "../lib/domain/workspaceManagementPolicy";
 
 type Ctx = GenericMutationCtx<GenericDataModel>;
@@ -104,8 +104,8 @@ export const myPendingInvitations = queryGeneric({
       (q.eq("targetAccountId", identity.subject) as unknown as { eq(field: string, value: string): never })
         .eq("status", "pending")).take(51);
     if (invitations.length > 50) return []; // unexpected backlog: fail closed, not partial disclosure
-    return invitations.filter((row) => row.status === "pending" &&
-      row.targetAccountId === identity.subject && row.expiresAt > Date.now()).map((row) => ({
+    const now = Date.now();
+    return invitations.filter((row) => isActionableInvitation(row, identity.subject, now)).map((row) => ({
       invitationId: String(row._id), workspaceId: row.workspaceId, role: row.role, expiresAt: row.expiresAt,
     }));
   },
@@ -137,8 +137,7 @@ export const acceptInvitation = mutationGeneric({
     writeGate();
     const identity = await who(ctx);
     const invitation = await ctx.db.get(invitationId);
-    if (!invitation || invitation.status !== "pending" ||
-        invitation.targetAccountId !== identity || invitation.expiresAt <= Date.now()) denied();
+    if (!invitation || !isActionableInvitation(invitation, identity, Date.now())) denied();
     const ws = await workspace(ctx, invitation.workspaceId);
     const issuer = await member(ctx, invitation.workspaceId, invitation.createdByAccountId);
     const target = await member(ctx, invitation.workspaceId, identity);
