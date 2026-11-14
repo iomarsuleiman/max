@@ -7,6 +7,10 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Isolated Vite test harness imports Max's Next.js editor schema.
+         Provide only the Node env hint expected by bundled client helpers;
+         never load application credentials or expose this lab in production. -->
+    <script>window.process ??= { env: { NODE_ENV: "development" } };</script>
     <script type="module" src="/lab.jsx"></script>
   </body>
 </html>
