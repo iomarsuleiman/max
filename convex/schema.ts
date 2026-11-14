@@ -1,12 +1,14 @@
 ﻿import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { collaborationTables } from "./collaborationSchema";
+import { uploadTables } from "./uploadSchema";
 
 const nullableString = v.union(v.string(), v.null());
 const nullableNumber = v.union(v.number(), v.null());
 
 export default defineSchema({
   ...collaborationTables,
+  ...uploadTables,
   notionConnections: defineTable({
     ownerId: v.string(),
     workspaceId: v.string(),
@@ -112,6 +114,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_owner", ["ownerId"])
+    .index("by_storageId", ["storageId"])
     .index("by_owner_pageId", ["ownerId", "pageId"]),
   tokens: defineTable({
     ownerId: v.string(),

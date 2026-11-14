@@ -88,13 +88,13 @@ The manifest alone does not enable shared tools, sharing, migration or cloud syn
 
 ## Verification
 
-Upload registration still requires authenticated ownership receipts before
-shared content can be exposed. A caller-supplied `storageId` alone cannot prove
-who uploaded the bytes. The personal database facade checks attachment records
-and page scope, but cannot prove exclusive blob ownership across accounts.
-Validation now leaves request-selected bytes untouched instead of deleting them.
-An authenticated upload path must bind each stored blob to its uploader before
-registration, with safe orphan cleanup and revocable delivery for shared files.
+Cloud upload registration now consumes an authenticated ownership receipt.
+A caller-supplied `storageId` alone cannot prove who uploaded the bytes. The
+personal database facade checks attachment records and page scope; the receipt
+gateway additionally binds actual stored bytes to the uploader. Validation
+leaves request-selected bytes untouched. Local/Notion receipt integration,
+orphan reconciliation and revocable shared delivery remain release gates.
+See [the upload evidence and limitations](UPLOAD_OWNERSHIP.md).
 
 ```powershell
 pnpm exec vitest run tests/unit/operationRequirements.test.ts

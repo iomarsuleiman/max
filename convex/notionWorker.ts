@@ -179,7 +179,8 @@ export const step = internalActionGeneric({
       });
       if (!result) for (const id of storedAssets) await ctx.storage.delete(id);
     } catch (error) {
-      for (const id of storedAssets) await ctx.storage.delete(id).catch(() => undefined);
+      // A transport error can follow a successful commit. Keep these bytes until
+      // receipt-aware cleanup proves that no committed attachment references them.
       const message = error instanceof NotionError || error instanceof Error ? error.message : "The import stopped. Reconnect Notion and retry.";
       await write("fail", { itemId, leaseUntil, generation, message: message.slice(0, 500) });
     }

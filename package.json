@@ -24,6 +24,7 @@
     "measure:baseline": "node scripts/measure-baseline.mjs",
     "proof:outbox": "node scripts/outbox-spike.mjs",
     "proof:convex-local": "node scripts/verify-convex-local.mjs",
+    "proof:uploads-local": "node scripts/verify-convex-local.mjs --uploads",
     "test:watch": "vitest",
     "e2e": "playwright test",
     "convex:dev": "convex dev",

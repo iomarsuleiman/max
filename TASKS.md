@@ -110,3 +110,17 @@ readiness.
 - [x] Run the production build and complete check suite, with no new lint errors. Repeat anonymous local compile/deploy and eighteen-index probe.
 - [x] Remove unsafe deletion of caller-selected storage bytes during registration validation and add a regression.
 - [ ] Bind new uploads to authenticated ownership receipts before shared file access. Existing personal attachment reads remain supported; supplied storage IDs alone are not ownership proof.
+
+## Upload ownership continuation, 2026-11-14
+
+- [x] Add a transactional receipt state machine and native indexed adapter with authorized replay and cleanup exclusion.
+- [x] Route cloud UI/MCP uploads through authenticated actions and a capability HTTP receiver; consume actual-byte receipts during registration.
+- [x] Deny direct and batched legacy raw cloud URL creation and arbitrary storage claims.
+- [x] Reproduce and fix 50 MiB receiver memory exhaustion; repeat the deployed loopback exact-limit/digest/retry/owner-denial proof.
+- [x] Invalidate upload capabilities during account deletion, including batch calls; preflight global references before file removal.
+- [x] Record trusted orphan cleanup claims after completion errors while preserving committed receipts.
+- [ ] Complete local/Notion receipt persistence, automated bounded cleanup and crash/account-wipe inventory reconciliation.
+- [ ] Implement fresh shared-file delivery authorization and cache isolation before enabling shared content.
+- [x] Fix local disk-save failure rollback and persistence queue recovery; serialize token updates and reads with writes.
+- [x] Defer local physical file deletion until database commit so failed batches preserve actual bytes. Write file metadata before making new binary files visible.
+- [ ] Persist post-commit deletion cleanup work before physical deletion, including restart/crash recovery.

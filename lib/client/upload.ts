@@ -12,7 +12,7 @@ export function useUploader() {
     async (file: File, pageId: string | null, alt = ""): Promise<string> => {
       const { uploadUrl } = await call<{ uploadUrl: string }>("assets.createUploadUrl", {});
       const res = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
-      if (!res.ok) throw new Error(res.status === 413 ? `“${file.name}” is larger than 20 MB.` : "The upload didn't finish. Check your connection and try again.");
+      if (!res.ok) throw new Error(res.status === 413 ? `“${file.name}” is larger than 50 MB.` : "The upload didn't finish. Check your connection and try again.");
       const { storageId } = (await res.json()) as { storageId: string };
       const { url } = await call<{ url: string }>("assets.register", { storageId, pageId, name: file.name || "image", type: file.type, size: file.size, alt });
       return url;

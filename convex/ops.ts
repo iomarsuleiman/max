@@ -5,6 +5,8 @@ import { MaxError, serializeError } from "../lib/domain/errors";
 import { convexDb, convexStorage } from "./convexDb";
 import { purgeNotionAccount } from "./notionCleanup";
 import { convexPersonalDb } from "./personalDb";
+import { registerPersonalUpload } from "./uploadRegistration";
+import { preflightUploadDeletion, deleteOwnerUploads } from "./uploadAccount";
 
 /**
  * Every Max operation runs through these four functions. The browser calls `query`/`mutation`
@@ -35,10 +37,19 @@ async function run(
   kind: "query" | "mutation",
 ) {
   try {
+    if (op === "assets.createUploadUrl") throw new MaxError("VALIDATION", "Start uploads through the authenticated upload action.");
     const db = await convexPersonalDb(ctx.db, convexDb(ctx.db), ownerId);
     if (op === "account.deleteAllData") await db.preflightAccountDeletion();
-    const result = await execute(op, args, { db, storage: convexStorage(ctx.storage), ownerId, now: Date.now(), source }, kind);
-    if (op === "account.deleteAllData") await purgeNotionAccount(ctx, ownerId);
+    const result = await execute(op, args, {
+      db, storage: {
+        ...convexStorage(ctx.storage),
+        createUploadUrl: async () => { throw new MaxError("VALIDATION", "Start uploads through the authenticated upload action."); },
+      }, ownerId, now: Date.now(), source,
+      registerUpload: (asset) => registerPersonalUpload(ctx.db, db, ownerId, asset),
+      preflightUploadDeletion: () => preflightUploadDeletion(ctx.db, ownerId),
+      deleteUploads: () => deleteOwnerUploads(ctx.db, convexStorage(ctx.storage), ownerId),
+      deleteConnectedAccountData: () => purgeNotionAccount(ctx, ownerId),
+    }, kind);
     return result;
   } catch (err) {
     if (err instanceof ConvexError) throw err;

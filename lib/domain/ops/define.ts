@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Db, Storage } from "../db";
 import type { Source } from "../types";
+import type { NewRow } from "../db";
 
 export interface OpContext {
   db: Db;
@@ -8,6 +9,11 @@ export interface OpContext {
   ownerId: string;
   now: number;
   source: Source;
+  /** Trusted upload receipt consumption, in the same transaction as the asset insert. */
+  registerUpload?: (asset: NewRow<"assets">) => Promise<string>;
+  preflightUploadDeletion?: () => Promise<void>;
+  deleteUploads?: () => Promise<void>;
+  deleteConnectedAccountData?: () => Promise<void>;
 }
 
 export interface OpDef<I extends z.ZodType = z.ZodType, O = unknown> {

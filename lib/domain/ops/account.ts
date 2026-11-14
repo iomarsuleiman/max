@@ -209,6 +209,7 @@ export const accountDeleteAllData = defineOp({
   input: z.object({ confirm }),
   async run(ctx) {
     await ctx.db.preflightAccountDeletion?.();
+    await ctx.preflightUploadDeletion?.();
     const remaining = new Map((await ctx.db.list("pages", ctx.ownerId)).map((page) => [page._id, page]));
     const orderedPages: PageRow[] = [];
     while (remaining.size) {
@@ -238,6 +239,8 @@ export const accountDeleteAllData = defineOp({
       await ctx.db.delete("pages", page._id);
       removed++;
     }
+    await ctx.deleteUploads?.();
+    await ctx.deleteConnectedAccountData?.();
     return { removed };
   },
 });
@@ -339,16 +342,17 @@ export const assetsRegister = defineOp({
       throw new MaxError("LIMIT", `"${input.name}" is larger than 50 MB. Compress it or split it, then upload again.`);
     }
     if (input.pageId) await requirePage(ctx, input.pageId);
-    const assetId = await ctx.db.insert("assets", {
+    const asset = {
       ownerId: ctx.ownerId,
       pageId: input.pageId ?? null,
       storageId: input.storageId,
       name: input.name,
-      type: input.type,
+      type: input.type.toLowerCase(),
       size: input.size,
       alt: input.alt ?? "",
       createdAt: ctx.now,
-    });
+    };
+    const assetId = ctx.registerUpload ? await ctx.registerUpload(asset) : await ctx.db.insert("assets", asset);
     return { id: assetId, url: `max-asset://${assetId}` };
   },
 });

@@ -6,6 +6,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const uploadProof = process.argv[2] === "--uploads";
+if (process.argv.length > (uploadProof ? 3 : 2)) throw new Error("Usage: verify-convex-local.mjs [--uploads]");
 const envFile = path.join(root, ".env.convex-verification.local");
 const generated = path.join(root, ".env.local");
 const selector = await readFile(envFile, "utf8");
@@ -40,11 +42,11 @@ try {
       "--typecheck",
       "enable",
       "--codegen",
-      "disable",
+      uploadProof ? "enable" : "disable",
       "--env-file",
       envFile,
       "--run",
-      "collaborationChecks:probeStorage",
+      uploadProof ? "uploadChecks:probeHttp" : "collaborationChecks:probeStorage",
     ],
     {
       cwd: root,
@@ -55,19 +57,22 @@ try {
     },
   );
   const combined = result.stdout + result.stderr;
-  if (!/checkedIndexes["']?\s*:\s*18/.test(combined)) throw new Error("The local storage probe did not report all expected indexes.");
+  if (uploadProof ? !(/exactLimitPassed["']?\s*:\s*true/.test(combined) && /bytes["']?\s*:\s*52429824/.test(combined) && /cleaned["']?\s*:\s*2/.test(combined)) : !/checkedIndexes["']?\s*:\s*18/.test(combined))
+    throw new Error("The local probe did not report its expected verification result.");
   await writeFile(
     path.join(artifacts, "report.json"),
     JSON.stringify(
-      { localAnonymousDeploymentOnly: true, typecheckEnabled: true, schemaAndFunctionsPushed: true, checkedIndexes: 18, productionModified: false },
+      { localAnonymousDeploymentOnly: true, typecheckEnabled: true, schemaAndFunctionsPushed: true,
+        ...(uploadProof ? { checkedUploadBytes: 52428800 } : { checkedIndexes: 18 }), productionModified: false },
       null,
       2,
     ),
   );
-  console.log(`Verified local schema, functions and 18 storage index paths. Report: ${path.join(artifacts, "report.json")}`);
-} catch {
+  console.log(`Verified local schema, functions and ${uploadProof ? "the 50 MiB HTTP upload path" : "18 storage index paths"}. Report: ${path.join(artifacts, "report.json")}`);
+} catch (error) {
   // CLI failures may include env/identity metadata; keep terminal output bounded.
-  throw new Error("Isolated Convex verification failed. Run pnpm typecheck, then inspect the anonymous local deployment.");
+  await writeFile(path.join(artifacts, "private-cli-error.log"), [error?.stdout ?? "", error?.stderr ?? "", error?.message ?? ""].join("\n"));
+  throw new Error(`Isolated Convex verification failed. Private diagnostics: ${path.join(artifacts, "private-cli-error.log")}`);
 } finally {
   try {
     const contents = await readFile(generated, "utf8");
