@@ -365,7 +365,7 @@ describe("PR17 standalone Convex sandbox provider: authenticated server operatio
       if(result.complete)break;
     }
     const proof=await alice.query(checkpointStatus,{sessionId:a.sessionId});
-    expect(proof).toMatchObject({headSeq:24,checkpointThrough:24,rawCount:0,storedBytes:72});
+    expect(proof).toMatchObject({headSeq:24,checkpointThrough:24,rawCount:0,storedBytes:96});
     const first=await carol.query(read,{sessionId:c.sessionId,afterSeq:0,limit:8,throughSeq:24});
     const next=await carol.query(read,{sessionId:c.sessionId,afterSeq:8,limit:64,throughSeq:24});
     const all=[...first.updates,...next.updates];
@@ -383,7 +383,7 @@ describe("PR17 standalone Convex sandbox provider: authenticated server operatio
     await alice.mutation(append,{sessionId:a.sessionId,operationId:"restore_0001",base64:packet});
     await alice.mutation(compact,{sessionId:a.sessionId});
     await expect(alice.query(checkpointStatus,{sessionId:a.sessionId}))
-      .resolves.toMatchObject({headSeq:1,checkpointThrough:1,packCount:1,storedBytes:3});
+      .resolves.toMatchObject({headSeq:1,checkpointThrough:1,packCount:1,storedBytes:4});
     await t.run(async ctx=>{
       const rows=await ctx.db.query("labRooms").collect();
       if(rows.length!==1)throw Error("fixture room missing");
