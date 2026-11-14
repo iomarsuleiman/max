@@ -65,8 +65,8 @@ export function assessProviderTrials(
   return candidates.map((candidate) => {
     const trial = evidence.find((item) => item.candidate === candidate);
     const missing = COLLAB_TRIAL_SCENARIOS.filter((scenario) =>
-      !trial || trial.outcomes[scenario] === undefined || trial.outcomes[scenario] === "not-run");
-    const failing = COLLAB_TRIAL_SCENARIOS.filter((scenario) => trial?.outcomes[scenario] === "fail");
+      !trial || trial.outcomes?.[scenario] === undefined || trial.outcomes[scenario] === "not-run");
+    const failing = COLLAB_TRIAL_SCENARIOS.filter((scenario) => trial?.outcomes?.[scenario] === "fail");
     const invalid = !trial || !validId(trial.runId) ||
       (trial.environment !== "synthetic" && trial.environment !== "real-editor-isolated") ||
       !trial.codec || !trial.outcomes || trial.codec.candidate !== candidate || !trial.codec.compatible ||
