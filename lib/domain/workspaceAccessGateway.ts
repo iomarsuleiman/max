@@ -1,3 +1,4 @@
+import { validPrincipalId, validScopeId, validWorkspaceId } from "./workspaceManagementPolicy";
 import {
   canAccessPage,
   type Capability,
@@ -46,6 +47,8 @@ export interface WorkspaceAuthorizationStore {
   memberships(workspaceId: string, accountId: string): Promise<readonly MembershipRow[]>;
   groups(workspaceId: string, accountId: string): Promise<readonly AffiliationRow[]>;
   teamspaces(workspaceId: string, accountId: string): Promise<readonly AffiliationRow[]>;
+  groupRegistrations(workspaceId: string, groupId: string): Promise<readonly { workspaceId: string; groupId: string }[]>;
+  teamspaceRegistrations(workspaceId: string, teamspaceId: string): Promise<readonly { workspaceId: string; teamspaceId: string }[]>;
   scopes(workspaceId: string, pageId: string): Promise<readonly ScopeRow[]>;
   grants(workspaceId: string, pageId: string): Promise<readonly GrantRow[]>;
 }
@@ -67,8 +70,8 @@ export async function canAccessWorkspacePageFromServer(
   pageId: string,
   capability: Capability,
 ): Promise<boolean> {
-  if (!verifiedAccountId?.trim() || !workspaceId.trim() || !pageId.trim() ||
-      workspaceId.length > 128 || pageId.length > 128) return false;
+  if (!verifiedAccountId || !validPrincipalId(verifiedAccountId) ||
+      !validWorkspaceId(workspaceId) || !validScopeId(pageId)) return false;
 
   const workspaces = await store.workspaces(workspaceId);
   if (workspaces.length !== 1 || workspaces[0].workspaceId !== workspaceId ||
@@ -85,6 +88,28 @@ export async function canAccessWorkspacePageFromServer(
     store.groups(workspaceId, verifiedAccountId),
     store.teamspaces(workspaceId, verifiedAccountId),
   ]);
+  // Corrupted or phantom affiliations must fail closed before ACL evaluation.
+  if (groups.length > 100 || teamspaces.length > 100) return false;
+  const seenGroups = new Set<string>();
+  const seenTeams = new Set<string>();
+  for (const g of groups) {
+    if (!validScopeId(g.id) || seenGroups.has(g.id) ||
+        !["active", "suspended", "revoked"].includes(g.status)) return false;
+    seenGroups.add(g.id);
+    if (g.status === "active") {
+      const rows = await store.groupRegistrations(workspaceId, g.id);
+      if (rows.length !== 1 || rows[0].workspaceId !== workspaceId || rows[0].groupId !== g.id) return false;
+    }
+  }
+  for (const t of teamspaces) {
+    if (!validScopeId(t.id) || seenTeams.has(t.id) ||
+        !["active", "suspended", "revoked"].includes(t.status)) return false;
+    seenTeams.add(t.id);
+    if (t.status === "active") {
+      const rows = await store.teamspaceRegistrations(workspaceId, t.id);
+      if (rows.length !== 1 || rows[0].workspaceId !== workspaceId || rows[0].teamspaceId !== t.id) return false;
+    }
+  }
   const principal = {
     accountId: verifiedAccountId,
     workspaceId,

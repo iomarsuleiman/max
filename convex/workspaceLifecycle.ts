@@ -198,6 +198,26 @@ export const declineInvitation = mutationGeneric({
   },
 });
 
+/** Owner-only shadow group registry. Group creation grants no membership or ACL. */
+export const registerGroup = mutationGeneric({
+  args: { workspaceId: v.string(), groupId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { workspaceId, groupId }) => {
+    writeGate();
+    const { actor } = await manager(ctx, workspaceId);
+    if (actor.role !== "owner" || !validScopeId(groupId)) denied();
+    const rows = await ctx.db.query("workspaceGroups").withIndex("by_workspace_group", (q) =>
+      (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never })
+        .eq("groupId", groupId)).take(2);
+    if (rows.length !== 0) denied();
+    await ctx.db.insert("workspaceGroups", {
+      workspaceId, groupId, createdByAccountId: actor.accountId, createdAt: Date.now(),
+    });
+    await event(ctx, workspaceId, actor.accountId, "group.registered", groupId, null, "registered");
+    return true;
+  },
+});
+
 /** Owner-only teamspace registry. No content or permissions are granted. */
 export const registerTeamspace = mutationGeneric({
   args: { workspaceId: v.string(), teamspaceId: v.string() },
