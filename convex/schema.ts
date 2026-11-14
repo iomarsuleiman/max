@@ -152,7 +152,7 @@ export default defineSchema({
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_pageId", ["ownerId", "pageId"]),
-  idempotency: defineTable({ ownerId: v.string(), key: v.string(), op: v.string(), result: v.string(), at: v.number() })
+  idempotency: defineTable({ ownerId: v.string(), key: v.string(), op: v.string(), result: v.string(), at: v.number(), resultPolicyVersion: v.optional(v.literal(1)) })
     .index("by_owner", ["ownerId"])
     .index("by_owner_key", ["ownerId", "key"]),
   audit: defineTable({

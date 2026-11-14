@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MaxError, notFound } from "../errors";
-import { canChangeMembership, canWorkspace, type PolicySnapshot, type WorkspaceCapability } from "./policy";
+import { canChangeMembership, canWorkspace, type GrantPrincipal, type PolicySnapshot, type WorkspaceCapability } from "./policy";
+import { authorizeCollaborationPage } from "./authorization";
 import {
   COLLABORATION_LIMITS,
   type CollaborationAuditEvent,
@@ -182,6 +183,47 @@ export class WorkspaceService {
     if (member.role === "guest" || !teamspace.managerUserIds.includes(member.userId)) throw notFound("teamspace");
   }
 
+  private async authorizePrincipalChange(
+    tx: CollaborationTransaction,
+    actor: ResolvedCollaborationActor,
+    workspaceId: string,
+    principal: GrantPrincipal,
+    now: number,
+    effect?: "allow" | "deny",
+  ) {
+    const anchors = await tx.listPrincipalGrantPageIds(workspaceId, principal, effect);
+    if (anchors.length > COLLABORATION_LIMITS.grantAnchorsPerPrincipal)
+      throw new MaxError("LIMIT", "This workspace exceeds the supported collaboration limit.");
+    for (const pageId of new Set(anchors)) {
+      await authorizeCollaborationPage({ transaction: tx, pages: tx, actor, workspaceId, pageId, capability: "page.share", now });
+    }
+  }
+
+  private async authorizeMembershipExpansion(
+    tx: CollaborationTransaction,
+    actor: ResolvedCollaborationActor,
+    target: CollaborationMembership,
+    nextRole: CollaborationMembership["role"],
+    now: number,
+  ) {
+    // Revocation remains immediate. Rejoining cannot silently discard earlier
+    // group denies when the revoked admissions are deliberately not restored.
+    if (target.state === "revoked") {
+      for (const group of bounded(await tx.listGroups(target.workspaceId), COLLABORATION_LIMITS.groupsPerWorkspace)) {
+        if (group.workspaceId !== target.workspaceId || group.state !== "active") throw noAccess();
+        const membership = await tx.getGroupMembership(target.workspaceId, group.id, target.userId);
+        if (!membership) continue;
+        if (membership.workspaceId !== target.workspaceId || membership.groupId !== group.id || membership.userId !== target.userId) throw noAccess();
+        await this.authorizePrincipalChange(tx, actor, target.workspaceId, { kind: "group", groupId: group.id }, now, "deny");
+      }
+    }
+    // Guests do not match workspace_members, so a role downgrade can remove a
+    // deny even while otherwise reducing workspace governance capabilities.
+    if (target.role !== "guest" && nextRole === "guest") {
+      await this.authorizePrincipalChange(tx, actor, target.workspaceId, { kind: "workspace_members" }, now, "deny");
+    }
+  }
+
   async ensurePersonalWorkspace(resolvedActor: ResolvedCollaborationActor, input: unknown = {}) {
     const actor = parse(actorSchema, resolvedActor);
     const { name } = parse(z.object({ name: label.default("Personal") }).strict(), input);
@@ -304,6 +346,7 @@ export class WorkspaceService {
         updatedAt: now,
       };
       if (membership.state === target.state && membership.role === target.role) return { membership: target };
+      if (membership.state === "active") await this.authorizeMembershipExpansion(tx, actor, target, membership.role, now);
       await tx.putMembership(membership);
       if (membership.state === "revoked") await this.removeAdmission(tx, args.workspaceId, args.userId, now);
       let revokedInvitations = 0;
@@ -371,12 +414,15 @@ export class WorkspaceService {
       const now = this.now();
       const context = await this.organization(tx, actor, args.workspaceId, now, "workspace.manage_groups");
       await this.group(tx, args.workspaceId, args.groupId);
+      await this.authorizePrincipalChange(tx, actor, args.workspaceId, { kind: "group", groupId: args.groupId }, now);
       if (args.state === "active") {
-        await this.activeTarget(tx, args.workspaceId, args.userId);
+        const target = await this.activeTarget(tx, args.workspaceId, args.userId);
         // Group governance must not be an indirect route into an unadmitted private boundary.
         for (const teamspace of bounded(await tx.listTeamspaces(args.workspaceId), COLLABORATION_LIMITS.teamspacesPerWorkspace)) {
-          if (teamspace.visibility !== "open" && teamspace.memberGroupIds.includes(args.groupId) && !(await this.admitted(tx, context.member, teamspace)))
-            throw notFound("group");
+          if ((teamspace.visibility !== "open" || target.role === "guest") && teamspace.memberGroupIds.includes(args.groupId)) {
+            if (!(await this.admitted(tx, context.member, teamspace))) throw notFound("group");
+            this.assertTeamspaceManager(context.member, teamspace);
+          }
         }
       }
       const memberships = bounded(await tx.listGroupMemberships(args.workspaceId, args.groupId), COLLABORATION_LIMITS.membersPerWorkspace);
@@ -420,6 +466,7 @@ export class WorkspaceService {
         await tx.patchGroup(group.id, { name: nextName, updatedAt: now });
         await this.audit(tx, actor, args.workspaceId, "group.renamed", group.id, now);
       } else {
+        await this.authorizePrincipalChange(tx, actor, args.workspaceId, { kind: "group", groupId: group.id }, now);
         await tx.patchGroup(group.id, { state: "archived", updatedAt: now });
         for (const member of await tx.listGroupMemberships(args.workspaceId, group.id))
           if (member.state === "active") await tx.putGroupMembership({ ...member, state: "revoked", updatedAt: now });
@@ -668,6 +715,7 @@ export class WorkspaceService {
       } else {
         const members = bounded(await tx.listWorkspaceMemberships(invitation.workspaceId), COLLABORATION_LIMITS.membersPerWorkspace);
         if (existing && !canChangeMembership(context.policy, members, actor.userId, { state: "active", role: invitation.role })) throw notFound("invitation");
+        if (existing) await this.authorizeMembershipExpansion(tx, issuer, existing, invitation.role, now);
         if (!existing) {
           if (members.length >= COLLABORATION_LIMITS.membersPerWorkspace) throw new MaxError("LIMIT", "This workspace has too many members.");
           if (bounded(await tx.listUserMemberships(actor.userId), COLLABORATION_LIMITS.membershipsPerUser).length >= COLLABORATION_LIMITS.membershipsPerUser)

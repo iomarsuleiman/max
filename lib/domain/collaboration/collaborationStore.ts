@@ -1,4 +1,4 @@
-import type { GroupMembership, PolicyTeamspace, PolicyWorkspace, WorkspaceMembership, WorkspaceRole } from "./policy";
+import type { GrantPrincipal, GroupMembership, PolicyPage, PolicyTeamspace, PolicyWorkspace, WorkspaceMembership, WorkspaceRole } from "./policy";
 
 /** Bounded transaction reads. A real adapter must throw on limit+1, never truncate. */
 export const COLLABORATION_LIMITS = {
@@ -8,6 +8,7 @@ export const COLLABORATION_LIMITS = {
   teamspacesPerWorkspace: 200,
   openInvitationsPerWorkspace: 200,
   grantsPerPage: 200,
+  grantAnchorsPerPrincipal: 200,
 };
 
 export type CollaborationWorkspace = PolicyWorkspace & { name: string; createdAt: number; updatedAt: number };
@@ -100,10 +101,15 @@ export interface CollaborationTransaction {
   insertGroup(group: CollaborationGroup): Promise<void>;
   patchGroup(id: string, patch: { name?: string; state?: "active" | "archived"; updatedAt: number }): Promise<void>;
   listGroupMemberships(workspaceId: string, groupId: string): Promise<CollaborationGroupMembership[]>;
+  getGroupMembership(workspaceId: string, groupId: string, userId: string): Promise<CollaborationGroupMembership | null>;
   /** Active memberships only; archived-group history must not block revocation. */
   listUserGroupMemberships(workspaceId: string, userId: string): Promise<CollaborationGroupMembership[]>;
   /** Unique composite key (workspaceId, groupId, userId). */
   putGroupMembership(membership: CollaborationGroupMembership): Promise<void>;
+
+  /** Authoritative policy rows and canonical reverse grants, in this same transaction. */
+  getPolicyPage(pageId: string): Promise<PolicyPage | null>;
+  listPrincipalGrantPageIds(workspaceId: string, principal: GrantPrincipal, effect?: "allow" | "deny"): Promise<readonly string[]>;
 
   getTeamspace(id: string): Promise<CollaborationTeamspace | null>;
   /** Active teamspaces only. */

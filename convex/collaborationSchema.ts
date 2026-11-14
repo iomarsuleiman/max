@@ -13,6 +13,10 @@ const principal = v.union(
   v.object({ kind: v.literal("group"), groupId: v.string() }),
   v.object({ kind: v.literal("workspace_members") }),
 );
+const accessGrant = v.union(
+  v.object({ principal, effect: v.literal("allow"), grant, expiresAt: v.union(v.number(), v.null()) }),
+  v.object({ principal, effect: v.literal("deny") }),
+);
 const workspace = { logicalId: v.string(), name: v.string(), state, createdAt: v.number(), updatedAt: v.number() };
 const invitation = {
   logicalId: v.string(),
@@ -31,17 +35,24 @@ export const collaborationTables = {
     pageId: v.id("pages"),
     workspaceId: v.string(),
     mode: v.union(v.literal("inherit"), v.literal("replace")),
-    grants: v.array(
-      v.union(
-        v.object({ principal, effect: v.literal("allow"), grant, expiresAt: v.union(v.number(), v.null()) }),
-        v.object({ principal, effect: v.literal("deny") }),
-      ),
-    ),
+    aclRevision: v.number(),
+    grantCount: v.number(),
     updatedAt: v.number(),
     updatedBy: v.string(),
   })
     .index("by_pageId", ["pageId"])
     .index("by_workspaceId_pageId", ["workspaceId", "pageId"]),
+  collabPageGrants: defineTable({
+    logicalId: v.string(),
+    workspaceId: v.string(),
+    pageId: v.id("pages"),
+    aclRevision: v.number(),
+    principalKey: v.string(),
+    value: accessGrant,
+  })
+    .index("by_logicalId", ["logicalId"])
+    .index("by_pageId_aclRevision", ["pageId", "aclRevision"])
+    .index("by_workspaceId_principalKey_effect_pageId", ["workspaceId", "principalKey", "value.effect", "pageId"]),
   collabWorkspaces: defineTable(
     v.union(v.object({ ...workspace, kind: v.literal("personal"), ownerId: v.string() }), v.object({ ...workspace, kind: v.literal("organization") })),
   )

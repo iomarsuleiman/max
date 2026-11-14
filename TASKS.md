@@ -142,3 +142,13 @@ readiness.
 - [x] Make Notion media registration consume actual-byte receipts; stale commits retain unregistered files for safe expiry instead of deleting on uncertain acknowledgements.
 - [x] Add bounded indexed expiry cleanup with fresh reference/metadata checks and isolated candidate failures, scheduled every fifteen minutes.
 - [x] Recompile and deploy to the anonymous verifier and repeat the real 50 MiB HTTP upload proof with digest, retry and owner-denial checks.
+
+## Vertical collaboration flow, 2026-11-14
+
+User priority: complete create-workspace, invite, join, share, edit from both accounts and revoke as one usable flow before expanding separate features.
+
+- [x] Canonicalize page grants and guard group changes, Guest admission and reactivation against indirect permission expansion; verify 84 targeted cases and 23 native index paths.
+- [x] Prevent credential/capability results entering idempotency caches, including secret-bearing batches; quarantine older unclassified batch results.
+- [ ] Expose authenticated workspace/invitation APIs and connect their UI.
+- [ ] Create and share scoped pages through an authenticated content API, retaining the existing full editor schema and revision checks.
+- [ ] Complete two-account edit/conflict/revocation behavior and test the full UI flow.

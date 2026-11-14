@@ -20,6 +20,7 @@ import type * as notionCleanup from "../notionCleanup.js";
 import type * as notionStore from "../notionStore.js";
 import type * as notionWorker from "../notionWorker.js";
 import type * as ops from "../ops.js";
+import type * as pageGrantStore from "../pageGrantStore.js";
 import type * as pagePolicyStore from "../pagePolicyStore.js";
 import type * as personalDb from "../personalDb.js";
 import type * as uploadAccount from "../uploadAccount.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   notionStore: typeof notionStore;
   notionWorker: typeof notionWorker;
   ops: typeof ops;
+  pageGrantStore: typeof pageGrantStore;
   pagePolicyStore: typeof pagePolicyStore;
   personalDb: typeof personalDb;
   uploadAccount: typeof uploadAccount;

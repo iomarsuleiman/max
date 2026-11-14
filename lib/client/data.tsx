@@ -166,7 +166,11 @@ function useCallCloud() {
   return useCallback(
     async <T,>(op: string, args: Args = {}): Promise<T> => {
       try {
-        if (op === "assets.createUploadUrl") return (await convex.action(anyApi.uploadActions.start, {})) as T;
+        if (op === "assets.createUploadUrl") {
+          if (typeof args.idempotencyKey === "string" && args.idempotencyKey.length)
+            throw new OpError({ code: "VALIDATION", message: "Operations that return upload capabilities cannot use idempotencyKey." });
+          return (await convex.action(anyApi.uploadActions.start, {})) as T;
+        }
         return (await convex.mutation(anyApi.ops.mutation, { op, args })) as T;
       } catch (err) {
         throw toOpError(err);

@@ -71,6 +71,14 @@ function targetOf(args: unknown): string | null {
   return typeof v === "string" ? v : null;
 }
 
+function returnsSensitiveResult(def: OpDef, args: unknown): boolean {
+  if (def.sensitiveResult) return true;
+  if (def.name !== "batch") return false;
+  const parsed = batch.input.safeParse(args ?? {});
+  if (!parsed.success) throw new MaxError("VALIDATION", "Invalid batch input.");
+  return parsed.data.operations.some((item) => registry.get(item.op)?.sensitiveResult === true);
+}
+
 /**
  * The single entry point for every operation, from the UI, Convex and MCP alike.
  * Validates input, enforces confirmations, and records assistant activity (never content).
@@ -85,11 +93,13 @@ export async function execute(name: string, args: unknown, ctx: OpContext, expec
   const raw = (args ?? {}) as Record<string, unknown>;
   const key = def.kind === "mutation" && typeof raw.idempotencyKey === "string" ? raw.idempotencyKey.slice(0, 200) : null;
   if (key) {
+    if (returnsSensitiveResult(def, args)) throw new MaxError("VALIDATION", "Operations that return credentials or upload capabilities cannot use idempotencyKey.");
     const { idempotencyKey: _k, ...rest } = raw;
     args = rest;
     const seen = (await ctx.db.list("idempotency", ctx.ownerId, { field: "key", value: key }))[0];
     if (seen && ctx.now - seen.at < 24 * 3600_000) {
       if (seen.op !== name) throw new MaxError("VALIDATION", `That idempotency key was already used for ${seen.op}. Use a new key for a different operation.`);
+      if (name === "batch" && seen.resultPolicyVersion !== 1) throw new MaxError("CONFLICT", "This older batch result cannot be replayed safely. Use a fresh idempotency key.");
       return { ...JSON.parse(seen.result), idempotentReplay: true };
     }
   }
@@ -97,7 +107,7 @@ export async function execute(name: string, args: unknown, ctx: OpContext, expec
     const result = await runOp(def, args, ctx);
     if (key) {
       for (const old of await ctx.db.list("idempotency", ctx.ownerId, { field: "key", value: key })) await ctx.db.delete("idempotency", old._id);
-      await ctx.db.insert("idempotency", { ownerId: ctx.ownerId, key, op: name, result: JSON.stringify(result ?? null), at: ctx.now });
+      await ctx.db.insert("idempotency", { ownerId: ctx.ownerId, key, op: name, result: JSON.stringify(result ?? null), at: ctx.now, resultPolicyVersion: 1 });
     }
     if (audit) await ctx.db.insert("audit", { ownerId: ctx.ownerId, op: name, source: ctx.source, targetId: targetOf(args), ok: true, code: null, at: ctx.now });
     return result;

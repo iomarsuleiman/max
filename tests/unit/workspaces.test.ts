@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WorkspaceService, webCryptoCollaborationRuntime } from "@/lib/domain/collaboration/workspaces";
+import type { AccessGrant, GrantPrincipal, PageGrant, PolicyPage } from "@/lib/domain/collaboration/policy";
+import { authorizeCollaborationPage } from "@/lib/domain/collaboration/authorization";
 import {
   COLLABORATION_AUDIT_TYPES,
   COLLABORATION_LIMITS,
@@ -25,18 +27,22 @@ interface State {
   teamspaces: CollaborationTeamspace[];
   invitations: CollaborationInvitation[];
   audit: CollaborationAuditEvent[];
+  pages: PolicyPage[];
 }
 
 const copy = <T>(value: T): T => structuredClone(value);
 
 /** A real serialized transaction implementation, with full snapshot rollback. */
 class TestCollaborationStore implements CollaborationStore {
-  private state: State = { workspaces: [], memberships: [], groups: [], groupMemberships: [], teamspaces: [], invitations: [], audit: [] };
+  private state: State = { workspaces: [], memberships: [], groups: [], groupMemberships: [], teamspaces: [], invitations: [], audit: [], pages: [] };
   private tail: Promise<unknown> = Promise.resolve();
   failAudit = false;
 
   inspect() {
     return copy(this.state);
+  }
+  seedPages(...pages: PolicyPage[]) {
+    this.state.pages = copy(pages);
   }
 
   transaction<T>(body: (tx: CollaborationTransaction) => Promise<T>): Promise<T> {
@@ -90,6 +96,23 @@ class TestCollaborationStore implements CollaborationStore {
         patchGroup: async (id, change) => patch(this.state.groups, id, change),
         listGroupMemberships: async (workspaceId, groupId) =>
           many(this.state.groupMemberships, (row) => row.workspaceId === workspaceId && row.groupId === groupId),
+        getGroupMembership: async (workspaceId, groupId, userId) =>
+          one(this.state.groupMemberships, (row) => row.workspaceId === workspaceId && row.groupId === groupId && row.userId === userId),
+        getPolicyPage: async (pageId) => one(this.state.pages, (page) => page.id === pageId),
+        listPrincipalGrantPageIds: async (workspaceId, principal, effect) => {
+          check();
+          const matches = (other: GrantPrincipal) =>
+            other.kind === principal.kind &&
+            (other.kind === "workspace_members" ||
+              (other.kind === "group" && principal.kind === "group" && other.groupId === principal.groupId) ||
+              (other.kind === "user" && principal.kind === "user" && other.userId === principal.userId));
+          return this.state.pages
+            .filter(
+              (page) =>
+                page.workspaceId === workspaceId && page.access.grants.some((grant) => matches(grant.principal) && (!effect || grant.effect === effect)),
+            )
+            .map((page) => page.id);
+        },
         listUserGroupMemberships: async (workspaceId, userId) =>
           many(this.state.groupMemberships, (row) => row.workspaceId === workspaceId && row.userId === userId && row.state === "active"),
         putGroupMembership: async (row) =>
@@ -178,6 +201,202 @@ async function join(fixture: Awaited<ReturnType<typeof organization>>, actor: Re
 }
 
 const denied = { code: "NOT_FOUND" };
+const userGrant = (userId: string, grant: PageGrant = "full"): AccessGrant => ({
+  principal: { kind: "user", userId },
+  effect: "allow",
+  grant,
+  expiresAt: null,
+});
+const groupGrant = (groupId: string, effect: "allow" | "deny" = "allow"): AccessGrant =>
+  effect === "deny" ? { principal: { kind: "group", groupId }, effect } : { principal: { kind: "group", groupId }, effect, grant: "full", expiresAt: null };
+const policyPage = (workspaceId: string, id: string, grants: readonly AccessGrant[]): PolicyPage => ({
+  id,
+  workspaceId,
+  parentId: null,
+  teamspaceId: null,
+  access: { mode: "replace", grants },
+});
+
+describe("page authority across workspace governance", () => {
+  it("requires the open teamspace manager to admit a guest through a group", async () => {
+    const f = await organization();
+    await join(f, bob, "admin");
+    await join(f, carol, "guest");
+    const { group } = await f.service.createGroup(alice, { workspaceId: f.workspaceId, name: "Guests" });
+    const { teamspace } = await f.service.createTeamspace(alice, { workspaceId: f.workspaceId, name: "Open", visibility: "open", memberGroupIds: [group.id] });
+    f.store.seedPages({ ...policyPage(f.workspaceId, "guest-page", [userGrant("carol")]), teamspaceId: teamspace.id });
+    const authorize = () =>
+      f.store.transaction((tx) =>
+        authorizeCollaborationPage({
+          transaction: tx,
+          pages: tx,
+          actor: carol,
+          workspaceId: f.workspaceId,
+          now: f.runtime.now(),
+          pageId: "guest-page",
+          capability: "page.read",
+        }),
+      );
+    await expect(authorize()).rejects.toMatchObject(denied);
+    const before = f.store.inspect();
+    await expect(f.service.setGroupMember(bob, { workspaceId: f.workspaceId, groupId: group.id, userId: "carol", state: "active" })).rejects.toMatchObject(
+      denied,
+    );
+    expect(f.store.inspect()).toEqual(before);
+    await f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "carol", state: "active" });
+    expect((await authorize()).grant).toBe("full");
+  });
+  it("prevents an admin from joining an access-bearing group to bootstrap page sharing", async () => {
+    const f = await organization();
+    await join(f, bob, "admin");
+    const { group } = await f.service.createGroup(alice, { workspaceId: f.workspaceId, name: "Private editors" });
+    f.store.seedPages(policyPage(f.workspaceId, "private", [userGrant("alice"), groupGrant(group.id)]));
+    const before = f.store.inspect();
+    await expect(f.service.setGroupMember(bob, { workspaceId: f.workspaceId, groupId: group.id, userId: "bob", state: "active" })).rejects.toMatchObject(
+      denied,
+    );
+    expect(f.store.inspect()).toEqual(before);
+    await f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "bob", state: "active" });
+    expect(f.store.inspect().groupMemberships[0]).toMatchObject({ userId: "bob", state: "active" });
+  });
+
+  it.each(["active", "revoked"] as const)("requires sharing authority for a %s group membership request", async (state) => {
+    const f = await organization();
+    await join(f, bob, "admin");
+    await join(f, carol);
+    const { group } = await f.service.createGroup(alice, { workspaceId: f.workspaceId, name: "Readers" });
+    await f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "carol", state: "active" });
+    f.store.seedPages(policyPage(f.workspaceId, "private", [userGrant("alice"), userGrant("bob", "view"), groupGrant(group.id)]));
+    const before = f.store.inspect();
+    await expect(f.service.setGroupMember(bob, { workspaceId: f.workspaceId, groupId: group.id, userId: "carol", state })).rejects.toMatchObject(denied);
+    expect(f.store.inspect()).toEqual(before);
+  });
+
+  it("checks every allow and deny anchor before any membership or audit write", async () => {
+    const f = await organization();
+    await join(f, bob);
+    const { group } = await f.service.createGroup(alice, { workspaceId: f.workspaceId, name: "Mixed" });
+    f.store.seedPages(
+      policyPage(f.workspaceId, "allowed", [userGrant("alice"), groupGrant(group.id)]),
+      policyPage(f.workspaceId, "denied", [userGrant("alice", "comment"), groupGrant(group.id, "deny")]),
+    );
+    const before = f.store.inspect();
+    await expect(f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "bob", state: "active" })).rejects.toMatchObject(
+      denied,
+    );
+    expect(f.store.inspect()).toEqual(before);
+    f.store.seedPages(
+      ...before.pages.map((page) =>
+        policyPage(f.workspaceId, page.id, [userGrant("alice"), ...page.access.grants.filter((grant) => grant.principal.kind === "group")]),
+      ),
+    );
+    await f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "bob", state: "active" });
+  });
+
+  it("guards deny removal through group revocation and archival", async () => {
+    const f = await organization();
+    await join(f, bob, "admin");
+    await join(f, carol);
+    const { group } = await f.service.createGroup(alice, { workspaceId: f.workspaceId, name: "Restricted" });
+    await f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "carol", state: "active" });
+    f.store.seedPages(
+      policyPage(f.workspaceId, "restricted", [userGrant("alice"), userGrant("bob", "comment"), userGrant("carol"), groupGrant(group.id, "deny")]),
+    );
+    const before = f.store.inspect();
+    await expect(f.service.setGroupMember(bob, { workspaceId: f.workspaceId, groupId: group.id, userId: "carol", state: "revoked" })).rejects.toMatchObject(
+      denied,
+    );
+    await expect(f.service.updateGroup(bob, { workspaceId: f.workspaceId, groupId: group.id, change: { kind: "archive" } })).rejects.toMatchObject(denied);
+    expect(f.store.inspect()).toEqual(before);
+    await f.service.updateGroup(alice, { workspaceId: f.workspaceId, groupId: group.id, change: { kind: "archive" } });
+    expect(f.store.inspect().groups[0].state).toBe("archived");
+  });
+
+  it("keeps emergency revocation immediate but guards direct reactivation from losing group denies", async () => {
+    const f = await organization();
+    await join(f, bob, "admin");
+    await join(f, carol);
+    const { group } = await f.service.createGroup(alice, { workspaceId: f.workspaceId, name: "Restricted" });
+    await f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "carol", state: "active" });
+    f.store.seedPages(policyPage(f.workspaceId, "restricted", [userGrant("alice"), userGrant("carol"), groupGrant(group.id, "deny")]));
+    await f.service.changeMembership(bob, { workspaceId: f.workspaceId, userId: "carol", next: { state: "revoked" } });
+    const revoked = f.store.inspect();
+    expect(revoked.groupMemberships[0].state).toBe("revoked");
+    await expect(
+      f.service.changeMembership(bob, { workspaceId: f.workspaceId, userId: "carol", next: { state: "active", role: "member" } }),
+    ).rejects.toMatchObject(denied);
+    expect(f.store.inspect()).toEqual(revoked);
+    await f.service.changeMembership(alice, { workspaceId: f.workspaceId, userId: "carol", next: { state: "active", role: "member" } });
+  });
+
+  it("rechecks the issuer's page authority before accepting a revoked member's invitation", async () => {
+    const f = await organization();
+    await join(f, bob, "admin");
+    await join(f, carol);
+    const { group } = await f.service.createGroup(alice, { workspaceId: f.workspaceId, name: "Restricted" });
+    await f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "carol", state: "active" });
+    f.store.seedPages(policyPage(f.workspaceId, "restricted", [userGrant("alice"), userGrant("carol"), groupGrant(group.id, "deny")]));
+    await f.service.changeMembership(bob, { workspaceId: f.workspaceId, userId: "carol", next: { state: "revoked" } });
+    const invitation = await f.service.createInvitation(bob, { workspaceId: f.workspaceId, email: carol.verifiedEmail });
+    const before = f.store.inspect();
+    await expect(f.service.acceptInvitation(carol, { token: invitation.token })).rejects.toMatchObject(denied);
+    expect(f.store.inspect()).toEqual(before);
+    await f.service.revokeInvitation(alice, { workspaceId: f.workspaceId, invitationId: invitation.invitation.id });
+    const authorized = await f.service.createInvitation(alice, { workspaceId: f.workspaceId, email: carol.verifiedEmail });
+    await f.service.acceptInvitation(carol, { token: authorized.token });
+  });
+
+  it.each(["direct", "reinvite"] as const)("blocks workspace_members deny laundering through %s guest downgrade", async (path) => {
+    const f = await organization();
+    await join(f, bob, "admin");
+    await join(f, carol);
+    f.store.seedPages(policyPage(f.workspaceId, "restricted", [userGrant("carol"), { principal: { kind: "workspace_members" }, effect: "deny" }]));
+    if (path === "direct") {
+      const before = f.store.inspect();
+      await expect(
+        f.service.changeMembership(bob, { workspaceId: f.workspaceId, userId: "carol", next: { state: "active", role: "guest" } }),
+      ).rejects.toMatchObject(denied);
+      expect(f.store.inspect()).toEqual(before);
+    } else {
+      await f.service.changeMembership(bob, { workspaceId: f.workspaceId, userId: "carol", next: { state: "revoked" } });
+      const invitation = await f.service.createInvitation(bob, { workspaceId: f.workspaceId, email: carol.verifiedEmail, role: "guest" });
+      const before = f.store.inspect();
+      await expect(f.service.acceptInvitation(carol, { token: invitation.token })).rejects.toMatchObject(denied);
+      expect(f.store.inspect()).toEqual(before);
+    }
+  });
+
+  it("ignores archived group history during reactivation and checks only current deny anchors", async () => {
+    const f = await organization();
+    await join(f, bob);
+    await f.service.changeMembership(alice, { workspaceId: f.workspaceId, userId: "bob", next: { state: "revoked" } });
+    await f.store.transaction(async (tx) => {
+      for (let index = 0; index <= COLLABORATION_LIMITS.groupsPerWorkspace; index++) {
+        const id = `archived-${index}`;
+        await tx.insertGroup({ id, workspaceId: f.workspaceId, name: id, state: "archived", createdAt: 1, updatedAt: 1 });
+        await tx.putGroupMembership({ workspaceId: f.workspaceId, groupId: id, userId: "bob", state: "revoked", createdAt: 1, updatedAt: 1 });
+      }
+    });
+    await f.service.changeMembership(alice, { workspaceId: f.workspaceId, userId: "bob", next: { state: "active", role: "member" } });
+    expect(f.store.inspect().memberships.find((member) => member.userId === "bob")?.state).toBe("active");
+  });
+
+  it("refuses oversized reverse grants rather than checking a partial permission set", async () => {
+    const f = await organization();
+    await join(f, bob);
+    const { group } = await f.service.createGroup(alice, { workspaceId: f.workspaceId, name: "Large" });
+    f.store.seedPages(
+      ...Array.from({ length: COLLABORATION_LIMITS.grantAnchorsPerPrincipal + 1 }, (_, index) =>
+        policyPage(f.workspaceId, `page-${index}`, [userGrant("alice"), groupGrant(group.id)]),
+      ),
+    );
+    const before = f.store.inspect();
+    await expect(f.service.setGroupMember(alice, { workspaceId: f.workspaceId, groupId: group.id, userId: "bob", state: "active" })).rejects.toMatchObject({
+      code: "LIMIT",
+    });
+    expect(f.store.inspect()).toEqual(before);
+  });
+});
 
 describe("workspace lifecycle transactions", () => {
   it("creates one personal workspace per immutable account, including concurrent retries", async () => {
@@ -215,7 +434,16 @@ describe("workspace lifecycle transactions", () => {
     fixture.store.failAudit = true;
     await expect(fixture.service.createOrganization(alice, { name: "Failed" })).rejects.toThrow("audit persistence");
     await expect(fixture.service.ensurePersonalWorkspace(alice)).rejects.toThrow("audit persistence");
-    expect(fixture.store.inspect()).toEqual({ workspaces: [], memberships: [], groups: [], groupMemberships: [], teamspaces: [], invitations: [], audit: [] });
+    expect(fixture.store.inspect()).toEqual({
+      workspaces: [],
+      memberships: [],
+      groups: [],
+      groupMemberships: [],
+      teamspaces: [],
+      invitations: [],
+      audit: [],
+      pages: [],
+    });
     fixture.store.failAudit = false;
     expect((await fixture.service.ensurePersonalWorkspace(alice)).created).toBe(true);
   });
@@ -537,7 +765,10 @@ describe("groups and teamspace boundaries", () => {
       expect(fixture.store.inspect().groupMemberships).toEqual([]);
       await fixture.service.setGroupMember(bob, { workspaceId: fixture.workspaceId, groupId: group.id, userId: "carol", state: "active" });
       expect((await fixture.service.getTeamspace(carol, { workspaceId: fixture.workspaceId, teamspaceId: teamspace.id })).teamspace.id).toBe(teamspace.id);
-      await fixture.service.setGroupMember(carol, { workspaceId: fixture.workspaceId, groupId: group.id, userId: "dave", state: "active" });
+      await expect(
+        fixture.service.setGroupMember(carol, { workspaceId: fixture.workspaceId, groupId: group.id, userId: "dave", state: "active" }),
+      ).rejects.toMatchObject(denied);
+      await fixture.service.setGroupMember(bob, { workspaceId: fixture.workspaceId, groupId: group.id, userId: "dave", state: "active" });
       expect((await fixture.service.getTeamspace(dave, { workspaceId: fixture.workspaceId, teamspaceId: teamspace.id })).teamspace.id).toBe(teamspace.id);
       // Removing admission never grants content; workspace governance can still revoke it.
       await fixture.service.setGroupMember(alice, { workspaceId: fixture.workspaceId, groupId: group.id, userId: "carol", state: "revoked" });

@@ -1,6 +1,8 @@
 import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { MaxError } from "../lib/domain/errors";
+import { convexPagePolicies } from "./pagePolicyStore";
+import { listPrincipalGrantPageIds } from "./pageGrantStore";
 import {
   COLLABORATION_LIMITS,
   type CollaborationStore,
@@ -112,6 +114,12 @@ export function convexCollaborationStore(db: DatabaseReader | DatabaseWriter): C
   const missing = () => new MaxError("NOT_FOUND", "This workspace resource does not exist.");
 
   const tx: CollaborationTransaction = {
+    getPolicyPage: (pageId) => convexPagePolicies(db).getPolicyPage(pageId),
+    listPrincipalGrantPageIds: (workspaceId, principal, effect) => listPrincipalGrantPageIds(db, workspaceId, principal, effect),
+    async getGroupMembership(workspaceId, groupId, userId) {
+      const row = await groupMembership(workspaceId, groupId, userId);
+      return row ? plain(row) : null;
+    },
     async getWorkspace(id) {
       const row = await workspace(id);
       return row ? workspaceRow(row) : null;

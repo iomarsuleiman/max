@@ -8,6 +8,21 @@ import { authorizeCollaborationPage, filterAuthorizedCollaborationPages } from "
 import { WorkspaceService } from "@/lib/domain/collaboration/workspaces";
 import { COLLABORATION_LIMITS, type CollaborationRuntime } from "@/lib/domain/collaboration/collaborationStore";
 import { newPageRow } from "@/lib/domain/ops/helpers";
+import { replaceStoredPageAccess } from "@/convex/pageGrantStore";
+import type { DatabaseWriter } from "@/convex/_generated/server";
+import type { Id } from "@/convex/_generated/dataModel";
+import type { AccessGrant } from "@/lib/domain/collaboration/policy";
+
+async function setRule(
+  db: DatabaseWriter,
+  input: { pageId: Id<"pages">; workspaceId: string; mode: "inherit" | "replace"; grants: readonly AccessGrant[]; updatedAt: number; updatedBy: string },
+) {
+  const headers = await db
+    .query("collabPageAccess")
+    .withIndex("by_pageId", (q) => q.eq("pageId", input.pageId))
+    .take(2);
+  return replaceStoredPageAccess(db, { ...input, baseRevision: headers[0]?.aclRevision ?? 0, now: input.updatedAt });
+}
 
 const alice = { userId: "alice", verifiedEmail: "alice@example.com" };
 const bob = { userId: "bob", verifiedEmail: "bob@example.com" };
@@ -191,7 +206,7 @@ describe("native page policy reader and authorization composition", () => {
       const record = await ctx.db.insert("pages", newPageRow(pageContext, { rank: "b", databaseId: database, workspaceId: workspace.id }));
       const foreignDatabase = await ctx.db.insert("pages", newPageRow(pageContext, { rank: "c", kind: "database", workspaceId: foreign.workspace.id }));
       const ordinaryPage = await ctx.db.insert("pages", newPageRow(pageContext, { rank: "d", kind: "page", workspaceId: workspace.id }));
-      const databaseRule = await ctx.db.insert("collabPageAccess", {
+      await setRule(ctx.db, {
         pageId: database,
         workspaceId: workspace.id,
         mode: "inherit",
@@ -206,7 +221,7 @@ describe("native page policy reader and authorization composition", () => {
         expect((await authorizeCollaborationPage(input)).grant).toBe("comment");
         await authorizeCollaborationPage({ ...input, capability: "page.comment" });
         await expect(authorizeCollaborationPage({ ...input, capability: "database.edit_values" })).rejects.toMatchObject({ code: "NOT_FOUND" });
-        await ctx.db.insert("collabPageAccess", {
+        await setRule(ctx.db, {
           pageId: record,
           workspaceId: workspace.id,
           mode: "replace",
@@ -215,7 +230,14 @@ describe("native page policy reader and authorization composition", () => {
           updatedBy: "alice",
         });
         await authorizeCollaborationPage({ ...input, capability: "database.edit_values" });
-        await ctx.db.patch(databaseRule, { grants: [{ principal: { kind: "user", userId: "bob" }, effect: "deny" }] });
+        await setRule(ctx.db, {
+          pageId: database,
+          workspaceId: workspace.id,
+          mode: "inherit",
+          grants: [{ principal: { kind: "user", userId: "bob" }, effect: "deny" }],
+          updatedAt: 1,
+          updatedBy: "alice",
+        });
         await expect(authorizeCollaborationPage(input)).rejects.toMatchObject({ code: "NOT_FOUND" });
         await ctx.db.patch(record, { databaseId: foreignDatabase });
         await expect(authorizeCollaborationPage(input)).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -274,7 +296,7 @@ describe("native page policy reader and authorization composition", () => {
         "pages",
         newPageRow({ db: convexDb(ctx.db), storage: null, ownerId: "alice", now: 1000, source: "ui" }, { rank: "a", workspaceId: workspace.id }),
       );
-      await ctx.db.insert("collabPageAccess", {
+      await setRule(ctx.db, {
         pageId: id,
         workspaceId: workspace.id,
         mode: "inherit",
@@ -320,7 +342,15 @@ describe("native page policy reader and authorization composition", () => {
         await expect(authorizeCollaborationPage(input)).rejects.toMatchObject({ code: "NOT_FOUND" });
         await ctx.db.patch(child, { parentId: null });
         for (let index = 0; index < 2; index++)
-          await ctx.db.insert("collabPageAccess", { pageId: child, workspaceId: own.id, mode: "inherit", grants: [], updatedAt: index, updatedBy: "alice" });
+          await ctx.db.insert("collabPageAccess", {
+            pageId: child,
+            workspaceId: own.id,
+            mode: "inherit",
+            aclRevision: 1,
+            grantCount: 0,
+            updatedAt: index,
+            updatedBy: "alice",
+          });
         await expect(filterAuthorizedCollaborationPages({ ...input, pageIds: [child] })).rejects.toMatchObject({ code: "INTERNAL" });
       });
     });
@@ -340,7 +370,7 @@ describe("native page policy reader and authorization composition", () => {
         "pages",
         newPageRow({ db: convexDb(ctx.db), storage: null, ownerId: "alice", now: 1000, source: "ui" }, { rank: "a", workspaceId: workspace.id }),
       );
-      await ctx.db.insert("collabPageAccess", {
+      await setRule(ctx.db, {
         pageId: id,
         workspaceId: workspace.id,
         mode: "inherit",
@@ -377,12 +407,8 @@ describe("native page policy reader and authorization composition", () => {
         pageId: id,
         workspaceId: workspace.id,
         mode: "inherit",
-        grants: Array.from({ length: COLLABORATION_LIMITS.grantsPerPage + 1 }, () => ({
-          principal: { kind: "user", userId: "alice" } as const,
-          effect: "allow" as const,
-          grant: "view" as const,
-          expiresAt: null,
-        })),
+        aclRevision: 1,
+        grantCount: COLLABORATION_LIMITS.grantsPerPage + 1,
         updatedAt: 0,
         updatedBy: "alice",
       });

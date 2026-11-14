@@ -262,6 +262,7 @@ export const tokensList = defineOp({
 
 export const tokensCreate = defineOp({
   name: "tokens.create",
+  sensitiveResult: true,
   kind: "mutation",
   title: "Create access token",
   uiOnly: true,
@@ -309,6 +310,7 @@ export const auditList = defineOp({
 
 export const assetsCreateUploadUrl = defineOp({
   name: "assets.createUploadUrl",
+  sensitiveResult: true,
   kind: "mutation",
   title: "Start an upload",
   description: "Returns a short-lived URL. POST the file body to it (with its Content-Type), then call assets.register with the returned storageId.",

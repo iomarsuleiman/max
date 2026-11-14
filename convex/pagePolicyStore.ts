@@ -1,8 +1,7 @@
 import type { DatabaseReader } from "./_generated/server";
 import type { PagePolicyReader } from "../lib/domain/collaboration/authorization";
-import { MaxError } from "../lib/domain/errors";
 import { convexCollaborationStore } from "./collaborationStore";
-import { COLLABORATION_LIMITS } from "../lib/domain/collaboration/collaborationStore";
+import { readPageGrantSet } from "./pageGrantStore";
 
 /**
  * Read alongside membership/ACL evaluation in the SAME Convex transaction.
@@ -27,20 +26,13 @@ export function convexPagePolicies(db: DatabaseReader): PagePolicyReader {
       );
       if (!workspace || workspace.state !== "active") return null;
       if (workspace.kind === "personal" && workspace.ownerId !== page.ownerId) return null;
-      const access = await db
-        .query("collabPageAccess")
-        .withIndex("by_pageId", (q) => q.eq("pageId", page._id))
-        .take(2);
-      if (access.length > 1) throw new MaxError("INTERNAL", "Page access metadata is inconsistent. No content was returned.");
-      const rule = access[0];
-      if (rule && rule.workspaceId !== workspace.id) return null;
-      if (rule && rule.grants.length > COLLABORATION_LIMITS.grantsPerPage) throw new MaxError("LIMIT", "This page exceeds the supported access-grant limit.");
+      const { header: rule, rows } = await readPageGrantSet(db, page._id, workspace.id);
       return {
         id: page._id,
         workspaceId: workspace.id,
         parentId: page.parentId ?? page.databaseId,
         teamspaceId: page.teamspaceId ?? null,
-        access: rule ? { mode: rule.mode, grants: rule.grants } : { mode: "inherit", grants: [] },
+        access: rule ? { mode: rule.mode, grants: rows.map((row) => row.value) } : { mode: "inherit", grants: [] },
       };
     },
   };

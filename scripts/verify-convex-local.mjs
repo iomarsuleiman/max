@@ -57,18 +57,18 @@ try {
     },
   );
   const combined = result.stdout + result.stderr;
-  if (uploadProof ? !(/exactLimitPassed["']?\s*:\s*true/.test(combined) && /bytes["']?\s*:\s*52429824/.test(combined) && /cleaned["']?\s*:\s*2/.test(combined)) : !/checkedIndexes["']?\s*:\s*18/.test(combined))
+  if (uploadProof ? !(/exactLimitPassed["']?\s*:\s*true/.test(combined) && /bytes["']?\s*:\s*52429824/.test(combined) && /cleaned["']?\s*:\s*2/.test(combined)) : !/checkedIndexes["']?\s*:\s*23/.test(combined))
     throw new Error("The local probe did not report its expected verification result.");
   await writeFile(
     path.join(artifacts, "report.json"),
     JSON.stringify(
       { localAnonymousDeploymentOnly: true, typecheckEnabled: true, schemaAndFunctionsPushed: true,
-        ...(uploadProof ? { checkedUploadBytes: 52428800 } : { checkedIndexes: 18 }), productionModified: false },
+        ...(uploadProof ? { checkedUploadBytes: 52428800 } : { checkedIndexes: 23 }), productionModified: false },
       null,
       2,
     ),
   );
-  console.log(`Verified local schema, functions and ${uploadProof ? "the 50 MiB HTTP upload path" : "18 storage index paths"}. Report: ${path.join(artifacts, "report.json")}`);
+  console.log(`Verified local schema, functions and ${uploadProof ? "the 50 MiB HTTP upload path" : "23 storage index paths"}. Report: ${path.join(artifacts, "report.json")}`);
 } catch (error) {
   // CLI failures may include env/identity metadata; keep terminal output bounded.
   await writeFile(path.join(artifacts, "private-cli-error.log"), [error?.stdout ?? "", error?.stderr ?? "", error?.message ?? ""].join("\n"));

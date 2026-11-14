@@ -25,6 +25,8 @@ export interface OpDef<I extends z.ZodType = z.ZodType, O = unknown> {
   destructive?: boolean;
   /** Not exposed over MCP (credential and account management). Documented in docs/MCP.md. */
   uiOnly?: boolean;
+  /** Generated credentials/capabilities must never enter the result cache. */
+  sensitiveResult?: true;
   input: I;
   run: (ctx: OpContext, input: z.infer<I>) => Promise<O>;
 }

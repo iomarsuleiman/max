@@ -276,6 +276,8 @@ export interface IdempotencyRow {
   op: string;
   result: string;
   at: number;
+  /** Version one excludes generated secret results, including batch members. */
+  resultPolicyVersion?: 1;
 }
 
 export interface Tables {

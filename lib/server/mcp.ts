@@ -97,8 +97,8 @@ export function createMcpServer(ownerId: string) {
       {
         title: op.title,
         description: op.description,
-        // Writes accept an idempotency key so a retried call isn't applied twice.
-        inputSchema: op.kind === "mutation" ? (op.input as z.ZodObject).extend({ idempotencyKey: IDEMPOTENCY }) : (op.input as z.ZodObject),
+        // Secret results are one-time values and must not be cached or replayed.
+        inputSchema: op.sensitiveResult ? (op.input as z.ZodObject).strict() : op.kind === "mutation" ? (op.input as z.ZodObject).extend({ idempotencyKey: IDEMPOTENCY }) : (op.input as z.ZodObject),
         annotations: {
           title: op.title,
           readOnlyHint: op.kind === "query",
@@ -203,7 +203,7 @@ export function createMcpServer(ownerId: string) {
           ...NOTION_MCP_TOOLS.map((tool) => ({ name: tool.name, kind: tool.readOnly ? "read" : "write", needsConfirm: false, title: tool.title })),
         ],
         resources: ["max://page/{id} (Markdown)"],
-        idempotency: "Write tools accept idempotencyKey; repeats within 24 hours return the first result.",
+        idempotency: "Write tools accept idempotencyKey except operations returning credentials or upload capabilities, and batches containing them. Safe repeats within 24 hours return the first result.",
         limits: LIMITS,
         notAvailable: ["Access tokens and account deletion (manage in Max settings)", "Real-time collaboration or sharing (Max is a private workspace)"],
         errors: ["UNAUTHENTICATED", "NOT_FOUND", "VALIDATION", "CONFLICT", "LIMIT", "CONFIRMATION_REQUIRED", "READ_ONLY", "INTERNAL"],

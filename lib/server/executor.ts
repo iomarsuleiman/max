@@ -18,7 +18,11 @@ export async function runForOwner(ownerId: string, op: string, args: unknown): P
   const client = new ConvexHttpClient(CONVEX_URL);
   const payload = { secret: serverSecret(), ownerId, op, args: args ?? {} };
   try {
-    if (op === "assets.createUploadUrl") return await client.action(anyApi.uploadActions.serverStart, { secret: serverSecret(), ownerId });
+    if (op === "assets.createUploadUrl") {
+      if (args && typeof args === "object" && "idempotencyKey" in args && typeof args.idempotencyKey === "string" && args.idempotencyKey.length)
+        throw new MaxError("VALIDATION", "Operations that return upload capabilities cannot use idempotencyKey.");
+      return await client.action(anyApi.uploadActions.serverStart, { secret: serverSecret(), ownerId });
+    }
     return def.kind === "query" ? await client.query(anyApi.ops.serverQuery, payload) : await client.mutation(anyApi.ops.serverMutation, payload);
   } catch (err) {
     const e = serializeError(err);

@@ -48,19 +48,18 @@ An orphaned teamspace can be recovered only by a workspace owner, only when no
 active non-guest manager remains, and with a separate audit event. This deliberate
 recovery changes admission; it is not an implicit read bypass.
 
-Private page grants now have a read-only native ACL adapter. It resolves legacy
+Private page grants now have a canonical native ACL adapter. It resolves legacy
 personal ownership or explicit workspace scope and composes fresh membership,
-group, teamspace and ancestor policy reads in the same transaction. Before
-exposing group governance, membership changes must also check groups carrying
-private page access. Teamspace checks alone are insufficient.
-The reverse lookup must include both allow and deny grants. Removing a member
-or archiving a group can remove a deny and expand access; those operations need
-the same page authority checks as additions. Canonical indexed grant rows must
-replace the current array representation before group governance is exposed.
+group, teamspace and ancestor policy reads in the same transaction. A versioned
+header and canonical indexed grant rows supply both policy reads and reverse
+lookups. Group changes and archival require sharing authority on every affected
+page. Rejoining and Guest downgrades also check denies that would otherwise be
+removed. Teamspace admission through groups requires its manager, including an
+open teamspace when the target is a Guest. No public governance gateway is enabled.
 
 ## Convex adapter
 
-The additive schema uses eight `collab*` tables and explicit indexes. Portable
+The schema uses nine `collab*` tables and explicit indexes. Portable
 logical IDs remain separate from Convex's native `_id`. Workspace/group/teamspace
 IDs, personal owners, membership composites and invitation hashes are checked
 for uniqueness through indexed reads in the same native transaction as writes.
@@ -102,7 +101,7 @@ The local proof requires the ignored `.env.convex-verification.local` selecting
 an anonymous local backend and refuses an existing `.env.local`. It strips
 inherited deployment-key/self-hosted overrides, enables TypeScript checks,
 pushes only to that anonymous local deployment, and runs the internal read-only
-`collaborationChecks:probeStorage` query against eighteen index paths. The CLI's
+`collaborationChecks:probeStorage` query against twenty-three index paths. The CLI's
 generated verification env is preserved in a new private OS temporary directory,
 then removed from the app workspace so it cannot silently switch the next build.
 The probe returns no member, invitation or content data and is not public.

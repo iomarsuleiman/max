@@ -13,6 +13,7 @@ export const probeStorage = internalQuery({
         tx.getWorkspace(absent),
         tx.getPersonalWorkspace(absent),
         tx.getMembership(absent, absent),
+        tx.getGroupMembership(absent, absent, absent),
         tx.listWorkspaceMemberships(absent),
         tx.listUserMemberships(absent),
         tx.getGroup(absent),
@@ -37,6 +38,10 @@ export const probeStorage = internalQuery({
           .query("collabPageAccess")
           .withIndex("by_workspaceId_pageId", (q) => q.eq("workspaceId", absent))
           .take(1),
+        ctx.db.query("collabPageGrants").withIndex("by_logicalId", (q) => q.eq("logicalId", absent)).take(1),
+        ctx.db.query("collabPageGrants").withIndex("by_pageId_aclRevision").take(1),
+        tx.listPrincipalGrantPageIds(absent, { kind: "group", groupId: absent }),
+        tx.listPrincipalGrantPageIds(absent, { kind: "workspace_members" }, "deny"),
       ];
       await Promise.all(checks);
       return { checkedIndexes: checks.length };
