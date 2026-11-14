@@ -11,31 +11,31 @@ import {
 
 function fixture() {
   const workspaces: WorkspaceRow[] = [{ workspaceId: "acme01", ownerId: "alice", status: "active" }];
-  const memberships: MembershipRow[] = [
+  const memberships: Array<Omit<MembershipRow, "workspaceId">> = [
     { accountId: "alice", role: "owner", status: "active" },
     { accountId: "bob", role: "member", status: "active" },
     { accountId: "carol", role: "guest", status: "active" },
   ];
-  const groups = new Map<string, AffiliationRow[]>([["bob", [{ id: "writers", status: "active" }]]]);
-  const teamspaces = new Map<string, AffiliationRow[]>([["bob", [{ id: "ts1", status: "active" }]]]);
+  const groups = new Map<string, Array<Omit<AffiliationRow, "workspaceId" | "accountId">>>([["bob", [{ id: "writers", status: "active" }]]]);
+  const teamspaces = new Map<string, Array<Omit<AffiliationRow, "workspaceId" | "accountId">>>([["bob", [{ id: "ts1", status: "active" }]]]);
   const scopes: ScopeRow[] = [
     { pageId: "root", workspaceId: "acme01", parentId: null, teamspaceId: null },
     { pageId: "child", workspaceId: "acme01", parentId: "root", teamspaceId: null },
     { pageId: "secret", workspaceId: "acme01", parentId: "root", teamspaceId: "ts1" },
   ];
-  const grants = new Map<string, GrantRow[]>([["root", [{ subjectType: "group", subjectId: "writers", effect: "allow", level: "edit" }]]]);
+  const grants = new Map<string, Array<Omit<GrantRow, "workspaceId" | "pageId">>>([["root", [{ subjectType: "group", subjectId: "writers", effect: "allow", level: "edit" }]]]);
   let scopeReads = 0;
   const store: WorkspaceAuthorizationStore = {
     workspaces: async (id) => workspaces.filter((w) => w.workspaceId === id),
-    memberships: async (_id, account) => memberships.filter((m) => m.accountId === account),
-    groups: async (_id, account) => groups.get(account) ?? [],
-    teamspaces: async (_id, account) => teamspaces.get(account) ?? [],
+    memberships: async (id, account) => memberships.filter((m) => m.accountId === account).map((m) => ({ ...m, workspaceId: id })),
+    groups: async (id, account) => (groups.get(account) ?? []).map((g) => ({ ...g, workspaceId: id, accountId: account })),
+    teamspaces: async (id, account) => (teamspaces.get(account) ?? []).map((t) => ({ ...t, workspaceId: id, accountId: account })),
     groupRegistrations: async (id, groupId) => id === "acme01" && groupId === "writers"
       ? [{ workspaceId: id, groupId }] : [],
     teamspaceRegistrations: async (id, teamspaceId) => id === "acme01" && teamspaceId === "ts1"
       ? [{ workspaceId: id, teamspaceId }] : [],
     scopes: async (id, page) => { scopeReads++; return scopes.filter((p) => p.workspaceId === id && p.pageId === page); },
-    grants: async (_id, page) => grants.get(page) ?? [],
+    grants: async (id, page) => (grants.get(page) ?? []).map((g) => ({ ...g, workspaceId: id, pageId: page })),
   };
   const access = (account: string | null, page: string, capability: "view" | "edit" | "manage" = "view", workspace = "acme01") =>
     canAccessWorkspacePageFromServer(store, account, workspace, page, capability);

@@ -1,4 +1,5 @@
 import { validPrincipalId, validScopeId, validWorkspaceId } from "./workspaceManagementPolicy";
+import { validPageGrantRows } from "./workspaceMutationIntegrity";
 import {
   canAccessPage,
   type Capability,
@@ -16,12 +17,15 @@ export interface WorkspaceRow {
 }
 
 export interface MembershipRow {
+  workspaceId: string;
   accountId: string;
   role: WorkspaceRole;
   status: MembershipStatus;
 }
 
 export interface AffiliationRow {
+  workspaceId: string;
+  accountId: string;
   id: string;
   status: MembershipStatus;
 }
@@ -34,6 +38,8 @@ export interface ScopeRow {
 }
 
 export interface GrantRow {
+  workspaceId: string;
+  pageId: string;
   subjectType: "account" | "group" | "workspace_role";
   subjectId: string;
   effect: "allow" | "deny";
@@ -75,12 +81,14 @@ export async function canAccessWorkspacePageFromServer(
 
   const workspaces = await store.workspaces(workspaceId);
   if (workspaces.length !== 1 || workspaces[0].workspaceId !== workspaceId ||
-      workspaces[0].status !== "active" || !workspaces[0].ownerId) return false;
+      workspaces[0].status !== "active" || !validPrincipalId(workspaces[0].ownerId)) return false;
 
   const memberships = await store.memberships(workspaceId, verifiedAccountId);
   if (memberships.length !== 1) return false;
   const member = memberships[0];
-  if (member.accountId !== verifiedAccountId || member.status !== "active") return false;
+  if (member.workspaceId !== workspaceId || member.accountId !== verifiedAccountId ||
+      member.status !== "active" ||
+      !["owner", "admin", "member", "guest"].includes(member.role)) return false;
   // A forged or stale owner membership cannot override the actual workspace owner.
   if ((member.role === "owner") !== (workspaces[0].ownerId === verifiedAccountId)) return false;
 
@@ -93,7 +101,8 @@ export async function canAccessWorkspacePageFromServer(
   const seenGroups = new Set<string>();
   const seenTeams = new Set<string>();
   for (const g of groups) {
-    if (!validScopeId(g.id) || seenGroups.has(g.id) ||
+    if (g.workspaceId !== workspaceId || g.accountId !== verifiedAccountId ||
+        !validScopeId(g.id) || seenGroups.has(g.id) ||
         !["active", "suspended", "revoked"].includes(g.status)) return false;
     seenGroups.add(g.id);
     if (g.status === "active") {
@@ -102,7 +111,8 @@ export async function canAccessWorkspacePageFromServer(
     }
   }
   for (const t of teamspaces) {
-    if (!validScopeId(t.id) || seenTeams.has(t.id) ||
+    if (t.workspaceId !== workspaceId || t.accountId !== verifiedAccountId ||
+        !validScopeId(t.id) || seenTeams.has(t.id) ||
         !["active", "suspended", "revoked"].includes(t.status)) return false;
     seenTeams.add(t.id);
     if (t.status === "active") {
@@ -129,11 +139,15 @@ export async function canAccessWorkspacePageFromServer(
     const matching = await store.scopes(workspaceId, cursor);
     if (matching.length !== 1) return false;
     const row = matching[0];
-    if (row.workspaceId !== workspaceId || row.pageId !== cursor) return false;
+    if (row.workspaceId !== workspaceId || row.pageId !== cursor ||
+        (row.parentId !== null && (typeof row.parentId !== "string" || !validScopeId(row.parentId))) ||
+        (row.teamspaceId !== null && (typeof row.teamspaceId !== "string" || !validScopeId(row.teamspaceId)))) return false;
     pages.push({ id: row.pageId, workspaceId: row.workspaceId, parentId: row.parentId, teamspaceId: row.teamspaceId });
     const storedGrants = await store.grants(workspaceId, cursor);
+    // Validate EVERY ACL row before evaluating even an owner/admin allow. A
+    // malformed or duplicate unrelated grant is data corruption, not access.
+    if (!validPageGrantRows(storedGrants, workspaceId, cursor)) return false;
     for (const grant of storedGrants) {
-      if (!grant.subjectId.trim()) return false;
       grants.push({
         pageId: cursor,
         subject: { type: grant.subjectType, id: grant.subjectId },

@@ -31,10 +31,10 @@ export const canAccessPage = queryGeneric({
         ctx.db.query("workspaceMemberships").withIndex("by_workspace_account", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(2),
       groups: async (id, account) =>
         (await ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(101))
-          .map((row) => ({ id: row.groupId, status: row.status })),
+          .map((row) => ({ workspaceId: row.workspaceId, accountId: row.accountId, id: row.groupId, status: row.status })),
       teamspaces: async (id, account) =>
         (await ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(101))
-          .map((row) => ({ id: row.teamspaceId, status: row.status })),
+          .map((row) => ({ workspaceId: row.workspaceId, accountId: row.accountId, id: row.teamspaceId, status: row.status })),
       groupRegistrations: (id, groupId) =>
         ctx.db.query("workspaceGroups").withIndex("by_workspace_group", (q) =>
           (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("groupId", groupId)).take(2),
@@ -46,6 +46,7 @@ export const canAccessPage = queryGeneric({
       grants: async (id, page) =>
         (await ctx.db.query("workspacePageGrants").withIndex("by_workspace_page", (q) => (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("pageId", page)).take(101))
           .map((row) => ({
+            workspaceId: row.workspaceId, pageId: row.pageId,
             subjectType: row.subjectType,
             subjectId: row.subjectId,
             effect: row.effect,
