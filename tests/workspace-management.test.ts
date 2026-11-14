@@ -66,7 +66,9 @@ describe("Max 2.0 workspace management policy (closed rollout)", () => {
     expect(canManageGrant(admin, owner.accountId, "account", admin.accountId)).toBe(false);
     expect(canManageGrant(admin, owner.accountId, "workspace_role", "owner")).toBe(false);
     expect(canManageGrant(admin, owner.accountId, "workspace_role", "admin")).toBe(false);
-    expect(canManageGrant(admin, owner.accountId, "workspace_role", "member")).toBe(true);
+    expect(canManageGrant(admin, owner.accountId, "workspace_role", "member")).toBe(false);
+    expect(canManageGrant(admin, owner.accountId, "group", "everyone")).toBe(false);
+    expect(canManageGrant(admin, owner.accountId, "account", member.accountId)).toBe(true);
     expect(canManageGrant(member, owner.accountId, "account", member.accountId)).toBe(false);
   });
 });

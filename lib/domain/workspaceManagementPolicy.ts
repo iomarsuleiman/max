@@ -69,6 +69,6 @@ export function canManageGrant(
   // Admins cannot lock the sole owner (or themselves) out with deny grants,
   // nor modify the owner/admin role-wide ACL.
   if (subjectType === "account" && (subjectId === ownerId || subjectId === actor.accountId)) return false;
-  if (subjectType === "workspace_role" && (subjectId === "owner" || subjectId === "admin")) return false;
+  if (subjectType !== "account") return false; // group/role grants may include the owner
   return true;
 }

@@ -23,8 +23,8 @@ unless the deployment operator explicitly sets
 - \`setAffiliation\`: owner/admin control a member's shadow group/teamspace
   affiliation, with role limits and bounded duplicate checks.
 - \`setPageGrant\`, \`removePageGrant\`: only on already registered workspace
-  shadow page scopes. Duplicate grants fail closed. Owners/admins are protected
-  from lower-role ACL changes. Deny and inherited grants are enforced by the
+  shadow page scopes. Duplicate grants fail closed. Only owners can edit group or role-wide ACLs; admins can only edit direct
+  member/guest account grants, so they cannot deny owner access by group. Deny and inherited grants are enforced by the
   existing PR #21 read-only gateway.
 - \`workspaceSecurityEvents\`: append-only server-written change records.
   No public delete/overwrite or audit-read endpoint is introduced.

@@ -107,7 +107,7 @@ export const setMembership = mutationGeneric({
     if (!canManageMember(actor, workspace.ownerId, target, a)) denied();
     if (target?.role === a.role && target.status === a.status) return false;
     if (target) {
-      await ctx.db.patch(target._id, { role: a.role, status: a.status });
+      await ctx.db.patch(target._id as never, { role: a.role, status: a.status });
     } else {
       await ctx.db.insert("workspaceMemberships", {
         workspaceId: a.workspaceId, accountId: a.accountId, role: a.role, status: a.status,
@@ -131,9 +131,9 @@ export const transferOwnership = mutationGeneric({
     const nextOwner = await membership(ctx, workspaceId, nextOwnerId);
     if (!canTransferOwnership(actor, workspace.ownerId, actor, nextOwner)) denied();
     if (!nextOwner) denied();
-    await ctx.db.patch(actor._id, { role: "admin" });
-    await ctx.db.patch(nextOwner._id, { role: "owner" });
-    await ctx.db.patch(workspace._id, { ownerId: nextOwnerId });
+    await ctx.db.patch(actor._id as never, { role: "admin" });
+    await ctx.db.patch(nextOwner._id as never, { role: "owner" });
+    await ctx.db.patch(workspace._id as never, { ownerId: nextOwnerId });
     await logChange(ctx, workspaceId, actor.accountId, "owner.transferred", nextOwnerId,
       actor.accountId, nextOwnerId);
     return true;
@@ -167,7 +167,7 @@ export const setAffiliation = mutationGeneric({
     const existing = matches[0];
     if (existing?.status === a.status) return false;
     if (!existing && a.status !== "active") return false;
-    if (existing) await ctx.db.patch(existing._id, { status: a.status });
+    if (existing) await ctx.db.patch(existing._id as never, { status: a.status });
     else if (table === "workspaceGroupMemberships") {
       await ctx.db.insert("workspaceGroupMemberships", {
         workspaceId: a.workspaceId, accountId: a.accountId, groupId: a.affiliationId, status: a.status,
@@ -214,10 +214,13 @@ export const setPageGrant = mutationGeneric({
     if (!validSubject(a.subjectType, a.subjectId) ||
         !canManageGrant(actor, workspace.ownerId, a.subjectType, a.subjectId)) denied();
     await scopedPage(ctx, a.workspaceId, a.pageId);
-    if (a.subjectType === "account" && !(await membership(ctx, a.workspaceId, a.subjectId))) denied();
+    if (a.subjectType === "account") {
+      const subject = await membership(ctx, a.workspaceId, a.subjectId);
+      if (!subject || (actor.role === "admin" && (subject.role === "owner" || subject.role === "admin"))) denied();
+    }
     const existing = await pageGrants(ctx, a.workspaceId, a.pageId, a.subjectType, a.subjectId);
     if (existing?.effect === a.effect && existing.level === a.level) return false;
-    if (existing) await ctx.db.patch(existing._id, { effect: a.effect, level: a.level });
+    if (existing) await ctx.db.patch(existing._id as never, { effect: a.effect, level: a.level });
     else await ctx.db.insert("workspacePageGrants", a);
     await logChange(ctx, a.workspaceId, actor.accountId, "page.grant.changed",
       a.pageId + ":" + a.subjectType + ":" + a.subjectId,
@@ -235,9 +238,13 @@ export const removePageGrant = mutationGeneric({
     if (!validSubject(a.subjectType, a.subjectId) ||
         !canManageGrant(actor, workspace.ownerId, a.subjectType, a.subjectId)) denied();
     await scopedPage(ctx, a.workspaceId, a.pageId);
+    if (a.subjectType === "account" && actor.role === "admin") {
+      const subject = await membership(ctx, a.workspaceId, a.subjectId);
+      if (!subject || subject.role === "owner" || subject.role === "admin") denied();
+    }
     const previous = await pageGrants(ctx, a.workspaceId, a.pageId, a.subjectType, a.subjectId);
     if (!previous) return false;
-    await ctx.db.delete(previous._id);
+    await ctx.db.delete(previous._id as never);
     await logChange(ctx, a.workspaceId, actor.accountId, "page.grant.removed",
       a.pageId + ":" + a.subjectType + ":" + a.subjectId, previous.effect + "/" + previous.level, null);
     return true;
