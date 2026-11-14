@@ -1,7 +1,7 @@
 "use client";
 
 import { pageHref } from "@/lib/pageUrl";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Dialog as D } from "radix-ui";
@@ -48,6 +48,7 @@ export function SearchDialog() {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<Kind>("all");
   const [titleOnly, setTitleOnly] = useState(false);
+  const returnFocus = useRef<HTMLElement | null>(null);
   const debounced = useDebounced(query.trim(), 180);
   const results = useOp<{ results: Result[]; total: number }>("search.query", ws.searchOpen && debounced ? { query: debounced, kind, titleOnly, limit: 30 } : "skip");
   const recents = useOp<{ pages: PageSummary[] }>("pages.recents", ws.searchOpen ? { limit: 8 } : "skip");
@@ -88,6 +89,17 @@ export function SearchDialog() {
         <D.Overlay className="fixed inset-0 z-[60] bg-[var(--scrim)] [animation:max-fade_120ms_ease]" />
         <D.Content
           aria-describedby={undefined}
+          onOpenAutoFocus={() => {
+            returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          }}
+          onCloseAutoFocus={(event) => {
+            // Keyboard shortcuts have no Dialog.Trigger for Radix to restore.
+            // Leave focus alone when a command has opened another dialog.
+            event.preventDefault();
+            const target = returnFocus.current;
+            if (target?.isConnected && document.activeElement === document.body) target.focus({ preventScroll: true });
+            returnFocus.current = null;
+          }}
           className="fixed start-1/2 top-[12vh] z-[61] w-[min(640px,calc(100vw-24px))] -translate-x-1/2 overflow-hidden rounded-xl bg-overlay shadow-dialog outline-none [animation:max-in_150ms_var(--ease)] rtl:translate-x-1/2 max-sm:top-2"
         >
           <D.Title className="sr-only">Search</D.Title>

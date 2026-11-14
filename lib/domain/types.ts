@@ -127,6 +127,9 @@ export type PropertyValue = string | number | boolean | string[] | null;
 export interface PageRow {
   _id: string;
   ownerId: string;
+  /** Additive v2 scope. Legacy unscoped rows remain personal until backfilled. */
+  workspaceId?: string;
+  teamspaceId?: string | null;
   kind: PageKind;
   parentId: string | null;
   /** Set when this page is a record inside a personal database. */

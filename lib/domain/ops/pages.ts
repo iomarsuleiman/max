@@ -460,6 +460,33 @@ async function removePageCompletely(ctx: OpContext, page: PageRow) {
   await ctx.db.delete("pages", page._id);
 }
 
+/** Resolve the complete order before file removal; parents must outlive their rows. */
+function deletionOrder(pages: PageRow[]): PageRow[] {
+  const byId = new Map(pages.map((page) => [page._id, page]));
+  const childrenLeft = new Map(pages.map((page) => [page._id, 0]));
+  for (const page of pages) {
+    const parentId = page.parentId ?? page.databaseId;
+    if (parentId && byId.has(parentId)) childrenLeft.set(parentId, (childrenLeft.get(parentId) ?? 0) + 1);
+  }
+  const ready = pages.filter((page) => childrenLeft.get(page._id) === 0);
+  const ordered: PageRow[] = [];
+  while (ready.length) {
+    const page = ready.pop();
+    if (!page) break;
+    ordered.push(page);
+    const parentId = page.parentId ?? page.databaseId;
+    if (parentId && byId.has(parentId)) {
+      const count = (childrenLeft.get(parentId) ?? 0) - 1;
+      childrenLeft.set(parentId, count);
+      const parent = byId.get(parentId);
+      if (count === 0 && parent) ready.push(parent);
+    }
+  }
+  if (ordered.length !== pages.length || byId.size !== pages.length)
+    throw new MaxError("CONFLICT", "The trash contains an invalid page hierarchy. Restore its structure before deleting it.");
+  return ordered;
+}
+
 export const pagesDeletePermanently = defineOp({
   name: "pages.deletePermanently",
   kind: "mutation",
@@ -471,7 +498,7 @@ export const pagesDeletePermanently = defineOp({
     const page = await requirePage(ctx, pageId, { allowArchived: true });
     if (!page.archivedAt) throw new MaxError("VALIDATION", "Move the page to the trash first; only trashed pages can be deleted permanently.");
     const pages = await allPages(ctx);
-    const members = [page, ...descendants(pages, pageId)];
+    const members = deletionOrder([page, ...descendants(pages, pageId)]);
     for (const p of members) await removePageCompletely(ctx, p);
     return { deleted: members.length };
   },
@@ -487,7 +514,7 @@ export const trashEmpty = defineOp({
   async run(ctx) {
     const pages = await allPages(ctx);
     const trashed = pages.filter((p) => p.archivedAt);
-    for (const p of trashed) await removePageCompletely(ctx, p);
+    for (const p of deletionOrder(trashed)) await removePageCompletely(ctx, p);
     return { deleted: trashed.length };
   },
 });

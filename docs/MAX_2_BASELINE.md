@@ -68,12 +68,19 @@ must be validated separately before a cloud migration can run.
 
 ## Remaining phase 00 work
 
-- Validate a cloud database and file backup in an isolated deployment.
-- Commit visual baselines for narrow/wide desktop, mobile, both themes and RTL;
-  audit focus return, screen readers, reduced motion and 200% zoom.
-- Measure navigation, editor latency, memory, bundles and Convex traffic. Existing
-  targets in `PERFORMANCE.md` are targets, not measured baseline results.
-- Finalize grant precedence and post-revocation draft behavior from
+- Cloud recovery evidence is now recorded in [CLOUD_RECOVERY.md](CLOUD_RECOVERY.md).
+  Live Clerk/browser and Next.js attachment-proxy checks remain separate.
+- Platform visual baselines now cover narrow/wide desktop, mobile, both themes
+  and RTL with 48 viewport tiles. A fresh repeat had zero changed pixels.
+  Automated focus, reduced-motion and CSS reflow checks
+  pass; screen-reader and native browser zoom checks still need human evidence.
+- Local navigation, editor latency, memory and bundle samples are recorded in
+  [V2_MEASUREMENTS.md](V2_MEASUREMENTS.md). A bounded cloud subscription sample
+  is in the recovery report. Deployed Web Vitals and real-device budgets remain
+  unverified.
+- Grant precedence is defined and tested in
+  [COLLABORATION_POLICY.md](COLLABORATION_POLICY.md). Finalize post-revocation
+  draft behavior from
   [the collaboration ADR](adr/0001-collaboration-boundaries.md); specify rollout
   flags, staging data and cloud operator commands.
 - Internal usability pass and manual assistive-technology verification.
@@ -121,4 +128,32 @@ in this starting slice.
 - Offline installation from the frozen lockfile succeeds. Package patch files
   use LF endings so their recorded checksums stay stable across platforms.
 - CI now runs backup checks and retains browser artifacts on successful runs as
-  well as failures. No cloud deployment or production data was modified.
+  well as failures. The initial baseline did not modify cloud deployments or
+  production data. The continuation below uses separate disposable cloud data.
+
+## Continuation evidence, 2026-11-11
+
+- A real cloud backup/restore drill used two new, expiring, nondefault development
+  deployments. Archive comparison retained 15 tables, 32 rows including metadata,
+  and two files byte-for-byte. Independent read-only rechecking of the deployed
+  operations confirmed corpus/IDs/revisions, anchored comments, database rows,
+  archive state, attachment bytes/MIME and seven cross-account denials. The
+  existing Max development and production deployments were unchanged. See
+  [the exact scope and authentication limits](CLOUD_RECOVERY.md).
+- The pure permission evaluator has 117 adversarial capability cases. It is not
+  connected to the operation dispatcher and does not authorize shared reads.
+- The [workspace migration rehearsal](WORKSPACE_MIGRATION.md) derives stable
+  personal-workspace mappings, preserves original rows and document bytes,
+  rejects invalid/cross-owner ancestry, verifies artifact integrity, and proves
+  exact rollback. Its expanded format is not accepted by live storage adapters.
+- Search dismissal now restores keyboard focus to the editor without taking it
+  from a newly opened Settings dialog. All 36 browser cases passed across
+  desktop/mobile Chromium and mobile WebKit. The browser runner now uses a new
+  synthetic workspace per run and works without shell-specific recursive deletes.
+- Local measurements and full-corpus visual references have reproducible tools
+  and explicit environment limits. They do not certify a collaborative release.
+
+The application remains on its existing single-owner storage and save protocol.
+No production migration or shared-access rollout has occurred. Phase 00 is not
+declared complete while the remaining checks above lack evidence, and later
+phase groundwork must not be mistaken for a shipped Max 2.0.

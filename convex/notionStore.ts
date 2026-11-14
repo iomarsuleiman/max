@@ -2,6 +2,7 @@
 import { ConvexError, v } from "convex/values";
 import { execute } from "../lib/domain/ops";
 import { convexDb, convexStorage } from "./convexDb";
+import { convexPersonalDb } from "./personalDb";
 import { object, objects, text, taskSchema, IMPORT_LIMITS } from "../lib/notion/types";
 import { convertProperties, convertValues } from "../lib/notion/convert";
 import { parseContent, walk } from "../lib/domain/blocks";
@@ -37,7 +38,7 @@ export const write = internalMutationGeneric({
       .query("notionConnections")
       .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
       .first();
-    const domain = { db: convexDb(ctx.db), storage: convexStorage(ctx.storage), ownerId, now, source: "ui" as const };
+    const domain = { db: await convexPersonalDb(ctx.db, convexDb(ctx.db), ownerId), storage: convexStorage(ctx.storage), ownerId, now, source: "ui" as const };
     if (command === "state") {
       const old = await ctx.db
         .query("notionStates")

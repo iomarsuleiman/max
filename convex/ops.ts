@@ -4,6 +4,7 @@ import { execute } from "../lib/domain/ops";
 import { MaxError, serializeError } from "../lib/domain/errors";
 import { convexDb, convexStorage } from "./convexDb";
 import { purgeNotionAccount } from "./notionCleanup";
+import { convexPersonalDb } from "./personalDb";
 
 /**
  * Every Max operation runs through these four functions. The browser calls `query`/`mutation`
@@ -34,7 +35,9 @@ async function run(
   kind: "query" | "mutation",
 ) {
   try {
-    const result = await execute(op, args, { db: convexDb(ctx.db), storage: convexStorage(ctx.storage), ownerId, now: Date.now(), source }, kind);
+    const db = await convexPersonalDb(ctx.db, convexDb(ctx.db), ownerId);
+    if (op === "account.deleteAllData") await db.preflightAccountDeletion();
+    const result = await execute(op, args, { db, storage: convexStorage(ctx.storage), ownerId, now: Date.now(), source }, kind);
     if (op === "account.deleteAllData") await purgeNotionAccount(ctx, ownerId);
     return result;
   } catch (err) {

@@ -74,6 +74,8 @@ tests/unit · e2e     Vitest domain tests and Playwright journeys
 
 [Local backup and recovery](docs/LOCAL_BACKUP.md) · [Max 2.0 implementation baseline](docs/MAX_2_BASELINE.md)
 
+[Isolated cloud recovery](docs/CLOUD_RECOVERY.md) · [Workspace migration rehearsal](docs/WORKSPACE_MIGRATION.md) · [Collaboration permission contract](docs/COLLABORATION_POLICY.md)
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE). The editor is adapted from the Chaos project (same license). Third-party libraries keep their own licenses; the multi-column editor package (`@blocknote/xl-multi-column`) is GPL-3.0, which is compatible with AGPL-3.0. The Max logo is not covered by the code license; see [assets/README.md](assets/README.md).

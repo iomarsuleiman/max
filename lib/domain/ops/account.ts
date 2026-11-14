@@ -208,8 +208,20 @@ export const accountDeleteAllData = defineOp({
   description: "Permanently deletes every page, database, file, token, setting and log in this account. This cannot be undone.",
   input: z.object({ confirm }),
   async run(ctx) {
+    await ctx.db.preflightAccountDeletion?.();
+    const remaining = new Map((await ctx.db.list("pages", ctx.ownerId)).map((page) => [page._id, page]));
+    const orderedPages: PageRow[] = [];
+    while (remaining.size) {
+      const parents = new Set([...remaining.values()].flatMap((page) => [page.parentId, page.databaseId]).filter((id) => id !== null));
+      const leaves = [...remaining.values()].filter((page) => !parents.has(page._id));
+      if (!leaves.length) throw new MaxError("CONFLICT", "Page ancestry must be repaired before deleting this account.");
+      for (const page of leaves) {
+        orderedPages.push(page);
+        remaining.delete(page._id);
+      }
+    }
     let removed = 0;
-    for (const table of ["documents", "versions", "comments", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
+    for (const table of ["documents", "versions", "comments", "settings", "tokens", "audit", "idempotency"] as const) {
       for (const row of await ctx.db.list(table, ctx.ownerId)) {
         await ctx.db.delete(table, row._id);
         removed++;
@@ -218,6 +230,12 @@ export const accountDeleteAllData = defineOp({
     for (const asset of await ctx.db.list("assets", ctx.ownerId)) {
       await ctx.storage?.remove(asset.storageId).catch(() => undefined);
       await ctx.db.delete("assets", asset._id);
+      removed++;
+    }
+    // Keep parent scope available while deleting dependent rows. Remove leaves
+    // first so every deletion still resolves its complete personal ancestry.
+    for (const page of orderedPages) {
+      await ctx.db.delete("pages", page._id);
       removed++;
     }
     return { removed };
@@ -312,13 +330,12 @@ export const assetsRegister = defineOp({
     alt: z.string().max(500).optional(),
   }),
   async run(ctx, input) {
-    const remove = () => ctx.storage?.remove(input.storageId).catch(() => undefined);
+    // A request-supplied storage ID is not proof that this account uploaded it.
+    // Validation must never delete bytes before ownership has been established.
     if (!UPLOAD_TYPES.includes(input.type.toLowerCase())) {
-      await remove();
       throw new MaxError("VALIDATION", `"${input.name}" isn't a supported file type. Max stores images, PDFs, office documents, text, ZIP archives, audio and video.`);
     }
     if (input.size > LIMITS.uploadBytes) {
-      await remove();
       throw new MaxError("LIMIT", `"${input.name}" is larger than 50 MB. Compress it or split it, then upload again.`);
     }
     if (input.pageId) await requirePage(ctx, input.pageId);

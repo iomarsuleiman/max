@@ -5,6 +5,7 @@ import path from "node:path";
 import { EventEmitter } from "node:events";
 import { MemoryDb } from "@/lib/domain/memoryDb";
 import { execute } from "@/lib/domain/ops";
+import { createPersonalDb } from "@/lib/domain/collaboration/personalDb";
 import type { Storage } from "@/lib/domain/db";
 import type { Source } from "@/lib/domain/types";
 
@@ -84,13 +85,17 @@ export async function readLocalFile(id: string): Promise<{ body: Buffer; type: s
 export async function runLocal(op: string, args: unknown, source: Source, ownerId = LOCAL_OWNER, kind?: "query" | "mutation") {
   const s = state();
   await s.db.load();
-  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source };
+  const db = createPersonalDb({ db: s.db, ownerId });
+  const ctx = { db, storage: localStorageAdapter, ownerId, now: Date.now(), source };
   const { registry } = await import("@/lib/domain/ops");
   const def = registry.get(op);
   if (def?.kind === "query") return execute(op, args, ctx, kind);
   const run = s.lock.then(async () => {
     try {
-      const result = await s.db.transaction(() => execute(op, args, ctx, kind));
+      const result = await s.db.transaction(async () => {
+        if (op === "account.deleteAllData") await db.preflightAccountDeletion();
+        return execute(op, args, ctx, kind);
+      });
       await s.db.persist();
       s.events.emit("change", { op, source });
       return result;

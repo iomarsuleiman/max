@@ -271,6 +271,7 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .mx-bookmark { display: flex; width: 100%; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; text-decoration: none; color: var(--fg); }
 .mx-bookmark:hover { background: var(--hover); }
 .mx-bookmark__body { flex: 1; min-width: 0; padding: 12px 14px; display: grid; gap: 4px; }
+.mx-bookmark__body input { min-height: 24px; }
 .mx-bookmark__url { font-size: 12px; color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Table of contents */
 .mx-toc { width: 100%; display: grid; gap: 1px; padding: 4px 0; }
@@ -307,7 +308,7 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .mx-embed { position: relative; }
 .mx-embed iframe { width: 100%; height: auto; aspect-ratio: calc(1 / var(--aspect, 0.5625)); min-height: 120px; border: 0; border-radius: 8px; background: var(--surface-2); }
 .mx-embed figcaption { font-size: 12px; color: var(--fg-3); }
-.mx-embed figcaption a { color: inherit; }
+.mx-embed figcaption a { display: inline-flex; align-items: center; min-width: 24px; min-height: 24px; color: inherit; }
 .mx-inline-db { width: 100%; cursor: default; }
 .mx-inline-db section { padding-top: 0 !important; }
 .mx-date { display: inline-flex; padding: 0 3px; border-radius: 4px; color: var(--fg-2); background: var(--hover); font-size: 0.95em; white-space: nowrap; }

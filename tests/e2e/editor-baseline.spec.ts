@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { writeFile } from "node:fs/promises";
 import fixture from "../fixtures/editor-document.json";
 import { normalizeBlocks, walk, type Block } from "@/lib/domain/blocks";
 import { remapDocumentReferences } from "@/lib/domain/importReferences";
@@ -22,6 +23,7 @@ function canonicalContent(content: Block["content"]) {
 }
 
 test("the complete editor corpus survives editing, reload, themes and narrow RTL layouts", async ({ page, request }, testInfo) => {
+  test.setTimeout(180_000);
   await page.clock.setFixedTime(new Date("2026-11-10T12:00:00Z"));
   // The baseline records Max, without loading third-party players or embeds.
   await page.route(/https:\/\/(?:www\.)?(?:youtube(?:-nocookie)?\.com|figma\.com)\//, (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Fixture embed</title>" }));
@@ -80,14 +82,51 @@ test("the complete editor corpus survives editing, reload, themes and narrow RTL
   ]) {
     await page.setViewportSize({ width: mode.width, height: mode.height });
     await page.evaluate(({ dark, dir }) => { document.documentElement.classList.toggle("dark", dark); document.documentElement.dir = dir; }, mode);
+    await page.locator("#page-scroll").evaluate((element) => { element.scrollTop = 0; });
+    await page.locator("#page-scroll").evaluate((element) => { element.scrollTop = 0; });
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await expect(editor).toContainText("Heading one edited");
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth), mode.name).toBeLessThanOrEqual(1);
     await expect.poll(() => page.locator("#page-scroll").evaluate((element) => element.scrollWidth - element.clientWidth), mode.name).toBeLessThanOrEqual(1);
-    const audit = await new AxeBuilder({ page }).include(".lx-editor").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+    // Provider content is synthetic and outside Max's UI scope. Keep auditing
+    // the wrapper/caption, and verify each iframe's own accessible name here.
+    expect(await editor.locator("iframe").evaluateAll((frames) => frames.every((frame) => Boolean(frame.getAttribute("title")?.trim())))).toBe(true);
+    const audit = await new AxeBuilder({ page }).include(".lx-editor").exclude("iframe").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
     expect(audit.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })), mode.name).toEqual([]);
     const screenshot = testInfo.outputPath(`${mode.name}.png`);
     await page.screenshot({ path: screenshot, animations: "disabled" });
     await testInfo.attach(mode.name, { path: screenshot, contentType: "image/png" });
+    // Element screenshots are clipped by the real scrolling ancestors. Capture
+    // overlapping viewport tiles so below-fold content is actually painted.
+    await editor.locator('[data-id="gold-diagram"][data-node-type="blockOuter"]').scrollIntoViewIfNeeded();
+    const diagram = editor.locator('.lx-diagram img[alt="Diagram"]');
+    await expect(diagram).toBeVisible();
+    await expect.poll(() => diagram.evaluate((element) => element instanceof HTMLImageElement && element.complete && element.naturalWidth > 0)).toBe(true);
+    const scroller = page.locator("#page-scroll");
+    const bounds = await scroller.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (!bounds) throw new Error("The page scroll surface is missing.");
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error("The visual baseline requires a fixed viewport.");
+    const clip = { x: Math.ceil(bounds.x), y: Math.ceil(bounds.y), width: Math.floor(Math.min(bounds.width, viewport.width - bounds.x)), height: Math.floor(Math.min(bounds.height, viewport.height - bounds.y)) };
+    const geometry = await scroller.evaluate((element) => ({ contentHeight: element.scrollHeight, viewportHeight: element.clientHeight }));
+    const step = geometry.viewportHeight - 24;
+    const last = Math.max(0, geometry.contentHeight - geometry.viewportHeight);
+    const offsets = [...new Set([...Array.from({ length: Math.ceil(last / step) }, (_, index) => Math.min(index * step, last)), last])];
+    const tiles = [];
+    for (const [index, scrollTop] of offsets.entries()) {
+      await scroller.evaluate((element, top) => { element.scrollTop = top; }, scrollTop);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const tileAudit = await new AxeBuilder({ page }).include(".lx-editor").exclude("iframe").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+      expect(tileAudit.violations.map((violation) => ({ id: violation.id, nodes: violation.nodes.map((node) => ({ target: node.target, html: node.html, summary: node.failureSummary })) })), `${mode.name} tile ${index}`).toEqual([]);
+      const filename = `reference-${mode.name}-tile-${String(index).padStart(2, "0")}.png`;
+      const reference = testInfo.outputPath(filename);
+      await page.screenshot({ path: reference, clip, animations: "disabled" });
+      tiles.push({ filename, scrollTop: await scroller.evaluate((element) => element.scrollTop), clip, ...geometry });
+      await testInfo.attach(filename, { path: reference, contentType: "image/png" });
+    }
+    await expect(editor.locator('[data-id="gold-left-text"][data-node-type="blockOuter"]')).toBeInViewport();
+    await writeFile(testInfo.outputPath(`reference-${mode.name}.json`), JSON.stringify({ mode: mode.name, tiles }, null, 2));
   }
   await expect(page.getByText("The editor stopped working", { exact: true })).toHaveCount(0);
   await expect(page.locator(".lx-block-crash")).toHaveCount(0);

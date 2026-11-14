@@ -8,6 +8,8 @@ export type NewRow<T extends TableName> = Omit<Tables[T], "_id">;
  * Ownership is enforced by the operations, never by callers.
  */
 export interface Db {
+  /** Scoped adapters must reject mixed or unresolved content before account-wide removal. */
+  preflightAccountDeletion?(): Promise<void>;
   get<T extends TableName>(table: T, id: string): Promise<Tables[T] | null>;
   /** Rows owned by `ownerId`, optionally narrowed by one indexed equality. */
   list<T extends TableName>(

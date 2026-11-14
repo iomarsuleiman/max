@@ -1,10 +1,12 @@
 ﻿import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { collaborationTables } from "./collaborationSchema";
 
 const nullableString = v.union(v.string(), v.null());
 const nullableNumber = v.union(v.number(), v.null());
 
 export default defineSchema({
+  ...collaborationTables,
   notionConnections: defineTable({
     ownerId: v.string(),
     workspaceId: v.string(),
@@ -59,6 +61,8 @@ export default defineSchema({
     .index("by_job", ["jobId"]),
   pages: defineTable({
     ownerId: v.string(),
+    workspaceId: v.optional(v.string()),
+    teamspaceId: v.optional(nullableString),
     kind: v.union(v.literal("page"), v.literal("database")),
     parentId: nullableString,
     databaseId: nullableString,
