@@ -58,7 +58,7 @@ export const collaborationTables = {
   )
     .index("by_logicalId", ["logicalId"])
     .index("by_kind_ownerId", ["kind", "ownerId"]),
-  collabMemberships: defineTable({ workspaceId: v.string(), userId: v.string(), role, state: memberState, joinedAt: v.number(), updatedAt: v.number() })
+  collabMemberships: defineTable({ workspaceId: v.string(), userId: v.string(), displayName: v.optional(v.string()), role, state: memberState, joinedAt: v.number(), updatedAt: v.number() })
     .index("by_workspaceId_userId", ["workspaceId", "userId"])
     .index("by_userId_workspaceId", ["userId", "workspaceId"]),
   collabGroups: defineTable({ logicalId: v.string(), workspaceId: v.string(), name: v.string(), state, createdAt: v.number(), updatedAt: v.number() })

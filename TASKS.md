@@ -149,6 +149,12 @@ User priority: complete create-workspace, invite, join, share, edit from both ac
 
 - [x] Canonicalize page grants and guard group changes, Guest admission and reactivation against indirect permission expansion; verify 84 targeted cases and 23 native index paths.
 - [x] Prevent credential/capability results entering idempotency caches, including secret-bearing batches; quarantine older unclassified batch results.
-- [ ] Expose authenticated workspace/invitation APIs and connect their UI.
-- [ ] Create and share scoped pages through an authenticated content API, retaining the existing full editor schema and revision checks.
+- [x] Expose authenticated workspace/invitation APIs and connect their UI, including manual invite links and verified-email acceptance.
+- [x] Create and share scoped pages through an authenticated content API, retaining the existing full editor schema and revision checks.
 - [ ] Complete two-account edit/conflict/revocation behavior and test the full UI flow.
+- [x] Verify the public backend journey without seeded memberships: create, invite, verified join, private page, view/content-edit/edit grants, both-account saves, stale conflict and immediate membership revocation.
+- [x] Add shared routes, a personal-sidebar entry, member controls, reactive permission-filtered pagination and revision-aware document drafts. Quarantine drafts on access loss without deleting them if storage is full; malformed server documents cannot mount a blank editor.
+- [x] Run the full check suite: 487 unit cases, 24 backup cases and four cloud archive cases. Compile/deploy only to the anonymous local verifier and repeat the actual 50 MiB HTTP upload proof.
+- [x] Pass the production build and all 38 desktop/mobile browser regressions. Compare all 48 editor corpus tiles with zero changed pixels. Include local shared-route navigation, private-route indexing metadata and invitation referrer protection.
+- [ ] Verify the signed-in two-account browser journey against configured disposable cloud accounts. This checkout still has no configured Clerk/cloud app pair; local-mode browser tests do not substitute for this gate.
+- [ ] Enable shared attachments and databases only after fresh delivery authorization and their complete permission-aware flows are implemented.

@@ -12,7 +12,7 @@ export const COLLABORATION_LIMITS = {
 };
 
 export type CollaborationWorkspace = PolicyWorkspace & { name: string; createdAt: number; updatedAt: number };
-export type CollaborationMembership = WorkspaceMembership & { joinedAt: number; updatedAt: number };
+export type CollaborationMembership = WorkspaceMembership & { displayName?: string; joinedAt: number; updatedAt: number };
 export type CollaborationGroupMembership = GroupMembership & { createdAt: number; updatedAt: number };
 
 export interface CollaborationGroup {

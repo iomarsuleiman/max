@@ -1,4 +1,4 @@
-﻿import { defineSchema, defineTable } from "convex/server";
+import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { collaborationTables } from "./collaborationSchema";
 import { uploadTables } from "./uploadSchema";
@@ -88,6 +88,7 @@ export default defineSchema({
     values: v.optional(v.any()),
   })
     .index("by_owner", ["ownerId"])
+    .index("by_workspaceId", ["workspaceId"])
     .index("by_owner_parentId", ["ownerId", "parentId"])
     .index("by_owner_databaseId", ["ownerId", "databaseId"]),
   documents: defineTable({
@@ -101,7 +102,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_owner", ["ownerId"])
-    .index("by_owner_pageId", ["ownerId", "pageId"]),
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_pageId", ["pageId"]),
   settings: defineTable(v.any()).index("by_owner", ["ownerId"]),
   assets: defineTable({
     ownerId: v.string(),

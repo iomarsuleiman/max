@@ -28,6 +28,7 @@ import {
   Trash2,
   X,
   Waypoints,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { IconButton, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Popover, Skeleton, cn } from "@/components/ui";
@@ -93,6 +94,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
       <nav className="grid gap-px ps-4 pe-2 pb-2" aria-label="Main">
         <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
         <NavLink href="/templates" icon={<LayoutTemplate />} label="Templates" />
+        <NavLink href="/spaces" icon={<Users />} label="Workspaces" />
         <NavLink href="/graph" icon={<Waypoints />} label="Graph view" />
         <NavButton icon={<Download />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
       </nav>
