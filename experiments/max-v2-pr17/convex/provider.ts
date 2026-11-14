@@ -113,7 +113,7 @@ async function requireSession(ctx: Ctx, sessionId: SessionId, capability: "view"
  * Read-only members cannot create content or gain write permission by joining. */
 export const join = mutationGeneric({
   args: { workspaceId: v.string(), pageId: v.string() },
-  returns: v.object({ sessionId: v.id("labSessions"), expiresAt: v.number(), headSeq: v.number() }),
+  returns: v.object({ sessionId: v.id("labSessions"), expiresAt: v.number(), headSeq: v.number(), accountId: v.string(), canEdit: v.boolean() }),
   handler: async (ctx, { workspaceId, pageId }) => {
     gate();
     const accountId = await principal(ctx);
@@ -138,7 +138,7 @@ export const join = mutationGeneric({
       roomId: room._id, workspaceId, pageId, accountId, issuedAt,
       expiresAt, revokedAt: null,
     });
-    return { sessionId, expiresAt, headSeq: room.nextSeq };
+    return { sessionId, expiresAt, headSeq: room.nextSeq, accountId, canEdit: await authorized(ctx, accountId, workspaceId, pageId, "edit_content") };
   },
 });
 
