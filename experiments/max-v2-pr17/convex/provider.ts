@@ -11,12 +11,13 @@
  * No snapshot overwrite, migration, untrusted replay or room-wide data export.
  */
 import { mutationGeneric, queryGeneric, type DataModelFromSchemaDefinition, type GenericMutationCtx, type GenericQueryCtx } from "convex/server";
-import { ConvexError, v, type Id } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { canAccessWorkspacePageFromServer, type WorkspaceAuthorizationStore } from "../../../lib/domain/workspaceAccessGateway";
 import { validPrincipalId, validScopeId, validWorkspaceId } from "../../../lib/domain/workspaceManagementPolicy";
 import schema from "./schema";
 
 type LabDataModel = DataModelFromSchemaDefinition<typeof schema>;
+type SessionId = string & { __tableName: "labSessions" };
 type Ctx = GenericQueryCtx<LabDataModel> | GenericMutationCtx<LabDataModel>;
 const MAX_AGE_MS = 5 * 60_000;
 const MAX_UPDATE_BASE64 = 21_848; // <= 16 KiB decoded
@@ -47,27 +48,27 @@ function aclStore(ctx: Ctx): WorkspaceAuthorizationStore {
       ctx.db.query("workspaces").withIndex("by_workspaceId", (q) => q.eq("workspaceId", id)).take(2),
     memberships: (id, account) =>
       ctx.db.query("workspaceMemberships").withIndex("by_workspace_account", (q) =>
-        q.eq("workspaceId", id).eq("accountId", account)).take(2),
+        (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(2),
     groups: async (id, account) =>
       (await ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) =>
-        q.eq("workspaceId", id).eq("accountId", account)).take(101))
+        (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(101))
         .map((row) => ({ workspaceId: row.workspaceId, accountId: row.accountId, id: row.groupId, status: row.status })),
     teamspaces: async (id, account) =>
       (await ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) =>
-        q.eq("workspaceId", id).eq("accountId", account)).take(101))
+        (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(101))
         .map((row) => ({ workspaceId: row.workspaceId, accountId: row.accountId, id: row.teamspaceId, status: row.status })),
     groupRegistrations: (id, groupId) =>
       ctx.db.query("workspaceGroups").withIndex("by_workspace_group", (q) =>
-        q.eq("workspaceId", id).eq("groupId", groupId)).take(2),
+        (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("groupId", groupId)).take(2),
     teamspaceRegistrations: (id, teamspaceId) =>
       ctx.db.query("workspaceTeamspaces").withIndex("by_workspace_teamspace", (q) =>
-        q.eq("workspaceId", id).eq("teamspaceId", teamspaceId)).take(2),
+        (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("teamspaceId", teamspaceId)).take(2),
     scopes: (id, pageId) =>
       ctx.db.query("workspacePageScopes").withIndex("by_workspace_page", (q) =>
-        q.eq("workspaceId", id).eq("pageId", pageId)).take(2),
+        (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("pageId", pageId)).take(2),
     grants: (id, pageId) =>
       ctx.db.query("workspacePageGrants").withIndex("by_workspace_page", (q) =>
-        q.eq("workspaceId", id).eq("pageId", pageId)).take(101),
+        (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("pageId", pageId)).take(101),
   } as WorkspaceAuthorizationStore;
 }
 async function authorized(ctx: Ctx, accountId: string, workspaceId: string, pageId: string,
@@ -83,7 +84,7 @@ async function authorized(ctx: Ctx, accountId: string, workspaceId: string, page
 }
 async function roomByScope(ctx: Ctx, workspaceId: string, pageId: string) {
   const rows = await ctx.db.query("labRooms").withIndex("by_scope", (q) =>
-    q.eq("workspaceId", workspaceId).eq("pageId", pageId)).take(2);
+    (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never }).eq("pageId", pageId)).take(2);
   if (rows.length > 1 || (rows[0] && (rows[0].workspaceId !== workspaceId ||
       rows[0].pageId !== pageId || rows[0].provider !== "blocknote-yjs"))) denied();
   return rows[0] ?? null;
@@ -91,7 +92,7 @@ async function roomByScope(ctx: Ctx, workspaceId: string, pageId: string) {
 
 /** All session checks take place in the SAME Convex transaction as the data read
  * or write. A prior successful join is never an access capability. */
-async function requireSession(ctx: Ctx, sessionId: Id<"labSessions">, capability: "view" | "edit_content") {
+async function requireSession(ctx: Ctx, sessionId: SessionId, capability: "view" | "edit_content") {
   gate();
   const accountId = await principal(ctx);
   const session = await ctx.db.get(sessionId);
@@ -129,7 +130,7 @@ export const join = mutationGeneric({
     }
     const oldSessions = await ctx.db.query("labSessions")
       .withIndex("by_workspace_account", (q) =>
-        q.eq("workspaceId", workspaceId).eq("accountId", accountId)).take(MAX_SESSIONS_PER_ACCOUNT + 1);
+        (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never }).eq("accountId", accountId)).take(MAX_SESSIONS_PER_ACCOUNT + 1);
     if (oldSessions.length >= MAX_SESSIONS_PER_ACCOUNT) denied();
     const issuedAt = Date.now();
     const expiresAt = issuedAt + MAX_AGE_MS;
@@ -158,7 +159,7 @@ export const readUpdates = queryGeneric({
     if (!Number.isSafeInteger(afterSeq) || afterSeq < 0 || afterSeq > room.nextSeq ||
         !Number.isSafeInteger(count) || count < 1 || count > 64) denied();
     const rows = await ctx.db.query("labUpdates")
-      .withIndex("by_room_seq", (q) => q.eq("roomId", room._id).gt("seq", afterSeq))
+      .withIndex("by_room_seq", (q) => (q.eq("roomId", room._id) as unknown as { gt(field: string, value: number): never }).gt("seq", afterSeq))
       .take(count + 1);
     if (rows.some((row) => row.roomId !== room._id || row.seq <= afterSeq)) denied();
     return {
@@ -188,7 +189,7 @@ export const appendUpdate = mutationGeneric({
     if (bytes < 1 || bytes > 16_384) denied();
     const duplicates = await ctx.db.query("labUpdates")
       .withIndex("by_room_actor_operation", (q) =>
-        q.eq("roomId", room._id).eq("actorId", accountId).eq("operationId", operationId))
+        (q.eq("roomId", room._id) as unknown as { eq(field: string, value: string): { eq(field: string, value: string): never } }).eq("actorId", accountId).eq("operationId", operationId))
       .take(2);
     if (duplicates.length > 1) denied();
     if (duplicates.length === 1) {
@@ -234,12 +235,12 @@ export const revokeMember = mutationGeneric({
     if (workspaces.length !== 1 || workspaces[0].ownerId !== accountId) denied();
     const members = await ctx.db.query("workspaceMemberships")
       .withIndex("by_workspace_account", (q) =>
-        q.eq("workspaceId", workspaceId).eq("accountId", targetAccountId)).take(2);
+        (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never }).eq("accountId", targetAccountId)).take(2);
     if (members.length !== 1 || members[0].role === "owner" ||
         members[0].status !== "active") denied();
     const leases = await ctx.db.query("labSessions")
       .withIndex("by_workspace_account", (q) =>
-        q.eq("workspaceId", workspaceId).eq("accountId", targetAccountId))
+        (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never }).eq("accountId", targetAccountId))
       .take(MAX_SESSIONS_PER_ACCOUNT + 1);
     if (leases.length > MAX_SESSIONS_PER_ACCOUNT) denied();
     await ctx.db.patch(members[0]._id, { status: "revoked" });
