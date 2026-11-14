@@ -97,7 +97,7 @@ function LabEditor({clerk,session,status,error,setError}){
 
     };
     return ()=>{delete window.__maxPr18;};
-  },[session,editor]);
+  },[session,editor,status.canEdit,status.state]);
   function fixture(){
     if(status.state!=="online"||!status.canEdit) return;
     editor.insertBlocks([
