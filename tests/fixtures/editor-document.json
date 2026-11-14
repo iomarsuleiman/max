@@ -1,0 +1,46 @@
+[
+  { "id": "gold-paragraph", "type": "paragraph", "props": { "textAlignment": "right" }, "content": [
+    { "type": "text", "text": "English العربية ", "styles": { "bold": true, "italic": true, "underline": true, "strike": true, "textColor": "red", "backgroundColor": "yellow" } },
+    { "type": "text", "text": "code", "styles": { "code": true } },
+    { "type": "link", "href": "https://example.com/reference?q=1#section", "content": [{ "type": "text", "text": "Reference", "styles": {} }] },
+    { "type": "pageMention", "props": { "pageId": "fixturepage001", "title": "Linked page" } },
+    { "type": "dateMention", "props": { "date": "2026-11-10" } }
+  ], "children": [] },
+  { "id": "gold-heading-1", "type": "heading", "props": { "level": 1 }, "content": "Heading one", "children": [] },
+  { "id": "gold-heading-2", "type": "heading", "props": { "level": 2 }, "content": "Heading two", "children": [] },
+  { "id": "gold-heading-3", "type": "heading", "props": { "level": 3, "isToggleable": true }, "content": "Toggle heading", "children": [
+    { "id": "gold-toggle-child", "type": "paragraph", "content": "Nested content", "children": [] }
+  ] },
+  { "id": "gold-quote", "type": "quote", "content": "A quote", "children": [] },
+  { "id": "gold-bullet", "type": "bulletListItem", "content": "Bullet", "children": [
+    { "id": "gold-nested-bullet", "type": "bulletListItem", "content": "Nested bullet", "children": [] }
+  ] },
+  { "id": "gold-numbered", "type": "numberedListItem", "props": { "start": 4 }, "content": "Fourth", "children": [] },
+  { "id": "gold-check", "type": "checkListItem", "props": { "checked": true }, "content": "Done", "children": [] },
+  { "id": "gold-toggle", "type": "toggleListItem", "content": "Toggle", "children": [
+    { "id": "gold-toggle-detail", "type": "paragraph", "content": "Details", "children": [] }
+  ] },
+  { "id": "gold-code", "type": "codeBlock", "props": { "language": "javascript" }, "content": "const greeting = 'مرحبا';", "children": [] },
+  { "id": "gold-callout", "type": "callout", "props": { "tone": "tip" }, "content": "Keep the originals", "children": [] },
+  { "id": "gold-equation", "type": "equation", "content": "\\frac{a}{b}", "children": [] },
+  { "id": "gold-divider", "type": "divider", "children": [] },
+  { "id": "gold-table", "type": "table", "props": {}, "content": { "type": "tableContent", "columnWidths": [160, 240], "headerRows": 1, "rows": [
+    { "cells": [ [{ "type": "text", "text": "Name", "styles": { "bold": true } }], { "type": "tableCell", "props": { "backgroundColor": "blue", "textColor": "default", "textAlignment": "right" }, "content": [{ "type": "text", "text": "القيمة", "styles": {} }] } ] },
+    { "cells": [ [{ "type": "pageMention", "props": { "pageId": "fixturepage001", "title": "Linked page" } }], [{ "type": "link", "href": "/p/linked-fixturepage001#gold-paragraph", "content": [{ "type": "text", "text": "Jump", "styles": {} }] }] ] }
+  ] }, "children": [] },
+  { "id": "gold-image", "type": "image", "props": { "name": "sample.png", "url": "max-asset://fixtureasset01", "caption": "Sample image", "alt": "A blue square", "previewWidth": 320, "showPreview": true }, "children": [] },
+  { "id": "gold-video", "type": "video", "props": { "name": "sample.mp4", "url": "max-asset://fixtureasset02", "caption": "Sample video", "previewWidth": 480, "showPreview": false }, "children": [] },
+  { "id": "gold-audio", "type": "audio", "props": { "name": "sample.wav", "url": "max-asset://fixtureasset03", "caption": "Sample audio", "showPreview": false }, "children": [] },
+  { "id": "gold-file", "type": "file", "props": { "name": "sample.pdf", "url": "max-asset://fixtureasset04", "caption": "Sample attachment" }, "children": [] },
+  { "id": "gold-youtube", "type": "youtube", "props": { "videoId": "dQw4w9WgXcQ", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "start": 12, "end": 30, "caption": "Watch range", "title": "Sample" }, "children": [] },
+  { "id": "gold-diagram", "type": "diagram", "props": { "text": "graph LR\n  A[Draft] --> B[Saved]" }, "children": [] },
+  { "id": "gold-page-link", "type": "pageLink", "props": { "pageId": "fixturepage001" }, "children": [] },
+  { "id": "gold-bookmark", "type": "bookmark", "props": { "url": "https://example.com/", "title": "Example" }, "children": [] },
+  { "id": "gold-toc", "type": "toc", "children": [] },
+  { "id": "gold-embed", "type": "embed", "props": { "url": "https://www.figma.com/file/fixture123/Example" }, "children": [] },
+  { "id": "gold-database", "type": "databaseView", "props": { "databaseId": "fixturedatabase01" }, "children": [] },
+  { "id": "gold-columns", "type": "columnList", "children": [
+    { "id": "gold-column-left", "type": "column", "props": { "width": 1 }, "children": [ { "id": "gold-left-text", "type": "paragraph", "content": "Left column", "children": [] } ] },
+    { "id": "gold-column-right", "type": "column", "props": { "width": 2 }, "children": [ { "id": "gold-right-text", "type": "paragraph", "content": "العمود الأيمن", "children": [] } ] }
+  ] }
+]
