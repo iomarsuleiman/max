@@ -51,13 +51,16 @@ function Lab({clerk}){
     session.provider.connect().catch(e=>setError(String(e.message??e)));
     return ()=>{void session.provider.destroy();session.doc.destroy();};
   },[session]);
-  window.__maxPr18={
+  useEffect(()=>{
+    window.__maxPr18={
     read:()=>({state:session.provider.state,pending:session.provider.pending.length,
       accountId:session.provider.accountId,cursor:session.provider.cursor,
       document:JSON.parse(JSON.stringify(editor.document)),
       error:session.provider.lastError?.message??null}),
     snapshot:()=>session.provider.exportSnapshot(),
-  };
+    };
+    return ()=>{delete window.__maxPr18;};
+  },[session,editor]);
   function fixture(){
     if(status.state!=="online"||!status.canEdit) return;
     editor.insertBlocks([
@@ -86,7 +89,7 @@ function Lab({clerk}){
       <button onClick={reviewReconnect}>Review, export & reconnect</button>
       <button onClick={()=>save(session.provider.exportSnapshot())}>Export Yjs snapshot</button>
     </nav>
-    <BlockNoteView editor={editor} editable={status.state==="online"&&status.canEdit}/>
+    <BlockNoteView editor={editor} editable={(status.state==="online"&&status.canEdit)||(status.state==="offline"&&session.provider.lastAuthorizedCanEdit)}/>
   </main>;
 }
 async function boot(){
