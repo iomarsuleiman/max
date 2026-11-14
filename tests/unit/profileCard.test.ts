@@ -143,11 +143,11 @@ describe("one workspace/card identity", () => {
     expect(profileCardSvg(defaultProfileCard("New member")).svg).toContain("NEW CARD");
   });
 
-  it("keeps the colored foil QR modules scannable at multiple reflection angles for every palette", async () => {
+  it.each(profileCardThemes)("keeps the %s foil QR scannable at every reflection angle", async (theme) => {
     const { default: sharp } = await import("sharp");
     const { default: jsQR } = await import("jsqr");
     const { PNG } = await import("pngjs");
-    for (const theme of profileCardThemes) for (const angle of [0, 90, 180, 270]) {
+    for (const angle of [0, 90, 180, 270]) {
       const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme, shape: "band" });
       const reflected = svg.replace('class="card-foil-gradient"', `class="card-foil-gradient" gradientTransform="rotate(${angle} .5 .5)"`);
       const png = PNG.sync.read(await sharp(Buffer.from(reflected)).resize(1080).extract({ left: 744, top: 1308, width: 264, height: 264 }).png().toBuffer());

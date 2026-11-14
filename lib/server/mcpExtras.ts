@@ -5,7 +5,7 @@ import TurndownService from "turndown";
 import { MaxError } from "@/lib/domain/errors";
 import { LIMITS, UPLOAD_TYPES } from "@/lib/domain/ops/helpers";
 import { runForOwner } from "./executor";
-import { saveLocalFile } from "./local";
+import { storeLocalUpload } from "./local";
 import { CLOUD } from "@/lib/config";
 
 /**
@@ -101,7 +101,7 @@ export async function uploadAsset(ownerId: string, input: { url?: string; base64
   if (!type || !UPLOAD_TYPES.includes(type)) throw new MaxError("VALIDATION", "That isn't a PNG, JPEG, WebP, GIF, AVIF or SVG image.");
   let storageId: string;
   if (!CLOUD) {
-    storageId = await saveLocalFile(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, type);
+    storageId = await storeLocalUpload(ownerId, new Blob([new Uint8Array(bytes)], { type }));
   } else {
     const { uploadUrl } = (await runForOwner(ownerId, "assets.createUploadUrl", {})) as { uploadUrl: string };
     const res = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": type }, body: bytes as BodyInit });

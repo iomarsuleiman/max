@@ -1,9 +1,9 @@
 # Personal workspace migration rehearsal
 
 The rehearsal builds and validates an additive copy of a verified local backup.
-It cannot migrate a running app or enable sharing. Live adapters still accept
-the v1 single-owner schema. Finish phase 00 and isolated cloud recovery before
-schema expansion or shared storage rollout.
+It cannot migrate a running app or enable sharing. The expanded rehearsal format
+is not accepted by live storage adapters. Finish the remaining recovery and
+authorization gates before shared storage rollout.
 
 ```powershell
 pnpm backup:local create --source C:/Max/data --destination D:/Backups/max-before-v2 --stopped
@@ -15,7 +15,7 @@ The destination must be new, outside the backup, with an existing parent.
 An interrupted run may leave partial files. Keep the backup and retry into a new
 destination. The source backup is verified before and after the rehearsal.
 
-`expanded.json` contains unchanged v1 tables plus proposed personal workspaces
+`expanded.json` contains the source tables plus proposed personal workspaces
 and owner memberships. Pages, documents, assets, versions and comments receive
 workspace IDs. Account settings, credential hashes, account activity and retry
 receipts retain their account scope. Existing credentials do not gain any
@@ -39,6 +39,20 @@ cross-owner parent/page references, hierarchy cycles, invalid document content
 or revisions, and already scoped rows. Custom block JSON and storage references
 remain unchanged. An empty personal workspace is derived for every account
 found in any table, including accounts with only settings or credentials.
+
+Nine-table snapshots produce version-one artifacts with the existing byte-for-byte
+rollback behavior. A tenth `uploadReceipts` table explicitly selects version two
+for both the artifact and expanded snapshot. An empty tenth table still selects
+version two. Version-one artifacts never accept a ten-table source.
+
+Version two preserves upload receipt fields and scope unchanged, including
+pending uploads. Receipt-only owners receive the same deterministic personal
+workspace mapping as other accounts. The planner validates receipt states,
+unique physical/logical IDs, capability hashes and storage IDs, and registered
+attachment ownership/metadata. It does not consume capabilities or register
+pending files. CLI rehearsal first verifies the version-two full backup, which
+also validates the actual receipt file bytes and MIME sidecars. The pure planner
+cannot inspect files and does not substitute for that backup verification.
 
 The pure apply/rollback helpers accept only the exact original or expanded
 snapshot. Retries converge to the same result. A changed snapshot causes an

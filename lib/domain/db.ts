@@ -1,6 +1,7 @@
 import type { TableName, Tables } from "./types";
 
-export type NewRow<T extends TableName> = Omit<Tables[T], "_id">;
+type WithoutId<Row> = Row extends unknown ? Omit<Row, "_id"> : never;
+export type NewRow<T extends TableName> = WithoutId<Tables[T]>;
 
 /**
  * The minimal persistence contract used by every operation. Implemented by the
@@ -36,7 +37,15 @@ export type IndexedField<T extends TableName> = T extends "pages"
           ? "pageId"
           : T extends "comments"
             ? "pageId"
-            : never;
+            : T extends "uploadReceipts"
+              ? "id" | "capabilityHash" | "blob.storageId"
+              : never;
+
+/** Local receipt persistence only; native Convex uses its dedicated indexed adapter. */
+export interface LocalUploadDb extends Db {
+  findUploadReceipts(query: { field: "id" | "capabilityHash" | "blob.storageId"; value: string }): Promise<Tables["uploadReceipts"][]>;
+  replaceUploadReceipt(id: string, row: NewRow<"uploadReceipts">): Promise<void>;
+}
 
 export interface Storage {
   /** URL the browser can POST a file body to. */

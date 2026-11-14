@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { z } from "zod";
 import { describe, expect, it } from "vitest";
 import { MemoryDb } from "@/lib/domain/memoryDb";
 import { canPage, type PolicyPage, type PolicySnapshot } from "@/lib/domain/collaboration/policy";
@@ -52,6 +53,73 @@ async function fixture() {
   });
   return { db, original: db.snapshot(), page, child };
 }
+
+describe("version two receipt-aware rehearsal", () => {
+  it("preserves upload receipts and receipt-only owners with exact reversible version two artifacts", async () => {
+    const { db } = await fixture();
+    const asset = (await db.list("assets", "alice"))[0];
+    await db.insert("uploadReceipts", {
+      id: "receipt-only",
+      ownerId: "receipt-only-owner",
+      capabilityHash: "a".repeat(64),
+      createdAt: 0,
+      expiresAt: 100,
+      state: "issued",
+    });
+    await db.insert("uploadReceipts", {
+      id: "registered",
+      ownerId: "alice",
+      capabilityHash: "b".repeat(64),
+      createdAt: 0,
+      expiresAt: 100,
+      state: "registered",
+      receivedByAttemptId: "attempt",
+      registeredAt: 1,
+      registrationKey: "registration-key",
+      assetId: asset._id,
+      blob: { storageId: asset.storageId, type: asset.type, size: asset.size, sha256: "c".repeat(64) },
+    });
+    const original = db.snapshot();
+    const plan = await planPersonalWorkspaceMigration(original);
+    expect(plan.version).toBe(2);
+    expect(JSON.parse(plan.expanded).version).toBe(2);
+    expect(JSON.parse(plan.expanded).tables.uploadReceipts).toEqual(JSON.parse(original).uploadReceipts);
+    expect(plan.mappings.map((mapping) => mapping.ownerId)).toContain("receipt-only-owner");
+    expect(await rollbackWorkspaceMigration(await applyWorkspaceMigration(original, plan), plan)).toBe(original);
+    expect(await verifyWorkspaceMigrationPlan(plan)).toEqual(plan);
+    for (const altered of [
+      { ...plan, version: 1 },
+      { ...plan, counts: { ...plan.counts, uploadReceipts: 0 } },
+    ])
+      await expect(verifyWorkspaceMigrationPlan(altered)).rejects.toThrow();
+  });
+
+  it("rejects malformed, duplicate and foreign registered receipts without widening version one", async () => {
+    const { original } = await fixture();
+    const source = z.record(z.string(), z.array(z.record(z.string(), z.unknown()))).parse(JSON.parse(original));
+    const receipt = { _id: "physical", id: "logical", ownerId: "alice", capabilityHash: "a".repeat(64), createdAt: 0, expiresAt: 100, state: "issued" };
+    for (const uploadReceipts of [
+      [{ ...receipt, state: "receiving" }],
+      [receipt, { ...receipt, _id: "physical-two", id: "logical-two" }],
+      [{ ...receipt, expiresAt: -1 }],
+      [
+        {
+          ...receipt,
+          state: "registered",
+          receivedByAttemptId: "attempt",
+          registeredAt: 1,
+          registrationKey: "key",
+          assetId: source.assets[0]._id,
+          ownerId: "foreign",
+          blob: { storageId: source.assets[0].storageId, type: "text/plain", size: 8, sha256: "b".repeat(64) },
+        },
+      ],
+    ])
+      await expect(planPersonalWorkspaceMigration(JSON.stringify({ ...source, uploadReceipts }))).rejects.toThrow();
+    expect((await planPersonalWorkspaceMigration(original)).version).toBe(1);
+    await expect(verifyWorkspaceMigrationPlan({ ...(await planPersonalWorkspaceMigration(original)), version: 2 })).rejects.toThrow();
+  });
+});
 
 describe("personal workspace migration rehearsal", () => {
   it("maps each original owner to an isolated personal policy context", async () => {

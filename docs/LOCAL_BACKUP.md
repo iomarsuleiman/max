@@ -25,6 +25,19 @@ The checksums detect accidental changes; they are not an authenticated signature
 The backup is unencrypted and contains private data and token hashes. Store it
 with the same access controls as the original data directory.
 
+Manifest version one requires the original nine tables. Version two adds
+`uploadReceipts` and validates receipt identity, ownership, state, actual file
+digests and MIME sidecars. An interrupted cleanup may reference an already
+removed file only when no attachment references those bytes. Version-one
+snapshots are not silently widened to accept extra tables. Restore receipt-bearing
+backups with a Max version that understands receipts.
+
+The local server commits deletion claims before removing files and resumes
+them on the next serialized operation after restart. It refuses cleanup if live
+references or changed bytes contradict the journal. Process death between initial
+file creation and receipt completion still requires inventory reconciliation;
+the full-directory backup preserves otherwise unreferenced files too.
+
 An interrupted or failed operation can leave a partial destination. Keep the
 original and use another new destination for a retry. A backup is complete only
 after `verify` succeeds. Do not edit the manifest to make a failure pass.

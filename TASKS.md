@@ -123,4 +123,15 @@ readiness.
 - [ ] Implement fresh shared-file delivery authorization and cache isolation before enabling shared content.
 - [x] Fix local disk-save failure rollback and persistence queue recovery; serialize token updates and reads with writes.
 - [x] Defer local physical file deletion until database commit so failed batches preserve actual bytes. Write file metadata before making new binary files visible.
-- [ ] Persist post-commit deletion cleanup work before physical deletion, including restart/crash recovery.
+- [x] Persist post-commit deletion cleanup work before physical deletion, including restart recovery before and after byte removal.
+
+## Local receipt continuation, 2026-11-14
+
+- [x] Persist local owner-bound upload capabilities and receipts; enforce the same registration path for UI and MCP.
+- [x] Verify restart before registration, concurrent single consumption, arbitrary-ID/foreign claims and injected save-failure rollback.
+- [x] Introduce explicit backup/rehearsal version two for receipt-bearing snapshots; preserve version-one exact-byte behavior.
+- [x] Validate live receipt files, interrupted cleanup journals, registered attachment ownership and exact reversible rehearsal.
+- [x] Recover committed deletion claims after restart and distinguish saved changes from unfinished physical cleanup.
+- [ ] Complete inventory reconciliation for process death between file creation and receipt completion, including account deletion racing an in-flight upload.
+- [ ] Retire native registered-upload receipts during authorized attachment deletion so completed upload history cannot permanently exhaust bounded account cleanup.
+- [x] Verify this local slice with 426 unit cases, 24 backup cases, four cloud-archive cases, the production build, the anonymous native probe and all 36 browser cases. All 48 corpus tiles match exactly.

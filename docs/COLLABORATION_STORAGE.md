@@ -53,6 +53,10 @@ personal ownership or explicit workspace scope and composes fresh membership,
 group, teamspace and ancestor policy reads in the same transaction. Before
 exposing group governance, membership changes must also check groups carrying
 private page access. Teamspace checks alone are insufficient.
+The reverse lookup must include both allow and deny grants. Removing a member
+or archiving a group can remove a deny and expand access; those operations need
+the same page authority checks as additions. Canonical indexed grant rows must
+replace the current array representation before group governance is exposed.
 
 ## Convex adapter
 

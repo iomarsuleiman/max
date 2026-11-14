@@ -14,7 +14,8 @@ Direct and batched calls cannot obtain legacy raw cloud upload URLs.
 The receipt state machine separates issued capabilities, receiving leases,
 stored bytes, registered assets and claimed cleanup. Cleanup eligibility ends
 before external deletion begins. Registered bytes cannot be claimed for cleanup.
-The generic sweeper and local/Notion receipt adapters remain unfinished.
+The local adapter also persists owner-bound capabilities and receipts. Notion
+receipt integration and the generic cloud sweeper remain unfinished.
 
 Account deletion preflights up to 1,000 receipts and checks global attachment
 references and actual native metadata before any file removal. It invalidates
@@ -52,7 +53,16 @@ The documented [HTTP action limits](https://docs.convex.dev/functions/http-actio
 explain why avoiding multiple full body copies matters.
 
 Existing personal attachment reads remain supported. Historical ownership is
-not invented from old metadata. Local uploads and trusted Notion transfers still
-need receipt persistence and recovery integration. Previously delivered public
+not invented from old metadata. Local UI and MCP uploads now share the same
+receipt flow, including restart before registration and rollback after a failed
+disk save. Local deletion commits cleanup claims before removing physical files;
+the next serialized operation resumes interrupted cleanup after restart. A
+registered receipt can be retired only by the trusted deletion path after fresh
+global reference and byte checks. Remaining references preserve their bytes.
+
+Version-two local backups include receipt rows and validate their actual files.
+Version-one nine-table backups remain unchanged. Rehearsal version two preserves
+receipt fields exactly and verifies exact rollback; it does not enable migration.
+Trusted Notion transfers still need receipt integration. Previously delivered public
 storage URLs cannot provide immediate revocation; shared delivery needs fresh
 authorization and cache isolation. Shared content remains disabled.

@@ -39,7 +39,8 @@ test("the complete editor corpus survives editing, reload, themes and narrow RTL
   for (const { block } of walk(blocks)) {
     if (!["image", "video", "audio", "file"].includes(block.type)) continue;
     const type = block.type === "image" ? "image/png" : block.type === "video" ? "video/mp4" : block.type === "audio" ? "audio/wav" : "application/pdf";
-    const upload = await request.post("/api/local/upload", { data: png, headers: { "Content-Type": type } });
+    const { uploadUrl } = await op<{ uploadUrl: string }>(request, "assets.createUploadUrl", {});
+    const upload = await request.post(uploadUrl, { data: png, headers: { "Content-Type": type } });
     expect(upload.ok()).toBe(true);
     const { storageId } = await upload.json();
     const asset = await op<{ url: string }>(request, "assets.register", { pageId: note._id, storageId, name: block.props.name, type, size: png.length });

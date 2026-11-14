@@ -1,4 +1,5 @@
 import type { ProfileCard } from "./profileCard";
+import type { UploadReceipt } from "./uploads";
 
 /** Shared domain types. Every row is owned by exactly one account (`ownerId`). */
 
@@ -287,6 +288,7 @@ export interface Tables {
   idempotency: IdempotencyRow;
   versions: VersionRow;
   comments: CommentRow;
+  uploadReceipts: UploadReceipt & { _id: string };
 }
 
 export type TableName = keyof Tables;

@@ -7,6 +7,9 @@ type Writer = GenericDatabaseWriter<GenericDataModel>;
 
 /** Adapts Convex's database to the domain Db contract. Writes throw inside queries (read-only). */
 export function convexDb(db: Reader | Writer): Db {
+  const legacyTable = (table: TableName) => {
+    if (table === "uploadReceipts") throw new Error("Use the native upload receipt adapter.");
+  };
   const writer = () => {
     if (!("insert" in db)) throw new Error("This operation needs a mutation.");
     return db as Writer;
@@ -14,12 +17,14 @@ export function convexDb(db: Reader | Writer): Db {
   const normalize = (table: TableName, id: string) => db.normalizeId(table, id);
   return {
     async get<T extends TableName>(table: T, id: string) {
+      legacyTable(table);
       const nid = normalize(table, id);
       if (!nid) return null;
       const row = await db.get(nid);
       return row ? (strip(row, table) as unknown as Tables[T]) : null;
     },
     async list<T extends TableName>(table: T, ownerId: string, where?: { field: IndexedField<T>; value: string | null }) {
+      legacyTable(table);
       const rows = where
         ? await db
             .query(table)
@@ -32,15 +37,18 @@ export function convexDb(db: Reader | Writer): Db {
       return rows.map((r) => strip(r, table) as unknown as Tables[T]);
     },
     async insert<T extends TableName>(table: T, row: NewRow<T>) {
+      legacyTable(table);
       return (await writer().insert(table, row as never)) as string;
     },
     async patch<T extends TableName>(table: T, id: string, patch: Partial<NewRow<T>>) {
+      legacyTable(table);
       const nid = normalize(table, id);
       if (!nid) throw new Error("Invalid id");
       const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
       await writer().patch(nid, clean as never);
     },
     async delete(table: TableName, id: string) {
+      legacyTable(table);
       const nid = normalize(table, id);
       if (nid) await writer().delete(nid);
     },
