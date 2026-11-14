@@ -25,6 +25,7 @@ jobs:
       - run: pnpm test
       - run: pnpm test:backup
       - run: node --test experiments/max-v2-pr21/recovery.test.mjs
+      - run: node --test experiments/max-v2-pr22/recovery-evidence.test.mjs
       - run: pnpm build
         env:
           MAX_LOCAL_MODE: "true"
