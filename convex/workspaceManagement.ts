@@ -78,15 +78,17 @@ export const createWorkspace = mutationGeneric({
     writeGate();
     const actorId = await authenticated(ctx);
     if (!validWorkspaceId(workspaceId)) denied();
-    const [existing, oldMembers, oldGroups, oldTeams, oldScopes, oldGrants] = await Promise.all([
+    const [existing, oldMembers, oldGroups, oldTeams, oldScopes, oldGrants, oldInvites, oldTeamspaceRegistry] = await Promise.all([
       ctx.db.query("workspaces").withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspaceMemberships").withIndex("by_workspace_account", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspacePageScopes").withIndex("by_workspace_page", (q) => q.eq("workspaceId", workspaceId)).take(1),
       ctx.db.query("workspacePageGrants").withIndex("by_workspace_page", (q) => q.eq("workspaceId", workspaceId)).take(1),
+      ctx.db.query("workspaceInvitations").withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId)).take(1),
+      ctx.db.query("workspaceTeamspaces").withIndex("by_workspace_teamspace", (q) => q.eq("workspaceId", workspaceId)).take(1),
     ]);
-    if ([existing, oldMembers, oldGroups, oldTeams, oldScopes, oldGrants].some((rows) => rows.length > 0)) denied();
+    if ([existing, oldMembers, oldGroups, oldTeams, oldScopes, oldGrants, oldInvites, oldTeamspaceRegistry].some((rows) => rows.length > 0)) denied();
     await ctx.db.insert("workspaces", { workspaceId, ownerId: actorId, status: "active" });
     await ctx.db.insert("workspaceMemberships", { workspaceId, accountId: actorId, role: "owner", status: "active" });
     await logChange(ctx, workspaceId, actorId, "workspace.created", workspaceId, null, "active");
@@ -104,7 +106,8 @@ export const setMembership = mutationGeneric({
     writeGate();
     const { workspace, actor } = await requireManager(ctx, a.workspaceId);
     const target = await membership(ctx, a.workspaceId, a.accountId);
-    if (!canManageMember(actor, workspace.ownerId, target, a)) denied();
+    // PR 05: a new account cannot bypass identity-bound invitation acceptance.
+    if (!target || !canManageMember(actor, workspace.ownerId, target, a)) denied();
     if (target?.role === a.role && target.status === a.status) return false;
     if (target) {
       await ctx.db.patch(target._id as never, { role: a.role, status: a.status });
