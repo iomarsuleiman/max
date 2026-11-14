@@ -7,6 +7,7 @@
     "test": "node --test ./provider-runtime.test.mjs"
   },
   "dependencies": {
+    "@blocknote/core": "0.55.0",
     "@convex-dev/prosemirror-sync": "0.2.7",
     "prosemirror-collab": "1.3.1",
     "prosemirror-model": "1.25.13",
