@@ -32,13 +32,14 @@ function fixture(options: Fixtures = {}): WorkspaceAuthorizationStore {
   const teamsRegistered = options.teamRegistry ?? [];
   return {
     workspaces: async (id) => id === workspaceId ? [{ workspaceId, ownerId: options.ownerId ?? owner.accountId, status: options.status ?? "active" }] : [],
-    memberships: async (id, accountId) => id === workspaceId ? members.filter((m) => m.accountId === accountId) : [],
-    groups: async (id, accountId) => id === workspaceId && members.some((m) => m.accountId === accountId) ? groups : [],
-    teamspaces: async (id, accountId) => id === workspaceId && members.some((m) => m.accountId === accountId) ? teams : [],
+    memberships: async (id, accountId) => id === workspaceId ? members.filter((m) => m.accountId === accountId).map((m) => ({ ...m, workspaceId: id })) : [],
+    groups: async (id, accountId) => id === workspaceId && members.some((m) => m.accountId === accountId) ? groups.map((g) => ({ ...g, workspaceId: id, accountId })) : [],
+    teamspaces: async (id, accountId) => id === workspaceId && members.some((m) => m.accountId === accountId) ? teams.map((t) => ({ ...t, workspaceId: id, accountId })) : [],
     groupRegistrations: async (id, groupId) => id === workspaceId && groupsRegistered.includes(groupId) ? [{ workspaceId, groupId }] : [],
     teamspaceRegistrations: async (id, teamspaceId) => id === workspaceId && teamsRegistered.includes(teamspaceId) ? [{ workspaceId, teamspaceId }] : [],
     scopes: async (id, page) => scopes.filter((s) => s.workspaceId === id && s.pageId === page),
     grants: async (id, page) => id === workspaceId ? grants.filter((g) => g.pageId === page).map((g) => ({
+      workspaceId: id, pageId: page,
       subjectType: g.subjectType, subjectId: g.subjectId, effect: g.effect, level: g.level,
     })) : [],
   };
