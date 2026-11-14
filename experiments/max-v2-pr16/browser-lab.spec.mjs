@@ -13,8 +13,27 @@ const getIds = (blocks) => {
   return ids;
 };
 const seed = async (page) => {
-  await page.goto("/");
-  await expect.poll(() => page.evaluate(() => window.__maxLab?.ready), { timeout: 45000 }).toBe(true);
+  const browserErrors = [];
+  page.on("pageerror", (error) => browserErrors.push("pageerror: " + error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push("console: " + message.text());
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400) browserErrors.push("http: " + response.status() + " " + response.url());
+  });
+  const response = await page.goto("/");
+  try {
+    await expect.poll(() => page.evaluate(() => window.__maxLab?.ready), { timeout: 12000 }).toBe(true);
+  } catch (cause) {
+    const pageState = await page.evaluate(() => ({
+      url: location.href,
+      title: document.title,
+      hasLab: Boolean(window.__maxLab),
+      body: (document.body?.innerText ?? "").slice(0, 250),
+    })).catch(() => null);
+    throw new Error("Isolated Max browser lab did not initialize: " +
+      JSON.stringify({ response: response?.status(), pageState, browserErrors: browserErrors.slice(0, 12) }), { cause });
+  }
   await page.evaluate(() => window.__maxLab.seed());
   await expect.poll(async () => (await readLab(page)).marked?.[1]?.id, { timeout: 35000 }).toBe("gold-callout");
 };
