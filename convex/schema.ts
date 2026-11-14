@@ -119,7 +119,9 @@ export default defineSchema({
     subjectId: v.string(),
     effect: v.union(v.literal("allow"), v.literal("deny")),
     level: v.union(v.literal("view"), v.literal("comment"), v.literal("edit_content"), v.literal("edit"), v.literal("full_access")),
-  }).index("by_workspace_page", ["workspaceId", "pageId"]),
+  })
+    .index("by_workspace_page", ["workspaceId", "pageId"])
+    .index("by_workspace_subject", ["workspaceId", "subjectType", "subjectId"]),
   // Append-only audit for staged workspace security writers. No shared content.
   workspaceSecurityEvents: defineTable({
     workspaceId: v.string(),

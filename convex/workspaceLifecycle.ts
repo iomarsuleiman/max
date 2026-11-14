@@ -143,8 +143,39 @@ export const acceptInvitation = mutationGeneric({
     const issuer = await member(ctx, invitation.workspaceId, invitation.createdByAccountId);
     const target = await member(ctx, invitation.workspaceId, identity);
     if (!canIssueInvitation(issuer, ws.ownerId, identity, invitation.role, target)) denied();
-    if (target) await ctx.db.patch(target._id as never, { role: invitation.role, status: "active" });
-    else await ctx.db.insert("workspaceMemberships", {
+    if (target) {
+      // Rejoining a revoked identity must NEVER resurrect inherited access from
+      // previous group/teamspace affiliations or direct page grants.
+      const [groups, teams, grants] = await Promise.all([
+        ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) =>
+          (q.eq("workspaceId", invitation.workspaceId) as unknown as {
+            eq(field: string, value: string): never;
+          }).eq("accountId", identity)).take(101),
+        ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) =>
+          (q.eq("workspaceId", invitation.workspaceId) as unknown as {
+            eq(field: string, value: string): never;
+          }).eq("accountId", identity)).take(101),
+        ctx.db.query("workspacePageGrants").withIndex("by_workspace_subject", (q) =>
+          (q.eq("workspaceId", invitation.workspaceId) as unknown as {
+            eq(field: string, value: string): { eq(field: string, value: string): never };
+          }).eq("subjectType", "account").eq("subjectId", identity)).take(201),
+      ]);
+      if (groups.length > 100 || teams.length > 100 || grants.length > 200 ||
+          groups.some((row) => row.workspaceId !== invitation.workspaceId || row.accountId !== identity) ||
+          teams.some((row) => row.workspaceId !== invitation.workspaceId || row.accountId !== identity) ||
+          grants.some((row) => row.workspaceId !== invitation.workspaceId ||
+            row.subjectType !== "account" || row.subjectId !== identity)) denied();
+      for (const group of groups) {
+        if (group.status !== "revoked") await ctx.db.patch(group._id as never, { status: "revoked" });
+      }
+      for (const team of teams) {
+        if (team.status !== "revoked") await ctx.db.patch(team._id as never, { status: "revoked" });
+      }
+      for (const grant of grants) await ctx.db.delete(grant._id as never);
+      await event(ctx, invitation.workspaceId, identity, "member.rejoin.access_reset", identity,
+        "revoked", groups.length + " groups / " + teams.length + " teamspaces / " + grants.length + " grants cleared");
+      await ctx.db.patch(target._id as never, { role: invitation.role, status: "active" });
+    } else await ctx.db.insert("workspaceMemberships", {
       workspaceId: invitation.workspaceId, accountId: identity, role: invitation.role, status: "active",
     });
     await ctx.db.patch(invitation._id, { status: "accepted", resolvedAt: Date.now() });
