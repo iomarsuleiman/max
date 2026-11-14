@@ -77,6 +77,7 @@ function LabEditor({clerk,session,status,error,setError}){
   useEffect(()=>{
     window.__maxPr18={
     read:()=>({state:session.provider.state,pending:session.provider.pending.length,
+      canEdit:session.provider.canEdit,
       accountId:session.provider.accountId,cursor:session.provider.cursor,
       document:JSON.parse(JSON.stringify(editor.document)),
       error:session.provider.lastError?.message??null}),
@@ -90,6 +91,9 @@ function LabEditor({clerk,session,status,error,setError}){
         return id;
       },
       persisted:()=>session.provider.persistBarrier,
+      downgradeMemberEdit:(targetAccountId)=>session.provider.transport.downgradeMemberEdit({
+        workspaceId:config.workspaceId,pageId:config.pageId,targetAccountId,
+      }),
       revokeMember:(targetAccountId)=>session.provider.transport.revokeMember({
         workspaceId:config.workspaceId,pageId:config.pageId,targetAccountId,
       }),
