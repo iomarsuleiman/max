@@ -76,3 +76,29 @@ jobs:
         working-directory: experiments/max-v2-pr15
       - run: npm test
         working-directory: experiments/max-v2-pr15
+
+
+  # PR16 disposable browser lab. Intentionally does not start Convex or
+  # exercise production workspaces; no real user data or credentials involved.
+  blocknote-browser-lab:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+        working-directory: experiments/max-v2-pr16
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm exec playwright test --config experiments/max-v2-pr16/playwright.config.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr16-browser-lab-results
+          path: test-results/
+          retention-days: 7
