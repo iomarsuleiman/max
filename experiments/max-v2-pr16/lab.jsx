@@ -101,6 +101,39 @@ window.__maxLab = {
     ]);
     return read();
   },
+  seedExpanded() {
+    if (!connected) throw Error("Fixture requires the explicitly connected lab");
+    insert(editors.alice, [
+      { id:"parity-heading", type:"heading",props:{level:2},
+        content:[{type:"text",text:"مراجعة عربية و English",styles:{}}] },
+      { id:"parity-callout-ar",type:"callout",props:{tone:"warning"},
+        content:[{type:"text",text:"تنبيه: preserve exact Arabic text",styles:{}}] },
+      { id:"parity-equation",type:"equation",
+        content:[{type:"text",text:"E = mc^2 + \\alpha",styles:{}}] },
+      { id:"parity-image",type:"image",props:{
+        url:"https://example.com/fixture.png",name:"synthetic.png",
+        alt:"Arabic figure وصف",caption:"caption حفظ",showPreview:false,previewWidth:280,
+      }},
+      { id:"parity-youtube",type:"youtube",props:{
+        videoId:"fixture0001",url:"https://youtube.com/watch?v=fixture0001",
+        start:15,end:40,caption:"Intro اختبار",title:"synthetic media",
+      }},
+      { id:"parity-diagram",type:"diagram",props:{text:"flowchart LR\\n A[Start] --> B[End]"}},
+      { id:"parity-bookmark",type:"bookmark",props:{
+        url:"https://example.com/article?lang=ar",title:"Article مقال",
+      }},
+      { id:"parity-toc",type:"toc" },
+      { id:"parity-embed",type:"embed",props:{url:""} },
+      { id:"parity-database",type:"databaseView",props:{databaseId:"fixture-db-001"}},
+      { id:"parity-inline",type:"paragraph",content:[
+        {type:"text",text:"أهلا ",styles:{}},
+        {type:"pageMention",props:{pageId:"fixturepage001",title:"ملاحظة"}},
+        {type:"text",text:" on ",styles:{}},
+        {type:"dateMention",props:{date:"2026-11-14"}},
+      ] },
+    ]);
+    return read();
+  },
   disconnect() {
     connected = false;
     return read();

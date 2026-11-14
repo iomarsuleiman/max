@@ -86,3 +86,43 @@ test("a synthetic Yjs snapshot reconstructs the same Max collaborative XML fragm
   expect(result.bytes).toBeGreaterThan(0);
   expect((await readLab(page)).yjsRestored).toBe(true);
 });
+
+test("broader real Max-schema custom/inline fixtures preserve IDs, metadata and Arabic across peers",async({page})=>{
+  await seed(page);
+  await page.evaluate(()=>window.__maxLab.seedExpanded());
+  const expected=[
+    ["parity-heading","heading"],["parity-callout-ar","callout"],
+    ["parity-equation","equation"],["parity-image","image"],
+    ["parity-youtube","youtube"],["parity-diagram","diagram"],
+    ["parity-bookmark","bookmark"],["parity-toc","toc"],
+    ["parity-embed","embed"],["parity-database","databaseView"],
+    ["parity-inline","paragraph"],
+  ];
+  await expect.poll(async()=>{
+    const snapshot=await readLab(page);
+    return getIds(snapshot.bob).filter(id=>id.startsWith("parity-")).length;
+  },{timeout:35000}).toBe(expected.length);
+  const snapshot=await readLab(page);
+  for(const blocks of [snapshot.alice,snapshot.bob]){
+    const all=blocks.flatMap(b=>[b,...(b.children??[])]);
+    for(const [id,type] of expected){
+      const found=all.find(b=>b.id===id);
+      expect(found?.type,id).toBe(type);
+    }
+    const get=id=>all.find(b=>b.id===id);
+    expect(get("parity-callout-ar").props.tone).toBe("warning");
+    expect(get("parity-image").props.alt).toBe("Arabic figure وصف");
+    expect(get("parity-image").props.caption).toBe("caption حفظ");
+    expect(get("parity-youtube").props.start).toBe(15);
+    expect(get("parity-youtube").props.end).toBe(40);
+    expect(get("parity-bookmark").props.title).toBe("Article مقال");
+    expect(get("parity-database").props.databaseId).toBe("fixture-db-001");
+    expect(JSON.stringify(get("parity-inline").content)).toContain("pageMention");
+    expect(JSON.stringify(get("parity-inline").content)).toContain("dateMention");
+    expect(JSON.stringify(blocks)).toContain("تنبيه: preserve exact Arabic text");
+    const ids=getIds(blocks);
+    expect(ids.length).toBe(new Set(ids).size);
+  }
+  expect(snapshot.alice).toEqual(snapshot.bob);
+  expect(await page.evaluate(()=>window.__maxLab.replayOfflineSnapshot())).toMatchObject({equal:true});
+});

@@ -8,6 +8,7 @@ import {withCollaboration} from "@blocknote/core/yjs";
 import * as Y from "yjs";
 import {maxSchema} from "../../components/editor/blocks.tsx";
 import {AuthorizedYjsProvider} from "./provider.mjs";
+import {createIndexedDbJournal} from "./durable-journal.mjs";
 import {createAuthenticatedConvexTransport} from "./transport.mjs";
 import "@blocknote/shadcn/style.css";
 import "./remote.css";
@@ -27,6 +28,7 @@ function save(bytes){
 function Lab({clerk}){
   const [status,setStatus]=useState({state:"idle",pending:0,canEdit:false,error:null});
   const [error,setError]=useState("");
+  const [ready,setReady]=useState(false);
   const session=useMemo(()=>{
     const doc=new Y.Doc();
     const transport=createAuthenticatedConvexTransport({
@@ -34,10 +36,35 @@ function Lab({clerk}){
       getToken:()=>clerk.session?.getToken({template:"convex"})??null,
     });
     const provider=new AuthorizedYjsProvider({
-      doc,transport,workspaceId:config.workspaceId,pageId:config.pageId,onState:setStatus,
+      doc,transport,workspaceId:config.workspaceId,pageId:config.pageId,
+      accountIdHint:clerk.user.id,journal:createIndexedDbJournal(),onState:setStatus,
     });
     return {doc,provider};
   },[clerk]);
+  useEffect(()=>{
+    let cancelled=false;
+    void (async()=>{
+      try {
+        // Open the user+room journal before mounting the BlockNote editor.
+        const pending=await session.provider.restorePending();
+        if(cancelled)return;
+        if(!pending) await session.provider.connect();
+      }catch(e){if(!cancelled)setError(String(e.message??e));}
+      finally{if(!cancelled)setReady(true);}
+    })();
+    const stop=clerk.addListener(({user})=>{
+      if(user?.id!==session.provider.journalScope.accountId){
+        session.provider.disconnect();
+        location.reload(); // never keep the previous account's Y.Doc mounted
+      }
+    });
+    return ()=>{cancelled=true;stop?.();void session.provider.destroy();session.doc.destroy();};
+  },[session,clerk]);
+  return ready
+    ? <LabEditor clerk={clerk} session={session} status={status} error={error} setError={setError}/>
+    : <main><h1>Max PR19 sandbox</h1><p role="status">Checking this account's local offline journal…</p></main>;
+}
+function LabEditor({clerk,session,status,error,setError}){
   const options=useMemo(()=>withCollaboration({
     schema:maxSchema,
     collaboration:{
@@ -48,19 +75,29 @@ function Lab({clerk}){
   }),[session]);
   const editor=useCreateBlockNote(options);
   useEffect(()=>{
-    session.provider.connect().catch(e=>setError(String(e.message??e)));
-    return ()=>{void session.provider.destroy();session.doc.destroy();};
-  },[session]);
-  useEffect(()=>{
     window.__maxPr18={
     read:()=>({state:session.provider.state,pending:session.provider.pending.length,
       accountId:session.provider.accountId,cursor:session.provider.cursor,
       document:JSON.parse(JSON.stringify(editor.document)),
       error:session.provider.lastError?.message??null}),
     snapshot:()=>session.provider.exportSnapshot(),
+    ...(import.meta.env.VITE_PR19_ENABLE_TEST_HOOKS==="true" ? {
+      insertText:(text)=>{
+        if(typeof text!=="string"||text.length>200||(!status.canEdit&&session.provider.state!=="offline"))
+          throw Error("Sandbox edit denied");
+        const id="pr19-"+crypto.randomUUID();
+        editor.insertBlocks([{id,type:"paragraph",content:[{type:"text",text,styles:{}}]}],editor.document.at(-1),"after");
+        return id;
+      },
+      persisted:()=>session.provider.persistBarrier,
+      revokeMember:(targetAccountId)=>session.provider.transport.revokeMember({
+        workspaceId:config.workspaceId,pageId:config.pageId,targetAccountId,
+      }),
+    } : {}),
+
     };
     return ()=>{delete window.__maxPr18;};
-  },[session,editor]);
+  },[session,editor,status.canEdit,status.state]);
   function fixture(){
     if(status.state!=="online"||!status.canEdit) return;
     editor.insertBlocks([
@@ -78,8 +115,8 @@ function Lab({clerk}){
     catch(e){setError(String(e.message??e));}
   }
   return <main>
-    <h1>Max 2.0 PR18 — isolated authenticated remote BlockNote lab</h1>
-    <p>Test identities and synthetic documents only. Production Max data is forbidden.</p>
+    <h1>Max 2.0 PR19 — durable offline recovery + remote BlockNote lab</h1>
+    <p>Test identities and synthetic documents only. Pending Yjs updates stay in account-scoped IndexedDB until server acknowledgment. Production Max data is forbidden.</p>
     <p>Identity: {clerk.user?.id} · Scope: {config.workspaceId}/{config.pageId}</p>
     <p role="status">State: {status.state} · Pending: {status.pending} · Edit access: {String(status.canEdit)}</p>
     {(error||status.error)&&<p role="alert">{error||status.error}</p>}

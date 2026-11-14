@@ -12,18 +12,24 @@ export const fromBase64 = (value) => Uint8Array.from(atob(value), (char) => char
 const operationId = () => crypto.randomUUID().replaceAll("-", "");
 
 export class AuthorizedYjsProvider {
-  constructor({ doc, transport, workspaceId, pageId, onState = () => {} }) {
+  constructor({ doc, transport, workspaceId, pageId, onState = () => {}, journal = null, accountIdHint = null }) {
     if (!doc || !transport || !workspaceId || !pageId) throw Error("Explicit sandbox scope and transport required");
     this.doc = doc;
     this.transport = transport;
     this.scope = { workspaceId, pageId };
+    if (journal && !accountIdHint) throw Error("Authenticated account ID required for durable journal");
+    this.journal = journal;
+    this.journalScope = journal ? { accountId: accountIdHint, workspaceId, pageId } : null;
+    this.journalReady = !journal;
+    this._restoring = null;
+    this.persistBarrier = Promise.resolve();
     this.awareness = new Awareness(doc);
     this.onState = onState;
     this.state = "idle";
     this.lastError = null;
     this.pending = [];
     this.cursor = 0;
-    this.accountId = null;
+    this.accountId = accountIdHint;
     this.canEdit = false;
     this.lastAuthorizedCanEdit = false;
     this.session = null;
@@ -41,7 +47,21 @@ export class AuthorizedYjsProvider {
         this._block(new Error("LOCAL_BUFFER_FULL: retain/export current Y.Doc; no edit silently discarded"));
         return;
       }
-      this.pending.push({ operationId: operationId(), base64: toBase64(update), size: update.byteLength });
+      if (!this.journalReady) {
+        this._block(Error("JOURNAL_INITIALIZATION_REQUIRED: export current Y.Doc"));
+        return;
+      }
+      const entry = { operationId: operationId(), base64: toBase64(update), size: update.byteLength };
+      this.pending.push(entry);
+      // Never transmit bytes before durable storage commits.
+      if (this.journal) {
+        this.persistBarrier = this.persistBarrier.then(() =>
+          this.journal.append(this.journalScope, entry)).catch(error => {
+            this._block(error);
+            throw error;
+          });
+        void this.persistBarrier.catch(() => {});
+      }
       this._emit();
       if (this.state === "online") void this.flush().catch(() => {});
     };
@@ -74,11 +94,31 @@ export class AuthorizedYjsProvider {
     this._emit();
   }
 
+  /** Call before mounting the editor. Restoration is local, never authorization. */
+  async restorePending() {
+    if (this.journalReady) return this.pending.length;
+    if (this._restoring) return this._restoring;
+    this._restoring = (async () => {
+      if (this.pending.length) throw Error("JOURNAL_INIT_WITH_LOCAL_EDITS");
+      const entries = await this.journal.load(this.journalScope);
+      if (this.state === "destroyed") return 0;
+      for (const entry of entries) Y.applyUpdate(this.doc, fromBase64(entry.base64), REMOTE);
+      this.pending = entries;
+      this.journalReady = true;
+      if (entries.length) this.state = "offline";
+      this._emit();
+      return entries.length;
+    })().catch(error => { this._block(error); throw error; })
+      .finally(() => { this._restoring = null; });
+    return this._restoring;
+  }
+
   /** Never silently replay an offline/failed edit. UI requires a review action. */
   async connect({ reviewedPending = false } = {}) {
     if (this.state === "destroyed") throw Error("Provider destroyed");
     if (this.state === "online") return;
     if (this._connecting) return this._connecting;
+    await this.restorePending();
     if (this.pending.length && !reviewedPending) {
       throw Error("OFFLINE_REPLAY_REQUIRES_REVIEW: export or review local changes before reconnect");
     }
@@ -152,13 +192,17 @@ export class AuthorizedYjsProvider {
     if (this.state !== "online" || !this.canEdit) return;
     this._flushing = (async () => {
       try {
+        await this.persistBarrier;
+        if (this.state !== "online") return;
         while (this.state === "online" && this.pending.length) {
           const entry = this.pending[0];
           await this.transport.appendUpdate({
             sessionId: this.session.sessionId, operationId: entry.operationId, base64: entry.base64,
           });
           if (this.state !== "online") return;
-          this.pending.shift(); // retain until server ack; idempotent retry is server-protected
+          // If deletion fails, retain the op for idempotent retry on restart.
+          if (this.journal) await this.journal.ack(this.journalScope, entry.operationId);
+          this.pending.shift(); // server AND local journal acknowledged
           this._emit();
         }
       } catch (error) { this._block(error); throw error; }
@@ -181,6 +225,7 @@ export class AuthorizedYjsProvider {
     this.awareness.destroy();
     this.state = "destroyed";
     this._emit();
+    await this.persistBarrier.catch(() => {});
     await this.transport.close?.();
   }
   /** Save/export the original Y.Doc first; never call without explicit UI consent. */
