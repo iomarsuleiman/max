@@ -30,6 +30,10 @@ function fixture() {
     memberships: async (_id, account) => memberships.filter((m) => m.accountId === account),
     groups: async (_id, account) => groups.get(account) ?? [],
     teamspaces: async (_id, account) => teamspaces.get(account) ?? [],
+    groupRegistrations: async (id, groupId) => id === "acme" && groupId === "writers"
+      ? [{ workspaceId: id, groupId }] : [],
+    teamspaceRegistrations: async (id, teamspaceId) => id === "acme" && teamspaceId === "ts1"
+      ? [{ workspaceId: id, teamspaceId }] : [],
     scopes: async (id, page) => { scopeReads++; return scopes.filter((p) => p.workspaceId === id && p.pageId === page); },
     grants: async (_id, page) => grants.get(page) ?? [],
   };
