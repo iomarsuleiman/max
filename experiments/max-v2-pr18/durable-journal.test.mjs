@@ -1,7 +1,7 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import * as Y from "yjs";
-import {AuthorizedYjsProvider,toBase64} from "./provider.mjs";
+import {AuthorizedYjsProvider} from "./provider.mjs";
 
 // Persistence API double: isolates provider crash/restart semantics; the real
 // IndexedDB implementation is exercised separately in Chromium/WebKit.
