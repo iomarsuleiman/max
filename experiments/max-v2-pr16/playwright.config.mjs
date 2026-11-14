@@ -15,7 +15,7 @@ export default defineConfig({
     { name: "webkit-lab", use: { ...devices["Desktop Safari"] } },
   ],
   webServer: {
-    command: "npm run dev --prefix experiments/max-v2-pr16",
+    command: "npm run dev",
     url: "http://127.0.0.1:3236",
     timeout: 180_000,
     reuseExistingServer: !process.env.CI,
