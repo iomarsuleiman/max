@@ -81,6 +81,20 @@ function LabEditor({clerk,session,status,error,setError}){
       document:JSON.parse(JSON.stringify(editor.document)),
       error:session.provider.lastError?.message??null}),
     snapshot:()=>session.provider.exportSnapshot(),
+    ...(import.meta.env.VITE_PR19_ENABLE_TEST_HOOKS==="true" ? {
+      insertText:(text)=>{
+        if(typeof text!=="string"||text.length>200||(!status.canEdit&&session.provider.state!=="offline"))
+          throw Error("Sandbox edit denied");
+        const id="pr19-"+crypto.randomUUID();
+        editor.insertBlocks([{id,type:"paragraph",content:[{type:"text",text,styles:{}}]}],editor.document.at(-1),"after");
+        return id;
+      },
+      persisted:()=>session.provider.persistBarrier,
+      revokeMember:(targetAccountId)=>session.provider.transport.revokeMember({
+        workspaceId:config.workspaceId,pageId:config.pageId,targetAccountId,
+      }),
+    } : {}),
+
     };
     return ()=>{delete window.__maxPr18;};
   },[session,editor]);
