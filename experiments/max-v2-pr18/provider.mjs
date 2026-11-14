@@ -119,7 +119,6 @@ export class AuthorizedYjsProvider {
     if (this.state === "online") return;
     if (this._connecting) return this._connecting;
     await this.restorePending();
-    if (this.state === "blocked") throw this.lastError;
     if (this.pending.length && !reviewedPending) {
       throw Error("OFFLINE_REPLAY_REQUIRES_REVIEW: export or review local changes before reconnect");
     }
