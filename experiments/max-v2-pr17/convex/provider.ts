@@ -180,7 +180,8 @@ async function checkpointPacks(ctx: Ctx, room: { _id: string; nextSeq: number; c
 /** A reactive Convex query is a server-authorized subscription source. Each
  * reexecution revalidates identity, room scope, lease and live read ACL. */
 export const readUpdates = queryGeneric({
-  args: { sessionId: v.id("labSessions"), afterSeq: v.number(), limit: v.optional(v.number()) },
+  args: { sessionId: v.id("labSessions"), afterSeq: v.number(),
+    limit: v.optional(v.number()), throughSeq: v.optional(v.number()) },
   returns: v.object({
     headSeq: v.number(), hasMore: v.boolean(),
     updates: v.array(v.object({
@@ -188,11 +189,17 @@ export const readUpdates = queryGeneric({
       base64: v.string(),
     })),
   }),
-  handler: async (ctx, { sessionId, afterSeq, limit }) => {
+  handler: async (ctx, { sessionId, afterSeq, limit, throughSeq }) => {
     const { room } = await requireSession(ctx, sessionId, "view");
     const count = limit ?? 32;
     if (!Number.isSafeInteger(afterSeq) || afterSeq < 0 || afterSeq > room.nextSeq ||
         !Number.isSafeInteger(count) || count < 1 || count > 64) denied();
+    // A caller may pin the exact committed head observed on an earlier read.
+    // Appends and compaction racing with a long backup must not change its end.
+    const fence = throughSeq ?? room.nextSeq;
+    if (!Number.isSafeInteger(fence) || fence < 0 || fence > room.nextSeq ||
+        afterSeq > fence) denied();
+    if (afterSeq === fence) return { headSeq: fence, hasMore: false, updates: [] };
     const watermark = room.checkpointThrough ?? 0;
     const result: Array<{ seq: number; actorId: string; operationId: string; base64: string }> = [];
     if (afterSeq < watermark) {
@@ -208,16 +215,67 @@ export const readUpdates = queryGeneric({
       if (rows.some(row => row.roomId !== room._id || row.seq <= start)) denied();
       result.push(...rows);
     }
-    const visible = result.slice(0, count);
+    const visible = result.filter(row => row.seq <= fence).slice(0, count);
     for (let i = 0; i < visible.length; i++)
       if (visible[i].seq !== afterSeq + i + 1) denied();
     const cursor = visible.at(-1)?.seq ?? afterSeq;
-    if (cursor < room.nextSeq && !visible.length) denied();
+    if (cursor < fence && !visible.length) denied();
     return {
-      headSeq: room.nextSeq,
-      hasMore: cursor < room.nextSeq,
+      headSeq: fence,
+      hasMore: cursor < fence,
       updates: visible.map(({ seq, actorId, operationId, base64 }) =>
         ({ seq, actorId, operationId, base64 })),
+    };
+  },
+});
+
+
+/** Owner-only checkpoint proof for sandbox operator evidence. Performs a
+ * complete bounded integrity check of packed + raw rows in one snapshot.
+ * Does not expose data bytes or grant access to non-owners. */
+export const checkpointStatus = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.object({
+    headSeq: v.number(), checkpointThrough: v.number(),
+    packCount: v.number(), rawCount: v.number(), storedBytes: v.number(),
+  }),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "view");
+    if (!(await authorized(ctx, accountId, session.workspaceId, session.pageId, "manage"))) denied();
+    const owners = await ctx.db.query("workspaces")
+      .withIndex("by_workspaceId", q => q.eq("workspaceId", session.workspaceId)).take(2);
+    if (owners.length !== 1 || owners[0].ownerId !== accountId) denied();
+    const packs = await checkpointPacks(ctx, room);
+    const raw = await ctx.db.query("labUpdates")
+      .withIndex("by_room_seq", q => q.eq("roomId", room._id))
+      .take(MAX_ROOM_UPDATES + 1);
+    if (raw.length > MAX_ROOM_UPDATES) denied();
+    const seen = new Set<string>();
+    let sumBytes = 0;
+    const inspect = (item: { seq: number; actorId: string; operationId: string; base64: string }, seq: number) => {
+      if (item.seq !== seq || !validPrincipalId(item.actorId) ||
+          !MIN_OP.test(item.operationId) || !BASE64.test(item.base64) ||
+          item.base64.length > MAX_UPDATE_BASE64) denied();
+      const n = decodedBytes(item.base64);
+      if (n < 1 || n > 16_384) denied();
+      const key = item.actorId + "\0" + item.operationId;
+      if (seen.has(key)) denied();
+      seen.add(key);
+      sumBytes += n;
+    };
+    let seq = 1;
+    for (const pack of packs) for (const item of pack.updates) inspect(item, seq++);
+    if (seq - 1 !== (room.checkpointThrough ?? 0)) denied();
+    for (const item of raw) {
+      if (item.roomId !== room._id) denied();
+      inspect(item, seq++);
+    }
+    if (seq - 1 !== room.nextSeq || room.nextSeq > MAX_ROOM_UPDATES ||
+        !Number.isSafeInteger(room.storedBytes) || sumBytes !== room.storedBytes ||
+        sumBytes > MAX_ROOM_BYTES) denied();
+    return {
+      headSeq: room.nextSeq, checkpointThrough: room.checkpointThrough ?? 0,
+      packCount: packs.length, rawCount: raw.length, storedBytes: room.storedBytes,
     };
   },
 });

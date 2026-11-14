@@ -18,6 +18,7 @@ const status = makeFunctionReference<"query">("provider:sessionStatus");
 const downgrade = makeFunctionReference<"mutation">("provider:downgradeMemberEdit");
 const revoke = makeFunctionReference<"mutation">("provider:revokeMember");
 const compact = makeFunctionReference<"mutation">("provider:compactLog");
+const checkpointStatus = makeFunctionReference<"query">("provider:checkpointStatus");
 const root = "lab-page";
 const ws = "lab-workspace";
 
@@ -314,6 +315,83 @@ describe("PR17 standalone Convex sandbox provider: authenticated server operatio
     process.env.MAX_V2_PR17_PROVIDER_SANDBOX="false";
     await expect(alice.mutation(compact,{sessionId:a.sessionId})).rejects.toThrow();
     expect(await t.run(async ctx=>ctx.db.query("labCheckpointSegments").collect())).toHaveLength(0);
+  });
+
+  it("pinned read fence remains stable across new writes and checkpoint packing",async()=>{
+    const {alice,bob,carol}=await fixture();
+    const a=await alice.mutation(join,{workspaceId:ws,pageId:root});
+    const b=await bob.mutation(join,{workspaceId:ws,pageId:root});
+    const c=await carol.mutation(join,{workspaceId:ws,pageId:root});
+    for(let i=1;i<=5;i++)await bob.mutation(append,{
+      sessionId:b.sessionId,operationId:"fenced_000"+i,base64:packet});
+    const first=await carol.query(read,{sessionId:c.sessionId,afterSeq:0,limit:2});
+    expect(first).toMatchObject({headSeq:5,hasMore:true});
+    await Promise.all([
+      alice.mutation(compact,{sessionId:a.sessionId}),
+      bob.mutation(append,{sessionId:b.sessionId,operationId:"fenced_0006",base64:packet}),
+    ]);
+    const second=await carol.query(read,{
+      sessionId:c.sessionId,afterSeq:2,limit:3,throughSeq:first.headSeq,
+    });
+    expect(second).toMatchObject({headSeq:5,hasMore:false});
+    expect(second.updates.map((x:{seq:number})=>x.seq)).toEqual([3,4,5]);
+    expect((await carol.query(read,{sessionId:c.sessionId,afterSeq:5,throughSeq:5})).updates).toEqual([]);
+    await expect(carol.query(read,{sessionId:c.sessionId,afterSeq:6,throughSeq:5})).rejects.toThrow();
+    await expect(carol.query(read,{sessionId:c.sessionId,afterSeq:0,throughSeq:999})).rejects.toThrow();
+    await expect(carol.query(read,{sessionId:c.sessionId,afterSeq:0,throughSeq:-1})).rejects.toThrow();
+    await expect(carol.query(read,{sessionId:c.sessionId,afterSeq:0,throughSeq:0.5})).rejects.toThrow();
+    const live=await carol.query(read,{sessionId:c.sessionId,afterSeq:5});
+    expect(live.updates.map((x:{seq:number})=>x.seq)).toEqual([6]);
+  });
+
+  it("multiple authenticated writers racing with compaction preserve every distinct operation",async()=>{
+    const {alice,bob,carol}=await fixture();
+    const a=await alice.mutation(join,{workspaceId:ws,pageId:root});
+    const b=await bob.mutation(join,{workspaceId:ws,pageId:root});
+    const c=await carol.mutation(join,{workspaceId:ws,pageId:root});
+    const submitted=await Promise.all([
+      ...Array.from({length:12},(_,i)=>alice.mutation(append,{
+        sessionId:a.sessionId,operationId:"alice_race_"+String(i).padStart(4,"0"),
+        base64:packet})),
+      ...Array.from({length:12},(_,i)=>bob.mutation(append,{
+        sessionId:b.sessionId,operationId:"bob_race__"+String(i).padStart(4,"0"),
+        base64:packet})),
+      alice.mutation(compact,{sessionId:a.sessionId}),
+    ]);
+    expect(submitted.slice(0,24).every((x:any)=>x.duplicate===false)).toBe(true);
+    expect(new Set(submitted.slice(0,24).map((x:any)=>x.seq)).size).toBe(24);
+    for(let i=0;i<8;i++) {
+      const result=await alice.mutation(compact,{sessionId:a.sessionId});
+      if(result.complete)break;
+    }
+    const proof=await alice.query(checkpointStatus,{sessionId:a.sessionId});
+    expect(proof).toMatchObject({headSeq:24,checkpointThrough:24,rawCount:0,storedBytes:96});
+    const first=await carol.query(read,{sessionId:c.sessionId,afterSeq:0,limit:8,throughSeq:24});
+    const next=await carol.query(read,{sessionId:c.sessionId,afterSeq:8,limit:64,throughSeq:24});
+    const all=[...first.updates,...next.updates];
+    expect(all.map((x:{seq:number})=>x.seq)).toEqual(Array.from({length:24},(_,i)=>i+1));
+    expect(new Set(all.map((x:{actorId:string;operationId:string})=>x.actorId+":"+x.operationId)).size).toBe(24);
+    await expect(bob.query(checkpointStatus,{sessionId:b.sessionId})).rejects.toThrow();
+    await expect(carol.query(checkpointStatus,{sessionId:c.sessionId})).rejects.toThrow();
+    expect(await bob.mutation(append,{sessionId:b.sessionId,
+      operationId:"bob_race__0000",base64:packet})).toMatchObject({duplicate:true});
+  });
+
+  it("checkpoint owner proof detects corrupt byte counters after a simulated partial restore",async()=>{
+    const {alice,t}=await fixture();
+    const a=await alice.mutation(join,{workspaceId:ws,pageId:root});
+    await alice.mutation(append,{sessionId:a.sessionId,operationId:"restore_0001",base64:packet});
+    await alice.mutation(compact,{sessionId:a.sessionId});
+    await expect(alice.query(checkpointStatus,{sessionId:a.sessionId}))
+      .resolves.toMatchObject({headSeq:1,checkpointThrough:1,packCount:1,storedBytes:4});
+    await t.run(async ctx=>{
+      const rows=await ctx.db.query("labRooms").collect();
+      if(rows.length!==1)throw Error("fixture room missing");
+      await ctx.db.patch(rows[0]._id,{storedBytes:0});
+    });
+    await expect(alice.query(checkpointStatus,{sessionId:a.sessionId})).rejects.toThrow();
+    // The log is not silently healed or truncated by a read failure.
+    expect((await alice.query(read,{sessionId:a.sessionId,afterSeq:0})).updates).toHaveLength(1);
   });
 
 });

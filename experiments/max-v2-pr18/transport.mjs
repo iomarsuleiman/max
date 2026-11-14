@@ -5,6 +5,7 @@ import { makeFunctionReference } from "convex/server";
 const fn = (name) => makeFunctionReference("provider:" + name);
 const JOIN = fn("join"), READ = fn("readUpdates"), WRITE = fn("appendUpdate");
 const STATUS = fn("sessionStatus"), REVOKE = fn("revokeMember"), DOWNGRADE = fn("downgradeMemberEdit");
+const COMPACT = fn("compactLog"), CHECKPOINT = fn("checkpointStatus");
 
 export function createAuthenticatedConvexTransport({ url, getToken }) {
   if (!url || !/^https:\/\/[a-z0-9-]+\.convex\.cloud$/.test(url))
@@ -20,6 +21,8 @@ export function createAuthenticatedConvexTransport({ url, getToken }) {
     watchStatus: (args, onUpdate, onError) => client.onUpdate(STATUS, args, onUpdate, onError),
     revokeMember: (args) => client.mutation(REVOKE, args),
     downgradeMemberEdit: (args) => client.mutation(DOWNGRADE, args),
+    compactLog: (args) => client.mutation(COMPACT, args),
+    checkpointStatus: (args) => client.query(CHECKPOINT, args),
     close: () => client.close(),
   };
 }

@@ -80,7 +80,8 @@ function LabEditor({clerk,session,status,error,setError}){
       canEdit:session.provider.canEdit,
       accountId:session.provider.accountId,cursor:session.provider.cursor,
       document:JSON.parse(JSON.stringify(editor.document)),
-      error:session.provider.lastError?.message??null}),
+      error:session.provider.lastError?.message??null,
+      ...(import.meta.env.VITE_PR22_ENABLE_TEST_HOOKS==="true" ? {deploymentUrl:config.url} : {})}),
     snapshot:()=>session.provider.exportSnapshot(),
     ...(import.meta.env.VITE_PR19_ENABLE_TEST_HOOKS==="true" ? {
       insertText:(text)=>{
@@ -99,6 +100,53 @@ function LabEditor({clerk,session,status,error,setError}){
       }),
     } : {}),
 
+
+    // Available only in an isolated synthetic lab built with BOTH test flags.
+    // Every action still uses real Clerk-authenticated, server-authorized Convex.
+    ...(import.meta.env.VITE_PR19_ENABLE_TEST_HOOKS==="true" &&
+        import.meta.env.VITE_PR22_ENABLE_TEST_HOOKS==="true" ? {
+      captureTranscript: async (throughSeq=null) => {
+        const p=session.provider;
+        if(p.state!=="online"||!p.session)throw Error("NO_AUTHENTICATED_LIVE_SESSION");
+        if(throughSeq!==null && (!Number.isSafeInteger(throughSeq)||throughSeq<0))
+          throw Error("INVALID_FENCE");
+        const pages=[];
+        let afterSeq=0;
+        let fence=throughSeq;
+        for(let i=0;i<9;i++){
+          const args={sessionId:p.session.sessionId,afterSeq,limit:32,
+            ...(fence===null?{}:{throughSeq:fence})};
+          const page=await p.transport.readUpdates(args);
+          if(fence===null)fence=page.headSeq;
+          if(page.headSeq!==fence||!Array.isArray(page.updates))throw Error("FENCE_CHANGED");
+          for(const update of page.updates){
+            if(update.seq!==afterSeq+1)throw Error("CHECKPOINT_STREAM_GAP");
+            afterSeq=update.seq;
+          }
+          if(!page.hasMore && afterSeq!==fence)throw Error("CHECKPOINT_STREAM_TRUNCATED");
+          pages.push(page);
+          if(!page.hasMore)return {
+            scope:{workspaceId:config.workspaceId,pageId:config.pageId},headSeq:fence,pages,
+          };
+          if(!page.updates.length)throw Error("EMPTY_STREAM_PAGE");
+        }
+        throw Error("BACKUP_CAPTURE_PAGE_BUDGET_EXCEEDED");
+      },
+      compactOnce: async () => {
+        if(session.provider.state!=="online"||!session.provider.session)
+          throw Error("NO_AUTHENTICATED_LIVE_SESSION");
+        return session.provider.transport.compactLog({
+          sessionId:session.provider.session.sessionId,
+        });
+      },
+      checkpointStatus: async () => {
+        if(session.provider.state!=="online"||!session.provider.session)
+          throw Error("NO_AUTHENTICATED_LIVE_SESSION");
+        return session.provider.transport.checkpointStatus({
+          sessionId:session.provider.session.sessionId,
+        });
+      },
+    } : {}),
     };
     return ()=>{delete window.__maxPr18;};
   },[session,editor,status.canEdit,status.state]);
