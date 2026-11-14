@@ -3,6 +3,7 @@ import { profileCardSchema } from "../profileCard";
 import { MaxError } from "../errors";
 import { rankBetween } from "../rank";
 import { blocksToMarkdown, markdownToBlocks, parseContent } from "../blocks";
+import { remapDatabaseReferences, remapDocumentReferences } from "../importReferences";
 import type { PageRow, PropertyType, SelectOption, SettingsRow } from "../types";
 import { confirm, defineOp, id, type OpContext } from "./define";
 import {
@@ -661,6 +662,7 @@ export const importMaxExport = defineOp({
     if (existing.length + parsed.pages.length > LIMITS.pagesPerAccount) throw new MaxError("LIMIT", "This import would go past your page limit.");
     const map = new Map<string, string>();
     const incoming = parsed.pages.filter((p) => !p.archivedAt);
+    const incomingById = new Map(incoming.map((p) => [p._id, p]));
     // Insert parents first.
     const depth = (p: PageRow, seen = 0): number => {
       const parent = incoming.find((x) => x._id === (p.parentId ?? p.databaseId));
@@ -674,13 +676,12 @@ export const importMaxExport = defineOp({
     }
     for (const p of ordered) {
       const nid = map.get(p._id)!;
-      const remap = (s: string) => s.replace(/[A-Za-z0-9_-]{8,64}/g, (m) => map.get(m) ?? m);
       await ctx.db.patch("pages", nid, {
         parentId: p.parentId ? (map.get(p.parentId) ?? null) : null,
         databaseId: p.databaseId ? (map.get(p.databaseId) ?? null) : null,
-        values: p.values ? JSON.parse(remap(JSON.stringify(p.values))) : p.values,
+        ...remapDatabaseReferences(p, p.databaseId ? incomingById.get(p.databaseId) : undefined, map),
       });
-      await insertDocument(ctx, nid, JSON.parse(remap(JSON.stringify(p.blocks ?? []))));
+      await insertDocument(ctx, nid, remapDocumentReferences(parseContent(p.blocks ?? []), map));
     }
     return { imported: map.size };
   },

@@ -12,8 +12,8 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${PORT}`, trace: "off" },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } }, testIgnore: /mobile\.spec\.ts/ },
-    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /mobile\.spec\.ts/ },
-    { name: "mobile-webkit", use: { ...devices["iPhone 13"], browserName: "webkit" }, testMatch: /mobile\.spec\.ts/ },
+    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /(?:mobile|editor-baseline)\.spec\.ts/ },
+    { name: "mobile-webkit", use: { ...devices["iPhone 13"], browserName: "webkit" }, testMatch: /(?:mobile|editor-baseline)\.spec\.ts/ },
   ],
   webServer: {
     command: `rm -rf .e2e-data && pnpm build && pnpm start --port ${PORT}`,

@@ -47,6 +47,18 @@
 .lx-block-crash { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border: 1px dashed var(--ws-line-strong); border-radius: 8px; font-size: 13px; color: var(--on-surface-variant); }
 .lx-editor { --bn-font-family: var(--ws-font); min-height: 60vh; cursor: text; }
 .lx-editor .bn-container, .lx-editor .bn-editor { background: transparent !important; font-family: var(--ws-font); }
+/* Use Max's readable light/dark palette for the built-in editor highlights. */
+.lx-editor .bn-container[data-color-scheme] {
+  --bn-colors-highlights-gray-text: var(--tag-gray-fg); --bn-colors-highlights-gray-background: var(--tag-gray);
+  --bn-colors-highlights-brown-text: var(--tag-brown-fg); --bn-colors-highlights-brown-background: var(--tag-brown);
+  --bn-colors-highlights-orange-text: var(--tag-orange-fg); --bn-colors-highlights-orange-background: var(--tag-orange);
+  --bn-colors-highlights-yellow-text: var(--tag-yellow-fg); --bn-colors-highlights-yellow-background: var(--tag-yellow);
+  --bn-colors-highlights-green-text: var(--tag-green-fg); --bn-colors-highlights-green-background: var(--tag-green);
+  --bn-colors-highlights-blue-text: var(--tag-blue-fg); --bn-colors-highlights-blue-background: var(--tag-blue);
+  --bn-colors-highlights-purple-text: var(--tag-purple-fg); --bn-colors-highlights-purple-background: var(--tag-purple);
+  --bn-colors-highlights-pink-text: var(--tag-pink-fg); --bn-colors-highlights-pink-background: var(--tag-pink);
+  --bn-colors-highlights-red-text: var(--tag-red-fg); --bn-colors-highlights-red-background: var(--tag-red);
+}
 .lx-editor .bn-editor { padding-inline: var(--lx-gutter, 54px) var(--lx-gutter-end, 54px); padding-block: 2px 120px; min-height: 60vh; font-size: 16px; line-height: 1.5; color: var(--on-surface); }
 .lx-editor .bn-block-outer { scroll-margin-top: 100px; line-height: 1.5; }
 .lx-editor .bn-inline-content { word-break: normal; overflow-wrap: anywhere; }
@@ -69,7 +81,7 @@
 .lx-editor .bn-block-content[data-content-type="numberedListItem"]::before,
 .lx-editor .bn-block-content[data-content-type="bulletListItem"]::before { padding-right: 0; padding-inline-end: 4px; }
 .lx-editor .bn-block-content[data-content-type="checkListItem"] > div > input { margin: 0; margin-inline: 4px 8px; width: 14px; accent-color: var(--primary); }
-.lx-editor .bn-block-content[data-content-type="checkListItem"][data-checked="true"] .bn-inline-content { color: color-mix(in srgb, var(--on-surface) 45%, transparent); }
+.lx-editor .bn-block-content[data-content-type="checkListItem"][data-checked="true"] .bn-inline-content { color: var(--fg-2); }
 .lx-editor [data-content-type="quote"] blockquote { border-left: 0; border-inline-start: 3px solid currentColor; color: inherit; padding-left: 0; padding-inline-start: 14px; }
 .lx-editor [data-content-type="divider"] hr { border-top-color: var(--ws-line-strong, var(--ws-line)); margin-block: 0.6em; }
 .lx-editor .bn-toggle-add-block-button { margin-left: 0; margin-inline-start: 22px; color: var(--lx-handle); }
@@ -245,6 +257,7 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .lx-editor .bn-editor a.mx-mention, .lx-editor .bn-editor a.mx-mention:visited { color: var(--fg); text-decoration-line: underline; text-decoration-color: color-mix(in oklch, var(--fg) 22%, transparent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .lx-editor .bn-editor .bn-inline-content a:not(.mx-mention), .lx-editor .bn-editor .bn-inline-content a:not(.mx-mention):visited { color: inherit; text-decoration-line: underline; text-decoration-color: color-mix(in oklch, var(--fg) 28%, transparent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .lx-editor .bn-editor .mx-toc a { color: var(--fg-2); }
+.lx-editor .bn-editor :is(td, th) a { display: inline-flex; align-items: baseline; min-width: 24px; min-height: 24px; }
 .mx-pagelink { display: flex; align-items: center; gap: 6px; width: 100%; padding: 3px 4px; margin-inline-start: -4px; border-radius: 4px; color: var(--fg); font-weight: 500; text-decoration: none; cursor: pointer; }
 .mx-pagelink:hover { background: var(--hover); }
 .mx-pagelink__icon { width: 22px; display: inline-grid; place-items: center; color: var(--fg-2); }
