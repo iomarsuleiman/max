@@ -69,7 +69,7 @@ export default defineSchema({
     accountId: v.string(),
     role: v.union(v.literal("owner"), v.literal("admin"), v.literal("member"), v.literal("guest")),
     status: v.union(v.literal("active"), v.literal("suspended"), v.literal("revoked")),
-  }).index("by_workspace_account", ["workspaceId", "accountId"]),
+  }).index("by_workspace_account", ["workspaceId", "accountId"]).index("by_account", ["accountId"]),
   // Identity-bound invitations contain no bearer credentials. Acceptance verifies
   // the caller's authenticated subject, not an email or user-supplied role.
   workspaceInvitations: defineTable({

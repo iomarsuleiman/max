@@ -2,7 +2,7 @@
 import { OfflineNotice } from "@/components/feedback/OfflineSupport";
 
 import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Dialog as D } from "radix-ui";
 import { useConvexAuth } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -11,6 +11,7 @@ import { LogoMark } from "@/components/brand/Logo";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
+import { WorkspaceRail, WorkspacePreviewSidebar, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
 import { SearchDialog } from "./SearchDialog";
 import dynamic from "next/dynamic";
 import { ProfileCardInvitation } from "@/components/profile/ProfileCardInvitation";
@@ -105,20 +106,23 @@ function WorkspaceRoot({ children }: { children: ReactNode }) {
 
 function Frame({ children }: { children: ReactNode }) {
   const ws = useWorkspace();
+  const pathname = usePathname();
+  const preview = WORKSPACE_NAVIGATION_PREVIEW && pathname.startsWith("/w/");
   return (
     <div className="max-workspace-frame flex h-dvh overflow-hidden bg-canvas" data-font={ws.settings?.font}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[90] focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2 focus:shadow-pop">
         Skip to content
       </a>
+      {WORKSPACE_NAVIGATION_PREVIEW && <WorkspaceRail />}
       <div className={cn("hidden md:flex", !ws.sidebarOpen && "md:hidden")}>
-        <Sidebar />
+        {preview ? <WorkspacePreviewSidebar /> : <Sidebar />}
       </div>
       <D.Root open={ws.mobileNavOpen} onOpenChange={ws.setMobileNavOpen}>
         <D.Portal>
           <D.Overlay className="fixed inset-0 z-[55] bg-[var(--scrim)] md:hidden [animation:max-fade_150ms_ease]" />
           <D.Content className="fixed inset-y-0 start-0 z-[56] flex shadow-dialog outline-none md:hidden [animation:max-in_180ms_var(--ease)]" aria-describedby={undefined}>
             <D.Title className="sr-only">Navigation</D.Title>
-            <Sidebar mobile />
+            {preview ? <WorkspacePreviewSidebar /> : <Sidebar mobile />}
           </D.Content>
         </D.Portal>
       </D.Root>
@@ -126,9 +130,9 @@ function Frame({ children }: { children: ReactNode }) {
         <OfflineNotice />
         {children}
       </main>
-      <SearchDialog />
-      <ProfileCardInvitation />
-      <LazyDialogs />
+      {!preview && <SearchDialog />}
+      {!preview && <ProfileCardInvitation />}
+      {!preview && <LazyDialogs />}
     </div>
   );
 }
