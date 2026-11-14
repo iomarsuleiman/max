@@ -1,3 +1,5 @@
+import path from "node:path";
+import {fileURLToPath} from "node:url";
 import {defineConfig,devices} from "@playwright/test";
 export default defineConfig({
   testDir:".",
@@ -10,7 +12,8 @@ export default defineConfig({
     {name:"webkit-journal",use:{...devices["Desktop Safari"]}},
   ],
   webServer:{
-    command:"npm run dev --prefix experiments/max-v2-pr18",
+    command:"npm run dev",
+    cwd:path.resolve(path.dirname(fileURLToPath(import.meta.url)),"../max-v2-pr18"),
     url:"http://127.0.0.1:3238/journal-test.html",
     timeout:180000,reuseExistingServer:!process.env.CI,
   },
