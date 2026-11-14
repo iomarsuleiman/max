@@ -47,6 +47,7 @@ function workspaceLinkProps(fromPreview: boolean) {
 
 export function WorkspaceRail() {
   const pathname = usePathname();
+  const preview = pathname.startsWith("/w/");
   const { workspaces, loading, error } = useWorkspaceNavigation();
   return (
     <nav aria-label="Workspaces" className="hidden h-full w-[60px] shrink-0 flex-col items-center gap-2 border-e border-line bg-surface px-1.5 py-3 md:flex">
