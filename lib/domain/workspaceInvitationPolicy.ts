@@ -22,6 +22,27 @@ export function canIssueInvitation(
   return true;
 }
 
+
+/** Pure validation for an actionable, identity-bound shadow invitation.
+ * Reject malformed, resolved, future-dated, overlong and expired records. */
+export function isActionableInvitation(rowValue: unknown, accountId: string, now: number): boolean {
+  if (!rowValue || typeof rowValue !== "object" || !validPrincipalId(accountId) ||
+      !Number.isFinite(now)) return false;
+  const row = rowValue as Record<string, unknown>;
+  const created = row.createdAt;
+  const expires = row.expiresAt;
+  return typeof row.workspaceId === "string" && validWorkspaceId(row.workspaceId) &&
+    row.targetAccountId === accountId &&
+    typeof row.createdByAccountId === "string" && validPrincipalId(row.createdByAccountId) &&
+    row.createdByAccountId !== accountId &&
+    row.status === "pending" && row.resolvedAt === null &&
+    (row.role === "admin" || row.role === "member" || row.role === "guest") &&
+    typeof created === "number" && Number.isSafeInteger(created) &&
+    typeof expires === "number" && Number.isSafeInteger(expires) &&
+    created <= now && expires > now && expires > created &&
+    expires - created <= 168 * 3_600_000;
+}
+
 export type ScopeAncestor = {
   workspaceId: string; pageId: string; parentId: string | null; teamspaceId: string | null;
 };

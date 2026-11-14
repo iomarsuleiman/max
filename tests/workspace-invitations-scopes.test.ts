@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canIssueInvitation, validNewPageScope } from "@/lib/domain/workspaceInvitationPolicy";
+import { canIssueInvitation, isActionableInvitation, validNewPageScope } from "@/lib/domain/workspaceInvitationPolicy";
 
 const owner = { accountId: "user_owner", role: "owner" as const, status: "active" as const };
 const admin = { accountId: "user_admin", role: "admin" as const, status: "active" as const };
@@ -55,5 +55,34 @@ describe("shadow page scope provisioning contract", () => {
     expect(validNewPageScope("myspace", "../bad", null, null, [], true)).toBe(false);
     const chain = Array.from({ length: 64 }, (_, i) => scope("p" + i, i === 63 ? null : "p" + (i + 1)));
     expect(validNewPageScope("myspace", "new", "p0", null, chain, true)).toBe(false);
+  });
+});
+
+describe("actionable invitation integrity and replay safety", () => {
+  const now = 1_800_000_000_000;
+  const invite = {
+    workspaceId: "workspace01", targetAccountId: "user_target", createdByAccountId: "user_owner",
+    role: "member", status: "pending", createdAt: now - 60_000,
+    expiresAt: now + 3_600_000, resolvedAt: null,
+  };
+  it("accepts a pending invitation only for its exact subject and valid lifetime", () => {
+    expect(isActionableInvitation(invite, "user_target", now)).toBe(true);
+    expect(isActionableInvitation(invite, "user_other", now)).toBe(false);
+  });
+  it("rejects replay, resolved and expired invitation records", () => {
+    expect(isActionableInvitation({ ...invite, status: "accepted" }, "user_target", now)).toBe(false);
+    expect(isActionableInvitation({ ...invite, resolvedAt: now }, "user_target", now)).toBe(false);
+    expect(isActionableInvitation({ ...invite, expiresAt: now }, "user_target", now)).toBe(false);
+  });
+  it("rejects malformed times, future issuance and excessive TTL", () => {
+    expect(isActionableInvitation({ ...invite, createdAt: now + 1 }, "user_target", now)).toBe(false);
+    expect(isActionableInvitation({ ...invite, expiresAt: now + 169 * 3_600_000 }, "user_target", now)).toBe(false);
+    expect(isActionableInvitation({ ...invite, expiresAt: Infinity }, "user_target", now)).toBe(false);
+    expect(isActionableInvitation({ ...invite, createdAt: NaN }, "user_target", now)).toBe(false);
+  });
+  it("rejects forged issuer and malformed scope fields", () => {
+    expect(isActionableInvitation({ ...invite, createdByAccountId: "user_target" }, "user_target", now)).toBe(false);
+    expect(isActionableInvitation({ ...invite, workspaceId: "../other" }, "user_target", now)).toBe(false);
+    expect(isActionableInvitation({ ...invite, role: "owner" }, "user_target", now)).toBe(false);
   });
 });
