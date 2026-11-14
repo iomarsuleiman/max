@@ -120,3 +120,10 @@ test("Convex ProseMirror Sync real package resolves without opening any backend 
   assert.equal(typeof provider.ProsemirrorSync, "function");
   // No Convex deployment, auth token, database or network call is created.
 });
+
+test("Max-pinned BlockNote 0.55 exposes the real Yjs collaboration adapter entrypoint", async () => {
+  const adapter = await import("@blocknote/core/yjs");
+  assert.equal(typeof adapter.withCollaboration, "function");
+  // Actual BlockNote editor mounting, maxSchema hydration and network-backed
+  // awareness are deliberately not considered proven by this import probe.
+});
