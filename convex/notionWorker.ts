@@ -6,6 +6,8 @@ import { decryptToken } from "../lib/notion/crypto";
 import { convertBlocks, remapNotionLinks, type NotionBlock } from "../lib/notion/convert";
 import { IMPORT_LIMITS, object, objects, sourceFrom, taskSchema, text, type ImportTask } from "../lib/notion/types";
 import { UPLOAD_TYPES } from "../lib/domain/ops/helpers";
+import { internal } from "./_generated/api";
+import { createUploadRuntime } from "../lib/domain/uploadRuntime";
 
 export const step = internalActionGeneric({
   args: { ownerId: v.string(), jobId: v.id("notionJobs") },
@@ -19,7 +21,6 @@ export const step = internalActionGeneric({
     const leaseUntil = Number(item.leaseUntil);
     const generation = Number(item.generation);
     const itemId = text(item._id);
-    const storedAssets: string[] = [];
     try {
       const state = object(await ctx.runQuery(anyApi.notionStore.read, { ownerId, jobId }));
       const job = object(state.job);
@@ -140,8 +141,30 @@ export const step = internalActionGeneric({
           } finally {
             await reader.cancel();
           }
+          const runtime = createUploadRuntime();
+          const capabilityHash = await runtime.hashCapability(runtime.createCapability());
+          await ctx.runMutation(internal.uploadMutations.issue, { ownerId, id: runtime.newId(), capabilityHash });
+          const begun = await ctx.runMutation(internal.uploadMutations.begin, { capabilityHash, attemptId: runtime.newId() });
+          if (begun.state !== "receiving") throw new Error("This transfer already received bytes.");
           const storageId = await ctx.storage.store(new Blob(parts, { type }));
-          storedAssets.push(storageId);
+          try {
+            const metadata = await ctx.runQuery(internal.uploadMutations.storedMetadata, { storageId });
+            if (!metadata || metadata.size !== size || metadata.type !== type) throw new Error("Transferred file metadata does not match stored bytes.");
+            await ctx.runMutation(internal.uploadMutations.complete, { attempt: begun.attempt, blob: { storageId, ...metadata } });
+          } catch (error) {
+            try {
+              await ctx.runMutation(internal.uploadOrphans.adopt, {
+                attempt: begun.attempt,
+                storageId,
+                orphanId: runtime.newId(),
+                cleanupId: runtime.newId(),
+                capabilityHash: await runtime.hashCapability(runtime.createCapability()),
+              });
+            } catch {
+              // Total receiver failure still needs inventory reconciliation.
+            }
+            throw error;
+          }
           media.push({ blockId: m.blockId, storageId, name: m.name.slice(0, 200), type, size, kind: m.kind });
         } catch {
           converted.warnings.push({
@@ -166,7 +189,7 @@ export const step = internalActionGeneric({
       if (task.depth >= IMPORT_LIMITS.depth && tasks.length) throw new Error("This import exceeds the supported hierarchy depth. Select a smaller subtree.");
       const icon = entity.icon ? object(entity.icon) : {};
       if (entity.cover) converted.warnings.push({ sourceId: task.sourceId, message: "The Notion cover was not transferred. Choose a new cover in Max." });
-      const result: unknown = await write("commit", {
+      await write("commit", {
         itemId,
         leaseUntil,
         generation,
@@ -177,7 +200,8 @@ export const step = internalActionGeneric({
         media,
         skipped: converted.media.length - media.length,
       });
-      if (!result) for (const id of storedAssets) await ctx.storage.delete(id);
+      // Unregistered receipts remain pending for bounded cleanup. A stale lease
+      // or lost acknowledgement must never delete a committed attachment.
     } catch (error) {
       // A transport error can follow a successful commit. Keep these bytes until
       // receipt-aware cleanup proves that no committed attachment references them.

@@ -14,8 +14,16 @@ Direct and batched calls cannot obtain legacy raw cloud upload URLs.
 The receipt state machine separates issued capabilities, receiving leases,
 stored bytes, registered assets and claimed cleanup. Cleanup eligibility ends
 before external deletion begins. Registered bytes cannot be claimed for cleanup.
-The local adapter also persists owner-bound capabilities and receipts. Notion
-receipt integration and the generic cloud sweeper remain unfinished.
+The local adapter also persists owner-bound capabilities and receipts. Trusted
+Notion transfers now create receipts from the actual stored bytes, and the item
+commit consumes them while rechecking the current job lease and destination.
+
+The internal cloud sweeper runs every fifteen minutes, with at most twenty-five
+candidates from each indexed expiry category. It rechecks expiry, global asset
+references and actual storage metadata in the deletion mutation. Registered
+uploads are excluded. Stale or inconsistent candidates remain for operator
+review without blocking independent candidates. Expired receiving tickets have
+an additional twenty-four-hour grace period. No untracked file is swept.
 
 Account deletion preflights up to 1,000 receipts and checks global attachment
 references and actual native metadata before any file removal. It invalidates
@@ -63,6 +71,8 @@ global reference and byte checks. Remaining references preserve their bytes.
 Version-two local backups include receipt rows and validate their actual files.
 Version-one nine-table backups remain unchanged. Rehearsal version two preserves
 receipt fields exactly and verifies exact rollback; it does not enable migration.
-Trusted Notion transfers still need receipt integration. Previously delivered public
+Native authorized attachment deletion now removes obsolete receipts and bytes
+in the same transaction, retaining files with valid remaining references. Failed
+batches preserve both. Previously delivered public
 storage URLs cannot provide immediate revocation; shared delivery needs fresh
 authorization and cache isolation. Shared content remains disabled.

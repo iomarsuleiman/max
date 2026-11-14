@@ -133,5 +133,12 @@ readiness.
 - [x] Validate live receipt files, interrupted cleanup journals, registered attachment ownership and exact reversible rehearsal.
 - [x] Recover committed deletion claims after restart and distinguish saved changes from unfinished physical cleanup.
 - [ ] Complete inventory reconciliation for process death between file creation and receipt completion, including account deletion racing an in-flight upload.
-- [ ] Retire native registered-upload receipts during authorized attachment deletion so completed upload history cannot permanently exhaust bounded account cleanup.
+- [x] Retire native registered-upload receipts during authorized attachment deletion so completed upload history cannot permanently exhaust bounded account cleanup.
 - [x] Verify this local slice with 426 unit cases, 24 backup cases, four cloud-archive cases, the production build, the anonymous native probe and all 36 browser cases. All 48 corpus tiles match exactly.
+
+## Native receipt lifecycle continuation, 2026-11-14
+
+- [x] Stage native file removals until operation completion and validate the full selection before atomically deleting files and receipts.
+- [x] Make Notion media registration consume actual-byte receipts; stale commits retain unregistered files for safe expiry instead of deleting on uncertain acknowledgements.
+- [x] Add bounded indexed expiry cleanup with fresh reference/metadata checks and isolated candidate failures, scheduled every fifteen minutes.
+- [x] Recompile and deploy to the anonymous verifier and repeat the real 50 MiB HTTP upload proof with digest, retry and owner-denial checks.

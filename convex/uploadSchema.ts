@@ -33,6 +33,7 @@ export const uploadTables = {
     .index("by_logicalId", ["logicalId"])
     .index("by_capabilityHash", ["capabilityHash"])
     .index("by_ownerId", ["ownerId"])
+    .index("by_state_expiresAt", ["state", "expiresAt"])
     .index("by_blob_storageId", ["blob.storageId"])
     .index("by_state_registerUntil", ["state", "registerUntil"])
     .index("by_state_leaseUntil", ["state", "leaseUntil"]),

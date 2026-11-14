@@ -41,6 +41,17 @@ describe("authenticated cloud upload gateway", () => {
     const repeat = await t.fetch(path, { method: "POST", headers: { "content-type": "text/plain" }, body: "different" });
     expect(storedResult.parse(await repeat.json()).storageId).toBe(storageId);
     expect(await t.run((ctx) => ctx.db.query("assets").take(2))).toHaveLength(1);
+    await expect(alice.mutation(mutation, { op: "batch", args: { operations: [
+      { op: "assets.remove", args: { id: registered.id, confirm: true } },
+      { op: "pages.update", args: { id: "missing", title: "Fail" } },
+    ] } })).rejects.toThrow();
+    expect(await alice.query(query, { op: "assets.getUrl", args: { id: registered.id } })).toMatchObject({ size: 5 });
+    await alice.mutation(mutation, { op: "assets.remove", args: { id: registered.id, confirm: true } });
+    expect(await t.run((ctx) => ctx.db.query("uploadReceipts").take(1))).toEqual([]);
+    expect(await t.run(async (ctx) => {
+      const id = ctx.db.system.normalizeId("_storage", storageId);
+      return id ? ctx.db.system.get(id) : null;
+    })).toBeNull();
   });
 
   it("denies unauthenticated starts, arbitrary storage claims and legacy raw URL creation", async () => {

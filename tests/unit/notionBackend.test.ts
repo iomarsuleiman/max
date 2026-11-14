@@ -5,11 +5,13 @@ import * as notionStore from "../../convex/notionStore";
 import * as notionWorker from "../../convex/notionWorker";
 import * as notion from "../../convex/notion";
 import * as notionCleanup from "../../convex/notionCleanup";
+import * as uploadMutations from "../../convex/uploadMutations";
+import * as uploadOrphans from "../../convex/uploadOrphans";
 import { convertBlocks, convertValues, remapNotionLinks } from "../../lib/notion/convert";
 import { encryptToken, decryptToken } from "../../lib/notion/crypto";
 import { trustedMediaUrl } from "../../lib/notion/client";
 
-const app = defineTestApp({ schema }).defineModules({ notionStore, notionWorker, notion, notionCleanup });
+const app = defineTestApp({ schema }).defineModules({ notionStore, notionWorker, notion, notionCleanup, uploadMutations, uploadOrphans });
 const ownerId = "alice";
 const sourceId = "12345678-1234-1234-1234-123456789abc";
 afterEach(() => {
@@ -88,6 +90,28 @@ describe("Notion import persistence", () => {
     expect(body).toContain("max-asset://");
     expect(body).not.toContain(mediaUrl);
     expect(await t.run((ctx) => ctx.db.query("assets").collect())).toHaveLength(1);
+    const receipts = await t.run((ctx) => ctx.db.query("uploadReceipts").take(2));
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]).toMatchObject({ ownerId, state: "registered" });
+  });
+  it("refuses media without an uploader receipt and rolls the destination back", async () => {
+    const { t, write } = setup();
+    const { jobId } = await start(write);
+    const task = await write("claim", { jobId });
+    const storageId = await t.run((ctx) => ctx.storage.store(new Blob(["test"], { type: "text/plain" })));
+    await expect(
+      write("commit", {
+        jobId,
+        itemId: task._id,
+        leaseUntil: task.leaseUntil,
+        generation: task.generation,
+        entity: { title: "Unowned media" },
+        blocks: [],
+        media: [{ blockId: "missing", storageId, name: "unowned.txt", type: "text/plain", size: 4, kind: "file" }],
+      }),
+    ).rejects.toThrow();
+    expect(await t.run((ctx) => ctx.db.query("pages").take(1))).toEqual([]);
+    expect(await t.run((ctx) => ctx.db.query("assets").take(1))).toEqual([]);
   });
   it("blocks stale workers after disconnect and after lease recovery", async () => {
     const { t, write } = setup();
