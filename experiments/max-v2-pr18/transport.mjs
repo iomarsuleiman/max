@@ -2,7 +2,7 @@
 import { ConvexClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 
-const fn = (name, kind) => makeFunctionReference("provider:" + name);
+const fn = (name) => makeFunctionReference("provider:" + name);
 const JOIN = fn("join"), READ = fn("readUpdates"), WRITE = fn("appendUpdate");
 
 export function createAuthenticatedConvexTransport({ url, getToken }) {
