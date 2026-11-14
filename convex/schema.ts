@@ -57,6 +57,45 @@ export default defineSchema({
     .index("by_job_status", ["jobId", "status"])
     .index("by_job_key", ["jobId", "key"])
     .index("by_job", ["jobId"]),
+  // Max 2.0 authorization-only shadow model. No shared-content routes or writers
+  // are enabled by this schema; legacy owner-scoped tables are unchanged.
+  workspaces: defineTable({
+    workspaceId: v.string(),
+    ownerId: v.string(),
+    status: v.union(v.literal("active"), v.literal("disabled")),
+  }).index("by_workspaceId", ["workspaceId"]),
+  workspaceMemberships: defineTable({
+    workspaceId: v.string(),
+    accountId: v.string(),
+    role: v.union(v.literal("owner"), v.literal("admin"), v.literal("member"), v.literal("guest")),
+    status: v.union(v.literal("active"), v.literal("suspended"), v.literal("revoked")),
+  }).index("by_workspace_account", ["workspaceId", "accountId"]),
+  workspaceGroupMemberships: defineTable({
+    workspaceId: v.string(),
+    accountId: v.string(),
+    groupId: v.string(),
+    status: v.union(v.literal("active"), v.literal("suspended"), v.literal("revoked")),
+  }).index("by_workspace_account", ["workspaceId", "accountId"]),
+  workspaceTeamspaceMemberships: defineTable({
+    workspaceId: v.string(),
+    accountId: v.string(),
+    teamspaceId: v.string(),
+    status: v.union(v.literal("active"), v.literal("suspended"), v.literal("revoked")),
+  }).index("by_workspace_account", ["workspaceId", "accountId"]),
+  workspacePageScopes: defineTable({
+    workspaceId: v.string(),
+    pageId: v.string(),
+    parentId: nullableString,
+    teamspaceId: nullableString,
+  }).index("by_workspace_page", ["workspaceId", "pageId"]),
+  workspacePageGrants: defineTable({
+    workspaceId: v.string(),
+    pageId: v.string(),
+    subjectType: v.union(v.literal("account"), v.literal("group"), v.literal("workspace_role")),
+    subjectId: v.string(),
+    effect: v.union(v.literal("allow"), v.literal("deny")),
+    level: v.union(v.literal("view"), v.literal("comment"), v.literal("edit_content"), v.literal("edit"), v.literal("full_access")),
+  }).index("by_workspace_page", ["workspaceId", "pageId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
