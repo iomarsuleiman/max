@@ -1,0 +1,9 @@
+{
+  "name": "@max-experiments/pr17-authorized-collaboration-provider",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Standalone disposable Convex sandbox, never Max production",
+  "dependencies": {
+    "convex": "1.49.0"
+  }
+}
