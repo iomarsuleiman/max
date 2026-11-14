@@ -158,6 +158,16 @@ export const setAffiliation = mutationGeneric({
     const target = await membership(ctx, a.workspaceId, a.accountId);
     if (!canManageAffiliation(actor, workspace.ownerId, target)) denied();
     if (a.status === "active" && target?.status !== "active") denied();
+    // A teamspace affiliation may only be activated for an existing registered
+    // workspace teamspace. Otherwise a phantom ID could later gain privileges.
+    if (a.kind === "teamspace" && a.status === "active") {
+      const registered = await ctx.db.query("workspaceTeamspaces")
+        .withIndex("by_workspace_teamspace", (q) =>
+          (q.eq("workspaceId", a.workspaceId) as unknown as { eq(field: string, value: string): never })
+            .eq("teamspaceId", a.affiliationId)).take(2);
+      if (registered.length !== 1 || registered[0].workspaceId !== a.workspaceId ||
+          registered[0].teamspaceId !== a.affiliationId) denied();
+    }
     const table = a.kind === "group" ? "workspaceGroupMemberships" : "workspaceTeamspaceMemberships";
     const rows = a.kind === "group"
       ? await ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) =>
