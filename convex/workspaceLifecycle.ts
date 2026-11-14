@@ -74,9 +74,10 @@ export const issueInvitation = mutationGeneric({
         !Number.isInteger(a.ttlHours) || a.ttlHours < 1 || a.ttlHours > 168) denied();
     const current = await pending(ctx, a.workspaceId, a.targetAccountId);
     const now = Date.now();
-    if (current && current.expiresAt > now) denied();
+    // Generic Convex documents expose Value unions: validate before comparison.
+    if (current && (typeof current.expiresAt !== "number" || current.expiresAt > now)) denied();
     if (current) {
-      await ctx.db.patch(current._id, { status: "expired", resolvedAt: now });
+      await ctx.db.patch(current._id as never, { status: "expired", resolvedAt: now });
       await event(ctx, a.workspaceId, actor.accountId, "invitation.expired", String(current._id), "pending", "expired");
     }
     const id = await ctx.db.insert("workspaceInvitations", {
