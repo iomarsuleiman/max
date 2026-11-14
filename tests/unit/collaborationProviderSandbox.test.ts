@@ -14,6 +14,8 @@ const join = makeFunctionReference<"mutation">("provider:join");
 const append = makeFunctionReference<"mutation">("provider:appendUpdate");
 const read = makeFunctionReference<"query">("provider:readUpdates");
 const leave = makeFunctionReference<"mutation">("provider:leave");
+const status = makeFunctionReference<"query">("provider:sessionStatus");
+const downgrade = makeFunctionReference<"mutation">("provider:downgradeMemberEdit");
 const revoke = makeFunctionReference<"mutation">("provider:revokeMember");
 const root = "lab-page";
 const ws = "lab-workspace";
@@ -213,4 +215,49 @@ describe("PR17 standalone Convex sandbox provider: authenticated server operatio
     });
     await expect(alice.mutation(join, { workspaceId: ws, pageId: root })).rejects.toThrow();
   });
+  it("streams a server-derived edit downgrade without closing a readable session", async () => {
+    const { alice, bob, carol, t } = await fixture();
+    const a = await alice.mutation(join, { workspaceId: ws, pageId: root });
+    const b = await bob.mutation(join, { workspaceId: ws, pageId: root });
+    expect(await bob.query(status, { sessionId: b.sessionId })).toMatchObject({
+      accountId: "bob", canEdit: true, expiresAt: b.expiresAt,
+    });
+    await expect(carol.query(status, { sessionId: b.sessionId })).rejects.toThrow();
+    await expect(bob.mutation(downgrade, {
+      workspaceId: ws, pageId: root, targetAccountId: "carol",
+    })).rejects.toThrow();
+    expect(await alice.mutation(downgrade, {
+      workspaceId: ws, pageId: root, targetAccountId: "bob",
+    })).toBe(true);
+    expect(await bob.query(status, { sessionId: b.sessionId })).toMatchObject({
+      accountId: "bob", canEdit: false,
+    });
+    await expect(bob.query(read, { sessionId: b.sessionId, afterSeq: 0 })).resolves.toMatchObject({ headSeq: 0 });
+    await expect(bob.mutation(append, {
+      sessionId: b.sessionId, operationId: "pr20_denied_0001", base64: packet,
+    })).rejects.toThrow();
+    expect(await alice.query(status, { sessionId: a.sessionId })).toMatchObject({ canEdit: true });
+    const audit = await t.run(async ctx => ctx.db.query("labAuditEvents").collect());
+    expect(audit).toMatchObject([{ operation: "page.edit_downgraded", targetId: "bob" }]);
+  });
+
+  it("session status fails closed on revoked, expired, and cross-account leases", async () => {
+    const { alice, bob, t } = await fixture();
+    const a = await alice.mutation(join, { workspaceId: ws, pageId: root });
+    const b = await bob.mutation(join, { workspaceId: ws, pageId: root });
+    await expect(bob.query(status, { sessionId: a.sessionId })).rejects.toThrow();
+    await alice.mutation(revoke, { workspaceId: ws, pageId: root, targetAccountId: "bob" });
+    await expect(bob.query(status, { sessionId: b.sessionId })).rejects.toThrow();
+    await t.run(async ctx => {
+      const sessions = await ctx.db.query("labSessions").collect();
+      const row = sessions.find(s => s._id === a.sessionId);
+      if (!row) throw Error("missing lease");
+      await ctx.db.patch(row._id, { issuedAt: Date.now() - 300_001, expiresAt: Date.now() - 1 });
+    });
+    await expect(alice.query(status, { sessionId: a.sessionId })).rejects.toThrow();
+    await expect(alice.mutation(append, {
+      sessionId: a.sessionId, operationId: "pr20_denied_0002", base64: packet,
+    })).rejects.toThrow();
+  });
+
 });

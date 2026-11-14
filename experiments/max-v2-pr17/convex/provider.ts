@@ -173,6 +173,23 @@ export const readUpdates = queryGeneric({
   },
 });
 
+/** A reactive capability heartbeat. Authorization is recomputed inside the
+ * query transaction; a 5-minute lease cannot override a changed page grant.
+ * A permission downgrade updates the subscriber without waiting for a write
+ * rejection. Expiry still requires the client's local deadline timer.
+ */
+export const sessionStatus = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.object({ accountId: v.string(), expiresAt: v.number(), canEdit: v.boolean() }),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, session } = await requireSession(ctx, sessionId, "view");
+    return {
+      accountId, expiresAt: session.expiresAt,
+      canEdit: await authorized(ctx, accountId, session.workspaceId, session.pageId, "edit_content"),
+    };
+  },
+});
+
 /** Store one immutable opaque CRDT update; never overwrite a whole page.
  * Transactional idempotency protects retries; no client roles or author IDs. */
 export const appendUpdate = mutationGeneric({
@@ -251,6 +268,44 @@ export const revokeMember = mutationGeneric({
     await ctx.db.insert("labAuditEvents", {
       workspaceId, actorId: accountId, targetId: targetAccountId,
       operation: "member.revoked", at: Date.now(),
+    });
+    return true;
+  },
+});
+
+/** Owner-only *synthetic* page-grant downgrade for exercising an active
+ * subscription. Does not revoke view permission, modify a workspace role,
+ * or touch the production app. Reject ambiguous grants or any other source
+ * of edit permission; the transaction rolls back on rejection.
+ */
+export const downgradeMemberEdit = mutationGeneric({
+  args: { workspaceId: v.string(), pageId: v.string(), targetAccountId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { workspaceId, pageId, targetAccountId }) => {
+    gate();
+    const accountId = await principal(ctx);
+    if (!validPrincipalId(targetAccountId) || targetAccountId === accountId ||
+        !(await authorized(ctx, accountId, workspaceId, pageId, "manage"))) denied();
+    const workspaces = await ctx.db.query("workspaces")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId)).take(2);
+    if (workspaces.length !== 1 || workspaces[0].ownerId !== accountId) denied();
+    const memberships = await ctx.db.query("workspaceMemberships")
+      .withIndex("by_workspace_account", (q) =>
+        (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never }).eq("accountId", targetAccountId)).take(2);
+    if (memberships.length !== 1 || memberships[0].role === "owner" ||
+        memberships[0].status !== "active") denied();
+    const grants = await ctx.db.query("workspacePageGrants")
+      .withIndex("by_workspace_page", (q) =>
+        (q.eq("workspaceId", workspaceId) as unknown as { eq(field: string, value: string): never }).eq("pageId", pageId)).take(101);
+    const ownGrants = grants.filter(row => row.subjectType === "account" && row.subjectId === targetAccountId);
+    if (ownGrants.length !== 1 || ownGrants[0].effect !== "allow" ||
+        ownGrants[0].level !== "edit_content") denied();
+    await ctx.db.patch(ownGrants[0]._id, { level: "view" });
+    if (!(await authorized(ctx, targetAccountId, workspaceId, pageId, "view")) ||
+        await authorized(ctx, targetAccountId, workspaceId, pageId, "edit_content")) denied();
+    await ctx.db.insert("labAuditEvents", {
+      workspaceId, actorId: accountId, targetId: targetAccountId,
+      operation: "page.edit_downgraded", at: Date.now(),
     });
     return true;
   },

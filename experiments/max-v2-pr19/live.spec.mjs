@@ -50,6 +50,13 @@ test("real independent Clerk identities: convergence, read-only guest, revocatio
    const bobMarker="Bob remote "+Date.now();
    await bob.evaluate(text=>window.__maxPr18.insertText(text),bobMarker);
    await expect.poll(async()=>JSON.stringify((await read(alice)).document)).toContain(bobMarker);
+   // Real server grant downgrade must preserve view but remove editing,
+   // without relying on Bob first attempting a forbidden write.
+   await alice.evaluate(id=>window.__maxPr18.downgradeMemberEdit(id),process.env.MAX_PR19_BOB_ID);
+   await expect.poll(async()=> (await read(bob)).canEdit).toBe(false);
+   expect((await read(bob)).state).toBe("online");
+   await expect(bob.evaluate(()=>window.__maxPr18.insertText("DENIED_AFTER_DOWNGRADE"))).rejects.toThrow();
+   await expect.poll(async()=>JSON.stringify((await read(bob)).document)).toContain(marker);
    // This mutation must be evaluated by the actual server as the real owner.
    await alice.evaluate(id=>window.__maxPr18.revokeMember(id),process.env.MAX_PR19_BOB_ID);
    await expect.poll(async()=> (await read(bob)).state).toBe("blocked");

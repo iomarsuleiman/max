@@ -34,6 +34,8 @@ export class AuthorizedYjsProvider {
     this.lastAuthorizedCanEdit = false;
     this.session = null;
     this.unsubscribe = null;
+    this.unsubscribeStatus = null;
+    this.expiryTimer = null;
     this.poll = null;
     this.connectedOnce = false;
     this.listeners = new Map();
@@ -81,8 +83,36 @@ export class AuthorizedYjsProvider {
   _stopNetwork() {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.unsubscribeStatus?.();
+    this.unsubscribeStatus = null;
+    if (this.expiryTimer !== null) clearTimeout(this.expiryTimer);
+    this.expiryTimer = null;
     if (this.poll !== null) clearInterval(this.poll);
     this.poll = null;
+  }
+  /** Subscribed, server-derived permission changes only REDUCE existing
+   * capabilities. A re-upgrade requires an explicit fresh join/lease, never a
+   * stale status notification. The server independently gates every append.
+   */
+  _applySessionStatus(next) {
+    if (this.state !== "online" || !this.session) return;
+    if (!next || next.accountId !== this.accountId ||
+        next.expiresAt !== this.session.expiresAt ||
+        typeof next.canEdit !== "boolean") {
+      this._block(Error("SESSION_STATUS_MISMATCH"));
+      return;
+    }
+    if (Date.now() >= this.session.expiresAt) {
+      this._block(Error("LEASE_EXPIRED"));
+      return;
+    }
+    if (this.canEdit && !next.canEdit) {
+      this.canEdit = false;
+      this.lastAuthorizedCanEdit = false;
+      if (this.pending.length)
+        this.lastError = Error("EDIT_ACCESS_DOWNGRADED: export unsent local edits; no automatic replay");
+      this._emit();
+    }
   }
   _block(error) {
     if (this.state === "destroyed") return;
@@ -141,6 +171,17 @@ export class AuthorizedYjsProvider {
       this.state = "online";
       this.connectedOnce = true;
       this._emit();
+      // The deadline is enforced locally, not dependent on a reactive
+      // Date.now() query re-running after the five-minute lease expires.
+      this.expiryTimer = setTimeout(() => this._block(Error("LEASE_EXPIRED")),
+        Math.max(0, lease.expiresAt - Date.now()));
+      if (typeof this.transport.watchStatus === "function") {
+        this.unsubscribeStatus = this.transport.watchStatus(
+          { sessionId: lease.sessionId },
+          result => this._applySessionStatus(result),
+          error => this._block(error),
+        );
+      }
       this.unsubscribe = this.transport.watch({
         sessionId: lease.sessionId, afterSeq: this.cursor,
       }, () => { void this.pull().catch(() => {}); }, (err) => this._block(err));
@@ -150,8 +191,10 @@ export class AuthorizedYjsProvider {
         void this.pull().catch(() => {});
       }, 20_000);
       if (this.pending.length) {
-        if (!this.canEdit) throw Error("READ_ONLY: unsent changes require manual export; server will not accept writes");
-        await this.flush();
+        if (!this.canEdit) {
+          this.lastError = Error("READ_ONLY_PENDING_EXPORT_REQUIRED: local edits are preserved, not uploaded");
+          this._emit();
+        } else await this.flush();
       }
     })().catch((error) => { this._block(error); throw error; }).finally(() => { this._connecting = null; });
     return this._connecting;
@@ -194,7 +237,7 @@ export class AuthorizedYjsProvider {
       try {
         await this.persistBarrier;
         if (this.state !== "online") return;
-        while (this.state === "online" && this.pending.length) {
+        while (this.state === "online" && this.canEdit && this.pending.length) {
           const entry = this.pending[0];
           await this.transport.appendUpdate({
             sessionId: this.session.sessionId, operationId: entry.operationId, base64: entry.base64,
