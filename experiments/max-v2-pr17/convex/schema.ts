@@ -83,6 +83,18 @@ export default defineSchema({
     body: v.string(), mentions: v.array(v.string()), createdAt: v.number(),
   }).index("by_thread", ["threadId"])
     .index("by_room_actor_operation", ["roomId", "authorId", "operationId"]),
+
+  // PR27: sandbox-only review proposals, separate from authoritative Yjs.
+  labSuggestions: defineTable({
+    roomId: v.id("labRooms"), blockId: v.string(), proposedBy: v.string(),
+    operationId: v.string(), baseSeq: v.number(), originalText: v.string(),
+    replacementText: v.string(), note: v.string(),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("rejected")),
+    revision: v.number(), reviewedBy: v.union(v.string(), v.null()),
+    reviewedAt: v.union(v.number(), v.null()),
+    reviewOperationId: v.union(v.string(), v.null()), createdAt: v.number(),
+  }).index("by_room", ["roomId"])
+    .index("by_room_actor_operation", ["roomId", "proposedBy", "operationId"]),
   labAuditEvents: defineTable({
     workspaceId: v.string(), actorId: v.string(), targetId: v.string(),
     operation: v.string(), at: v.number(),
