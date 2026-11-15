@@ -5,6 +5,7 @@ import { canEditSharedRecord, pageAuthorizedSharedRecords, type SharedDatabaseRe
 import { validPrincipalId, validScopeId, validWorkspaceId } from "../lib/domain/workspaceManagementPolicy";
 import { readAuthorizedRecordSemantics, validSemanticInput, type SemanticKind, type SharedSemanticStore } from "../lib/domain/workspaceRecordSemantics";
 import { canLinkTask, readAuthorizedTaskRelations, validTaskRelationGraph, validTaskRelationInput, type TaskRelationRow, type TaskRelationStore } from "../lib/domain/workspaceTaskRelations";
+import { pageAuthorizedTaskView } from "../lib/domain/workspaceTaskViews";
 
 /** Gated shadow-metadata endpoints. No owner-only content, UI or MCP access. */
 type ReadCtx = Pick<GenericQueryCtx<GenericDataModel>, "db" | "auth">;
@@ -442,5 +443,41 @@ export const upsertTaskRelations = mutationGeneric({
       await ctx.db.insert("workspaceTaskRelations", proposed);
     }
     return currentUpdatedAt;
+  },
+});
+
+/**
+ * PR35: read-only, default-OFF projections for list, board, calendar and
+ * milestone timeline. No personal database, UI, editor, mutation or MCP path.
+ * Pagination anchors are reauthorized visible task IDs, not raw index cursors.
+ */
+export const listTaskView = queryGeneric({
+  args: {
+    workspaceId: v.string(), databaseId: v.string(),
+    view: v.union(v.literal("list"), v.literal("board"),
+      v.literal("calendar"), v.literal("timeline")),
+    limit: v.number(), after: nullableString,
+    from: nullableNumber, to: nullableNumber,
+  },
+  returns: v.object({
+    records: v.array(v.object({
+      recordId: v.string(), title: v.string(),
+      state: v.union(v.literal("todo"), v.literal("in_progress"),
+        v.literal("blocked"), v.literal("done")),
+      dueAt: nullableNumber, assignedToMe: v.boolean(),
+      projectId: nullableString, updatedAt: v.number(),
+    })),
+    nextCursor: nullableString,
+  }),
+  handler: async (ctx, a) => {
+    const empty = { records: [], nextCursor: null };
+    if (!semanticReadsEnabled() ||
+        process.env.MAX_V2_TASK_VIEWS_READS_ENABLED !== "true") return empty;
+    try {
+      return await pageAuthorizedTaskView(
+        semanticStore(ctx), await who(ctx), a.workspaceId, a.databaseId,
+        { view: a.view, limit: a.limit, after: a.after, from: a.from, to: a.to },
+      );
+    } catch { return empty; }
   },
 });
