@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { canAccessWorkspacePageFromServer } from "../lib/domain/workspaceAccessGateway";
 import { canEditSharedRecord, pageAuthorizedSharedRecords, type SharedDatabaseReadStore } from "../lib/domain/sharedDatabasePolicy";
 import { validPrincipalId, validScopeId, validWorkspaceId } from "../lib/domain/workspaceManagementPolicy";
+import { readAuthorizedRecordSemantics, validSemanticInput, type SemanticKind, type SharedSemanticStore } from "../lib/domain/workspaceRecordSemantics";
 
 /** Gated shadow-metadata endpoints. No owner-only content, UI or MCP access. */
 type ReadCtx = Pick<GenericQueryCtx<GenericDataModel>, "db" | "auth">;
@@ -182,5 +183,154 @@ export const upsertRecordMetadata = mutationGeneric({
       kind: "record", archivedAt: null, title: a.title, updatedAt: next,
     });
     return next;
+  },
+});
+
+/** PR33: in the same Convex query snapshot as the authorization gateway. */
+function semanticStore(ctx: ReadCtx): SharedSemanticStore {
+  return {
+    ...sharedStore(ctx),
+    recordMetadata: async (recordId: string) =>
+      (await ctx.db.query("workspaceRecordMetadata")
+        .withIndex("by_pageId", (q) => q.eq("pageId", recordId)).take(2))
+        .map((row) => ({
+          workspaceId: row.workspaceId as string, databaseId: row.databaseId as string,
+          pageId: row.pageId as string, kind: row.kind as "record",
+          archivedAt: row.archivedAt as number | null,
+          title: row.title as string, updatedAt: row.updatedAt as number,
+        })),
+    semanticRows: async (recordId: string) =>
+      (await ctx.db.query("workspaceRecordSemantics")
+        .withIndex("by_recordId", (q) => q.eq("recordId", recordId)).take(2))
+        .map((row) => ({
+          workspaceId: row.workspaceId as string, databaseId: row.databaseId as string,
+          recordId: row.recordId as string, kind: row.kind as SemanticKind,
+          state: row.state as string,
+          assigneeId: row.assigneeId as string | null,
+          projectId: row.projectId as string | null,
+          dueAt: row.dueAt as number | null,
+          archivedAt: row.archivedAt as number | null,
+          updatedAt: row.updatedAt as number,
+        })),
+  };
+}
+
+function semanticReadsEnabled(): boolean {
+  return canRead() && process.env.MAX_V2_WORKSPACE_RECORD_SEMANTICS_READS_ENABLED === "true";
+}
+function semanticWritesEnabled(): void {
+  canWrite();
+  if (process.env.MAX_V2_WORKSPACE_RECORD_SEMANTICS_WRITES_ENABLED !== "true") denied();
+}
+const nullableString = v.union(v.string(), v.null());
+const nullableNumber = v.union(v.number(), v.null());
+const semanticKind = v.union(v.literal("task"), v.literal("project"), v.literal("wiki"));
+
+/**
+ * View access is reevaluated independently for the database, record and linked
+ * project. Exposes no third-party assignee identity, record body or hidden IDs.
+ */
+export const readRecordSemantics = queryGeneric({
+  args: { workspaceId: v.string(), databaseId: v.string(), recordId: v.string() },
+  returns: v.union(v.null(), v.object({
+    recordId: v.string(), kind: semanticKind, state: v.string(),
+    dueAt: nullableNumber, assignedToMe: v.boolean(),
+    projectId: nullableString, updatedAt: v.number(),
+  })),
+  handler: async (ctx, a) => {
+    if (!semanticReadsEnabled()) return null;
+    try {
+      return await readAuthorizedRecordSemantics(
+        semanticStore(ctx), await who(ctx), a.workspaceId, a.databaseId, a.recordId
+      );
+    } catch {
+      return null;
+    }
+  },
+});
+
+/**
+ * Metadata-only typed semantics for an EXISTING registered record.
+ * No scope creation, shared content, public wiki publishing or account search.
+ */
+export const upsertRecordSemantics = mutationGeneric({
+  args: {
+    workspaceId: v.string(), databaseId: v.string(), recordId: v.string(),
+    kind: semanticKind, state: v.string(), assigneeId: nullableString,
+    projectId: nullableString, dueAt: nullableNumber,
+    expectedUpdatedAt: nullableNumber,
+  },
+  returns: v.number(),
+  handler: async (ctx, a) => {
+    semanticWritesEnabled();
+    const actor = await who(ctx);
+    if (!validWorkspaceId(a.workspaceId) || !validScopeId(a.databaseId) ||
+        !validSemanticInput(a, a.recordId) || a.databaseId === a.recordId) denied();
+
+    // An existing unique shadow scope + registered metadata is mandatory.
+    await exactScope(ctx, a.workspaceId, a.databaseId);
+    await exactScope(ctx, a.workspaceId, a.recordId, a.databaseId);
+    const metadata = await ctx.db.query("workspaceRecordMetadata")
+      .withIndex("by_pageId", (q) => q.eq("pageId", a.recordId)).take(2);
+    if (metadata.length !== 1 || metadata[0].workspaceId !== a.workspaceId ||
+        metadata[0].databaseId !== a.databaseId || metadata[0].pageId !== a.recordId ||
+        metadata[0].kind !== "record" || metadata[0].archivedAt !== null) denied();
+
+    const store = semanticStore(ctx);
+    if (!(await canEditSharedRecord(store, actor, a.workspaceId, a.databaseId, a.recordId))) denied();
+
+    if (a.assigneeId !== null) {
+      const members = await ctx.db.query("workspaceMemberships")
+        .withIndex("by_workspace_account", (q) =>
+          (q.eq("workspaceId", a.workspaceId) as unknown as { eq(field: string, value: string): never })
+            .eq("accountId", a.assigneeId as string)).take(2);
+      if (members.length !== 1 || members[0].workspaceId !== a.workspaceId ||
+          members[0].accountId !== a.assigneeId || members[0].status !== "active") denied();
+      // No assignment to an account that cannot actually view the task.
+      if (!(await canAccessWorkspacePageFromServer(
+        store, a.assigneeId, a.workspaceId, a.recordId, "view"
+      ))) denied();
+    }
+    if (a.projectId !== null) {
+      // Only a registered, readable, same-database PROJECT can be linked.
+      await exactScope(ctx, a.workspaceId, a.projectId, a.databaseId);
+      const [projectMetadata, projectRows] = await Promise.all([
+        store.recordMetadata(a.projectId), store.semanticRows(a.projectId),
+      ]);
+      if (projectMetadata.length !== 1 || projectMetadata[0].workspaceId !== a.workspaceId ||
+          projectMetadata[0].databaseId !== a.databaseId ||
+          projectMetadata[0].pageId !== a.projectId ||
+          projectMetadata[0].kind !== "record" || projectMetadata[0].archivedAt !== null ||
+          projectRows.length !== 1 || projectRows[0].workspaceId !== a.workspaceId ||
+          projectRows[0].databaseId !== a.databaseId || projectRows[0].recordId !== a.projectId ||
+          projectRows[0].kind !== "project" || projectRows[0].archivedAt !== null ||
+          !validSemanticInput(projectRows[0], a.projectId)) denied();
+      if (!(await canAccessWorkspacePageFromServer(
+        store, actor, a.workspaceId, a.projectId, "view"
+      ))) denied();
+    }
+
+    const existing = await ctx.db.query("workspaceRecordSemantics")
+      .withIndex("by_recordId", (q) => q.eq("recordId", a.recordId)).take(2);
+    if (existing.length > 1) denied();
+    const prior = existing[0];
+    if (prior && (prior.workspaceId !== a.workspaceId ||
+        prior.databaseId !== a.databaseId || prior.recordId !== a.recordId ||
+        prior.kind !== a.kind || prior.archivedAt !== null ||
+        !validSemanticInput(prior, a.recordId) ||
+        prior.updatedAt !== a.expectedUpdatedAt)) denied();
+    if (!prior && a.expectedUpdatedAt !== null) denied();
+    const updatedAt = Math.max(Date.now(), prior ? prior.updatedAt + 1 : 0);
+    if (!Number.isSafeInteger(updatedAt)) denied();
+    const patch = {
+      kind: a.kind, state: a.state, assigneeId: a.assigneeId,
+      projectId: a.projectId, dueAt: a.dueAt, updatedAt,
+    };
+    if (prior) await ctx.db.patch(prior._id as never, patch);
+    else await ctx.db.insert("workspaceRecordSemantics", {
+      workspaceId: a.workspaceId, databaseId: a.databaseId, recordId: a.recordId,
+      archivedAt: null, ...patch,
+    });
+    return updatedAt;
   },
 });
