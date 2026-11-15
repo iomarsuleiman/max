@@ -149,6 +149,7 @@ export class AuthorizedYjsProvider {
     if (this.state === "online") return;
     if (this._connecting) return this._connecting;
     await this.restorePending();
+    if (this.state === "destroyed") throw Error("Provider destroyed during recovery");
     if (this.pending.length && !reviewedPending) {
       throw Error("OFFLINE_REPLAY_REQUIRES_REVIEW: export or review local changes before reconnect");
     }
@@ -157,6 +158,7 @@ export class AuthorizedYjsProvider {
     this._emit();
     this._connecting = (async () => {
       const lease = await this.transport.join(this.scope);
+      if (this.state === "destroyed") throw Error("Provider destroyed during join");
       if (!lease.sessionId || !lease.accountId || !Number.isFinite(lease.expiresAt) ||
           lease.expiresAt <= Date.now()) throw Error("Invalid authenticated collaboration lease");
       if (this.accountId && this.accountId !== lease.accountId)
@@ -167,6 +169,7 @@ export class AuthorizedYjsProvider {
       this.session = lease;
       this.cursor = 0; // rehydrate from server log; Y.applyUpdate is idempotent
       await this.pull();
+      if (this.state === "destroyed") throw Error("Provider destroyed during sync");
       if (this.state === "blocked") throw this.lastError;
       this.state = "online";
       this.connectedOnce = true;
