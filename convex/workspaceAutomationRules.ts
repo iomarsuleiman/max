@@ -58,7 +58,7 @@ export function automationStore(ctx: Ctx): AutomationRuleStore {
     globalScopes: async (pageId: string) =>
       (await ctx.db.query("workspacePageScopes")
         .withIndex("by_pageId", (q) => q.eq("pageId", pageId)).take(2))
-        .map((row) => ({ workspaceId: row.workspaceId, pageId: row.pageId })),
+        .map((row) => ({ workspaceId: row.workspaceId as string, pageId: row.pageId as string })),
     automationRules: async (workspaceId: string, databaseId: string) =>
       (await ctx.db.query("workspaceAutomationRules")
         .withIndex("by_workspace_database", (q) =>
