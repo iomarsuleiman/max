@@ -5,6 +5,7 @@ import { canEditSharedRecord, pageAuthorizedSharedRecords, type SharedDatabaseRe
 import { validPrincipalId, validScopeId, validWorkspaceId } from "../lib/domain/workspaceManagementPolicy";
 import { readAuthorizedRecordSemantics, validSemanticInput, type SemanticKind, type SharedSemanticStore } from "../lib/domain/workspaceRecordSemantics";
 import { canLinkTask, readAuthorizedTaskRelations, validTaskRelationGraph, validTaskRelationInput, type TaskRelationRow, type TaskRelationStore } from "../lib/domain/workspaceTaskRelations";
+import { readAuthorizedTaskViewPage } from "../lib/domain/workspaceTaskViews";
 
 /** Gated shadow-metadata endpoints. No owner-only content, UI or MCP access. */
 type ReadCtx = Pick<GenericQueryCtx<GenericDataModel>, "db" | "auth">;
@@ -442,5 +443,47 @@ export const upsertTaskRelations = mutationGeneric({
       await ctx.db.insert("workspaceTaskRelations", proposed);
     }
     return currentUpdatedAt;
+  },
+});
+
+
+/**
+ * PR35 read-only task list/board data. The client may group returned states;
+ * no hidden totals, status aggregates, document bodies or task mutations.
+ * A cursor always represents a currently visible metadata record, even when
+ * that record was filtered from this task-only projection.
+ */
+export const listTaskView = queryGeneric({
+  args: {
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    limit: v.number(),
+    after: nullableCursor,
+    state: v.union(
+      v.null(), v.literal("todo"), v.literal("in_progress"),
+      v.literal("blocked"), v.literal("done"),
+    ),
+  },
+  returns: v.object({
+    records: v.array(v.object({
+      recordId: v.string(), title: v.string(), state: v.union(
+        v.literal("todo"), v.literal("in_progress"),
+        v.literal("blocked"), v.literal("done"),
+      ),
+      dueAt: nullableNumber, assignedToMe: v.boolean(),
+      projectId: nullableString, updatedAt: v.number(),
+    })),
+    nextCursor: nullableCursor,
+  }),
+  handler: async (ctx, a) => {
+    const empty = { records: [], nextCursor: null };
+    if (!semanticReadsEnabled() ||
+        process.env.MAX_V2_TASK_VIEW_READS_ENABLED !== "true") return empty;
+    try {
+      return await readAuthorizedTaskViewPage(
+        semanticStore(ctx), await who(ctx), a.workspaceId,
+        a.databaseId, a.limit, a.after, a.state,
+      );
+    } catch { return empty; }
   },
 });
