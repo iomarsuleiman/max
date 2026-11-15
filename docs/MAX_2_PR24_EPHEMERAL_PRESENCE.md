@@ -5,7 +5,7 @@ Draft, experimental only. Stacked on PR23/#52. Main and the max-2.0 integration 
 ## Implemented
 - A new labPresence table in the disposable PR17 Convex schema, separated from durable Yjs text and checkpoint history.
 - Server-authenticated publishPresence, listPresence and stopPresence functions within the isolated provider. Every call requires the current Clerk/Convex session and live page authorization. Editing status additionally requires live edit permission.
-- Server-controlled 20-second TTL, privacy/invisible deletion, explicit removal, room cap 64 and pruning on future writes. A closed, expired, revoked or cross-room lease never yields visible presence. Live permission checks prevent exposing a revoked participant to others.
+- Server-controlled 20-second TTL, privacy/invisible deletion, explicit removal, room cap 64 and pruning on future writes. A closed, expired, revoked or cross-room lease never yields visible presence. Live permission checks prevent exposing a revoked participant to others; a stale editing heartbeat is shown as viewing with selection redacted immediately on downgrade. Privacy deletion remains available to a downgraded viewer.
 - Minimal payload: authenticated account ID, viewing/editing mode, validated stable block ID and numeric selection range, expiry. No note text, emails, names, avatar images, document content or user-provided role/grants.
 - Unit regressions using distinct simulated identities, impersonated session, guest editing, malformed selection, privacy deletion, TTL expiry/pruning, revocation, downgrade and close/disabled flag.
 

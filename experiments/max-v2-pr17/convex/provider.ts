@@ -499,9 +499,9 @@ async function roomPresence(ctx: Ctx, roomId: string) {
     if (row.roomId !== roomId || !validPrincipalId(row.accountId) ||
         !Number.isSafeInteger(row.updatedAt) || !Number.isSafeInteger(row.expiresAt) ||
         row.updatedAt >= row.expiresAt || row.expiresAt - row.updatedAt > PRESENCE_TTL_MS ||
-        !validSelection(row.blockId === null ? null : {
-          blockId: row.blockId, anchor: row.anchor!, head: row.head!,
-        }) || sessions.has(String(row.sessionId))) denied();
+        (row.blockId === null ? (row.anchor !== null || row.head !== null) :
+          !validSelection({blockId: row.blockId, anchor: row.anchor!, head: row.head!})) ||
+        sessions.has(String(row.sessionId))) denied();
     sessions.add(String(row.sessionId));
   }
   return rows;
@@ -516,8 +516,8 @@ export const publishPresence = mutationGeneric({
   returns: v.union(v.null(), v.number()),
   handler: async (ctx, { sessionId, visible, state, selection }) => {
     const { accountId, session, room } = await requireSession(ctx, sessionId, "view");
-    if (!validSelection(selection) || (state === "editing" &&
-        !(await authorized(ctx, accountId, session.workspaceId, session.pageId, "edit_content")))) denied();
+    if (visible && (!validSelection(selection) || (state === "editing" &&
+        !(await authorized(ctx, accountId, session.workspaceId, session.pageId, "edit_content"))))) denied();
     const own = await ctx.db.query("labPresence")
       .withIndex("by_session", q => q.eq("sessionId", sessionId)).take(2);
     if (own.length > 1 || own.some(r => r.accountId !== accountId || r.roomId !== room._id)) denied();
@@ -553,7 +553,7 @@ export const listPresence = queryGeneric({
     const { room } = await requireSession(ctx, sessionId, "view");
     const rows = await roomPresence(ctx, String(room._id));
     const now = Date.now();
-    const byAccount = new Map<string, typeof rows[number]>();
+    const byAccount = new Map<string, { row: typeof rows[number]; canEdit: boolean }>();
     for (const row of rows) {
       if (row.expiresAt <= now) continue;
       const lease = await ctx.db.get(row.sessionId);
@@ -561,12 +561,23 @@ export const listPresence = queryGeneric({
           lease.revokedAt !== null || lease.expiresAt <= now ||
           lease.expiresAt < row.expiresAt ||
           !(await authorized(ctx, row.accountId, lease.workspaceId, lease.pageId, "view"))) continue;
+      // An old editing heartbeat must not outlive a mid-session downgrade.
+      const canEdit = row.state === "editing" &&
+        await authorized(ctx, row.accountId, lease.workspaceId, lease.pageId, "edit_content");
       const prior = byAccount.get(row.accountId);
-      if (!prior || prior.updatedAt < row.updatedAt) byAccount.set(row.accountId, row);
+      if (!prior || prior.row.updatedAt < row.updatedAt)
+        byAccount.set(row.accountId, {row, canEdit});
     }
-    return [...byAccount.values()].sort((a,b) => a.accountId.localeCompare(b.accountId))
-      .map(r => ({ accountId: r.accountId, state: r.state,
-        blockId: r.blockId, anchor: r.anchor, head: r.head, expiresAt: r.expiresAt }));
+    return [...byAccount.values()].sort((a,b) => a.row.accountId.localeCompare(b.row.accountId))
+      .map(({row, canEdit}) => ({
+        accountId: row.accountId,
+        state: row.state === "editing" && !canEdit ? "viewing" as const : row.state,
+        // A downgraded edit selection cannot linger in the reactive view.
+        blockId: row.state === "editing" && !canEdit ? null : row.blockId,
+        anchor: row.state === "editing" && !canEdit ? null : row.anchor,
+        head: row.state === "editing" && !canEdit ? null : row.head,
+        expiresAt: row.expiresAt,
+      }));
   },
 });
 

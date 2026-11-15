@@ -91,10 +91,15 @@ describe("PR24 sandbox-only ephemeral presence", () => {
     await expect(bob.query(list, { sessionId: b.sessionId })).rejects.toThrow();
     await expect(bob.mutation(publish, { sessionId: b.sessionId, visible: true, state: "viewing", selection: null })).rejects.toThrow();
   });
-  it("after a live edit downgrade, viewing remains allowed but editing does not", async () => {
+  it("live downgrade immediately redacts stale editing; invisible mode still works", async () => {
     const { alice, bob, a, b } = await setup();
+    await bob.mutation(publish, { sessionId: b.sessionId, visible: true, state: "editing", selection });
     await alice.mutation(downgrade, { workspaceId: ws, pageId: page, targetAccountId: "bob" });
+    expect(await alice.query(list, { sessionId: a.sessionId }))
+      .toMatchObject([{ accountId: "bob", state: "viewing", blockId: null, anchor: null, head: null }]);
     await expect(bob.mutation(publish, { sessionId: b.sessionId, visible: true, state: "editing", selection })).rejects.toThrow();
+    expect(await bob.mutation(publish, { sessionId: b.sessionId, visible: false, state: "editing", selection })).toBeNull();
+    expect(await alice.query(list, { sessionId: a.sessionId })).toEqual([]);
     await bob.mutation(publish, { sessionId: b.sessionId, visible: true, state: "viewing", selection: null });
     expect(await alice.query(list, { sessionId: a.sessionId })).toMatchObject([{ accountId: "bob", state: "viewing" }]);
   });
