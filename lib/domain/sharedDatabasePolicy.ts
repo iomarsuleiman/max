@@ -76,6 +76,38 @@ function validCandidates(rows: readonly SharedRecordCandidate[], workspaceId: st
  * Candidate reads MUST be bounded before this function is called (not an
  * unbounded .collect() in Convex). This contract makes no pagination promises.
  */
+async function collectAuthorizedRecords(
+  store: SharedDatabaseReadStore,
+  verifiedAccountId: string | null,
+  workspaceId: string,
+  databaseId: string,
+): Promise<SharedRecordPreview[]> {
+  if (!validRequest(verifiedAccountId, workspaceId, databaseId)) return [];
+  try {
+    const bindings = await store.databaseBindings(workspaceId, databaseId);
+    if (!validBinding(bindings, workspaceId, databaseId) ||
+      !(await canAccessWorkspacePageFromServer(store, verifiedAccountId, workspaceId, databaseId, "view"))) return [];
+    // The backend MUST apply an indexed take(101) in this same query snapshot.
+    const candidates = await store.recordCandidates(workspaceId, databaseId);
+    if (!validCandidates(candidates, workspaceId, databaseId)) return [];
+    const visible: SharedRecordPreview[] = [];
+    for (const record of candidates) {
+      const scopes = await store.scopes(workspaceId, record.pageId);
+      if (scopes.length !== 1 || scopes[0].workspaceId !== workspaceId ||
+        scopes[0].pageId !== record.pageId || scopes[0].parentId !== databaseId) return [];
+      if (record.archivedAt !== null) continue;
+      if (await canAccessWorkspacePageFromServer(store, verifiedAccountId, workspaceId, record.pageId, "view")) {
+        visible.push({ pageId: record.pageId, title: record.title, updatedAt: record.updatedAt });
+      }
+    }
+    visible.sort((a, b) => a.pageId < b.pageId ? -1 : a.pageId > b.pageId ? 1 : 0);
+    return visible;
+  } catch {
+    return []; // Never return partially authorized data after errors or revocation.
+  }
+}
+
+/** PR31 compatibility: bounded authorization-only preview, no cursor. */
 export async function previewAuthorizedSharedRecords(
   store: SharedDatabaseReadStore,
   verifiedAccountId: string | null,
@@ -83,40 +115,43 @@ export async function previewAuthorizedSharedRecords(
   databaseId: string,
   limit = 25,
 ): Promise<readonly SharedRecordPreview[]> {
-  if (!validRequest(verifiedAccountId, workspaceId, databaseId) ||
-    !Number.isInteger(limit) || limit < 1 || limit > MAX_RETURN) return [];
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_RETURN) return [];
+  return (await collectAuthorizedRecords(store, verifiedAccountId, workspaceId, databaseId)).slice(0, limit);
+}
 
-  try {
-    const bindings = await store.databaseBindings(workspaceId, databaseId);
-    if (!validBinding(bindings, workspaceId, databaseId) ||
-      !(await canAccessWorkspacePageFromServer(store, verifiedAccountId, workspaceId, databaseId, "view"))) return [];
+export interface AuthorizedSharedRecordPage {
+  records: readonly SharedRecordPreview[];
+  nextCursor: string | null;
+}
+const EMPTY_PAGE: AuthorizedSharedRecordPage = { records: [], nextCursor: null };
 
-    const candidates = await store.recordCandidates(workspaceId, databaseId);
-    // One corrupt, mismatched or duplicate record invalidates this batch; do
-    // not return a partially trusted snapshot or accidentally aggregate it.
-    if (!validCandidates(candidates, workspaceId, databaseId)) return [];
-
-    const result: SharedRecordPreview[] = [];
-    for (const record of candidates) {
-      // Never return a row from a different page ancestry, even if a legacy
-      // index or stale migration associates it with this database ID.
-      const scopes = await store.scopes(workspaceId, record.pageId);
-      if (scopes.length !== 1 || scopes[0].workspaceId !== workspaceId ||
-        scopes[0].pageId !== record.pageId || scopes[0].parentId !== databaseId) return [];
-
-      if (record.archivedAt !== null) continue;
-      if (await canAccessWorkspacePageFromServer(store, verifiedAccountId, workspaceId, record.pageId, "view")) {
-        if (result.length < limit) {
-          // Explicit allowlist: never spread an untrusted row into a response.
-          result.push({ pageId: record.pageId, title: record.title, updatedAt: record.updatedAt });
-        }
-      }
-    }
-    return result;
-  } catch {
-    // Invalid or unavailable trusted store fails closed, without partial rows.
-    return [];
+/**
+ * PR32: incremental metadata paging with cursor equal to an ALREADY VISIBLE
+ * record ID. It is reauthorized on each read. No hidden raw index cursor,
+ * unfiltered offset, aggregate counts or relation expansion. Deliberately
+ * limited to at most 100 registered metadata records per database.
+ */
+export async function pageAuthorizedSharedRecords(
+  store: SharedDatabaseReadStore,
+  verifiedAccountId: string | null,
+  workspaceId: string,
+  databaseId: string,
+  limit = 20,
+  afterVisiblePageId: string | null = null,
+): Promise<AuthorizedSharedRecordPage> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 25 ||
+      (afterVisiblePageId !== null && !validScopeId(afterVisiblePageId))) return EMPTY_PAGE;
+  const authorized = await collectAuthorizedRecords(store, verifiedAccountId, workspaceId, databaseId);
+  let start = 0;
+  if (afterVisiblePageId !== null) {
+    const index = authorized.findIndex((row) => row.pageId === afterVisiblePageId);
+    if (index < 0) return EMPTY_PAGE;
+    start = index + 1;
   }
+  const records = authorized.slice(start, start + limit);
+  const nextCursor = records.length && start + limit < authorized.length
+    ? records[records.length - 1].pageId : null;
+  return { records, nextCursor };
 }
 
 /** Pure preflight for a future record write; no write API is enabled here. */
