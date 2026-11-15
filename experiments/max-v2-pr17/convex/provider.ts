@@ -74,7 +74,7 @@ function aclStore(ctx: Ctx): WorkspaceAuthorizationStore {
   } as WorkspaceAuthorizationStore;
 }
 async function authorized(ctx: Ctx, accountId: string, workspaceId: string, pageId: string,
-  capability: "view" | "edit_content" | "manage"): Promise<boolean> {
+  capability: "view" | "comment" | "edit_content" | "manage"): Promise<boolean> {
   if (!validWorkspaceId(workspaceId) || !validScopeId(pageId)) return false;
   try {
     return await canAccessWorkspacePageFromServer(

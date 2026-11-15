@@ -182,6 +182,7 @@ function CommentsPreview({editor,provider,onError}){
     return ()=>{stopSelection?.();stopDoc?.();};
   },[editor,enabled]);
   const blocks=useMemo(()=>{
+    void documentVersion; // re-scan actual Yjs BlockNote tree after edits
     const ids=new Set();
     const visit=items=>{for(const block of items??[]){if(block?.id)ids.add(block.id);visit(block?.children);}};
     visit(editor.document);
