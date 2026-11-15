@@ -1,3 +1,4 @@
+import { buildMeetingReportPack } from "../lib/domain/workspaceReportPack";
 import {
   mutationGeneric, queryGeneric, type GenericDataModel, type GenericQueryCtx,
 } from "convex/server";
@@ -213,6 +214,40 @@ export const getMeetingSummary = queryGeneric({
       return meetingSummary(
         await allMeetings(ctx, a.workspaceId, a.databaseId),
         a.workspaceId, a.databaseId, Date.now(),
+      );
+    } catch { return null; }
+  },
+});
+
+/**
+ * PR43: manager-only, explicit-copy report for external assistants.
+ * The existing personal MCP endpoint does NOT receive workspace credentials.
+ * No automatic ChatGPT invocation, data transfer or workspace MCP bypass.
+ */
+export const getMeetingReportPack = queryGeneric({
+  args: {
+    workspaceId: v.string(), databaseId: v.string(),
+    windowStart: v.number(), windowEnd: v.number(),
+  },
+  returns: v.union(v.null(), v.object({
+    generatedAt: v.number(), windowStart: v.number(), windowEnd: v.number(),
+    totalMeetings: v.number(), draftMeetings: v.number(),
+    archivedMeetings: v.number(),
+    scheduledDraftsInWindow: v.number(), upcomingDraftsInWindow: v.number(),
+    pastDatedDrafts: v.number(), weeklyDrafts: v.number(),
+    monthlyDrafts: v.number(), openActions: v.number(), doneActions: v.number(),
+    overdueOpenActions: v.number(), openActionsDueInWindow: v.number(),
+    openActionsWithoutDueDate: v.number(), archivedActionItems: v.number(),
+    handoffMarkdown: v.string(),
+  })),
+  handler: async (ctx, a) => {
+    if (process.env.MAX_V2_MEETING_REPORT_PACK_READS_ENABLED !== "true" ||
+      !canRead()) return null;
+    try {
+      await manager(ctx, await who(ctx), a.workspaceId, a.databaseId);
+      return buildMeetingReportPack(
+        await allMeetings(ctx, a.workspaceId, a.databaseId),
+        a.workspaceId, a.databaseId, a.windowStart, a.windowEnd, Date.now(),
       );
     } catch { return null; }
   },
