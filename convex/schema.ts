@@ -255,6 +255,38 @@ export default defineSchema({
   })
     .index("by_workspace_database", ["workspaceId", "databaseId"])
     .index("by_database_rule_key", ["workspaceId", "databaseId", "ruleKey"]),
+  // PR41: inert, manually recorded execution-intent journal. These rows are
+  // NEVER consumed by background workers or allowed to mutate domain data.
+  workspaceAutomationRunIntents: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    ruleKey: v.string(),
+    runKey: v.string(),
+    requestedByAccountId: v.string(),
+    ruleUpdatedAt: v.number(),
+    trigger: v.literal("manual_button"),
+    depth: v.number(),
+    attempt: v.number(),
+    state: v.union(v.literal("recorded"), v.literal("canceled"), v.literal("dead_letter")),
+    reason: v.union(v.literal("operator_cancelled"), v.literal("policy_blocked"),
+      v.literal("retry_exhausted"), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    terminalAt: nullableNumber,
+  })
+    .index("by_workspace_database", ["workspaceId", "databaseId"])
+    .index("by_workspace_database_run_key", ["workspaceId", "databaseId", "runKey"]),
+  // Append-only event rows written in the SAME Convex transaction as each
+  // intent status change. Max two rows per intent in this safe foundation.
+  workspaceAutomationRunEvents: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    runId: v.string(),
+    sequence: v.number(),
+    state: v.union(v.literal("recorded"), v.literal("canceled"), v.literal("dead_letter")),
+    actorId: v.string(),
+    at: v.number(),
+  }).index("by_runId", ["runId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
