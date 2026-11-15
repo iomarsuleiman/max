@@ -69,6 +69,20 @@ export default defineSchema({
     head: v.union(v.number(), v.null()),
     updatedAt: v.number(), expiresAt: v.number(),
   }).index("by_room", ["roomId"]).index("by_session", ["sessionId"]),
+  // PR26: durable ONLY in the disposable lab, never the production notes DB.
+  // Anchors are stable BlockNote block IDs, not mutable text offsets.
+  labCommentThreads: defineTable({
+    roomId: v.id("labRooms"), blockId: v.string(),
+    createdBy: v.string(), createdAt: v.number(), updatedAt: v.number(),
+    resolvedAt: v.union(v.number(), v.null()), revision: v.number(),
+  }).index("by_room", ["roomId"]),
+  labThreadComments: defineTable({
+    roomId: v.id("labRooms"), threadId: v.id("labCommentThreads"),
+    authorId: v.string(), operationId: v.string(),
+    kind: v.union(v.literal("initial"), v.literal("reply")),
+    body: v.string(), mentions: v.array(v.string()), createdAt: v.number(),
+  }).index("by_thread", ["threadId"])
+    .index("by_room_actor_operation", ["roomId", "authorId", "operationId"]),
   labAuditEvents: defineTable({
     workspaceId: v.string(), actorId: v.string(), targetId: v.string(),
     operation: v.string(), at: v.number(),

@@ -94,7 +94,7 @@ async function roomByScope(ctx: Ctx, workspaceId: string, pageId: string) {
 
 /** All session checks take place in the SAME Convex transaction as the data read
  * or write. A prior successful join is never an access capability. */
-async function requireSession(ctx: Ctx, sessionId: SessionId, capability: "view" | "edit_content") {
+async function requireSession(ctx: Ctx, sessionId: SessionId, capability: "view" | "comment" | "edit_content") {
   gate();
   const accountId = await principal(ctx);
   const session = await ctx.db.get(sessionId);
@@ -592,5 +592,170 @@ export const stopPresence = mutationGeneric({
     if (rows.length > 1 || rows.some(r => r.accountId !== accountId || r.roomId !== room._id)) denied();
     if (rows[0]) await ctx.db.delete(rows[0]._id);
     return true;
+  },
+});
+
+
+/**
+ * PR26: threaded, block-anchored discussion for synthetic rooms ONLY.
+ * No text positions are persisted: a deleted BlockNote block remains a
+ * deliberately orphaned anchor, never silently rebound to another block.
+ * Current server ACLs protect every query/mutation, independently of leases.
+ */
+const MAX_THREADS = 32;
+const MAX_REPLIES = 32;
+const MAX_MENTIONS = 3;
+const MAX_COMMENT_CHARS = 2_000;
+const commentKindV = v.union(v.literal("initial"), v.literal("reply"));
+const mentionIdsV = v.array(v.string());
+function validComment(body: string, mentions: string[], operationId: string): boolean {
+  return typeof body === "string" && body.trim().length > 0 &&
+    body.length <= MAX_COMMENT_CHARS && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(body) &&
+    MIN_OP.test(operationId) && mentions.length <= MAX_MENTIONS &&
+    new Set(mentions).size === mentions.length && mentions.every(validPrincipalId);
+}
+async function assertMentions(ctx: Ctx, session: { workspaceId: string; pageId: string }, mentions: string[]) {
+  for (const accountId of mentions)
+    if (!(await authorized(ctx, accountId, session.workspaceId, session.pageId, "view"))) denied();
+}
+async function threadRows(ctx: Ctx, roomId: string) {
+  const rows = await ctx.db.query("labCommentThreads")
+    .withIndex("by_room", q => q.eq("roomId", roomId as never)).take(MAX_THREADS + 1);
+  if (rows.length > MAX_THREADS || rows.some(r => r.roomId !== roomId ||
+      !validScopeId(r.blockId) || !validPrincipalId(r.createdBy) ||
+      !Number.isSafeInteger(r.revision) || r.revision < 1)) denied();
+  return rows;
+}
+async function commentRows(ctx: Ctx, threadId: string, roomId: string) {
+  const rows = await ctx.db.query("labThreadComments")
+    .withIndex("by_thread", q => q.eq("threadId", threadId as never)).take(MAX_REPLIES + 1);
+  if (rows.length > MAX_REPLIES || rows.some(r => r.threadId !== threadId ||
+      r.roomId !== roomId || !validPrincipalId(r.authorId) ||
+      !validComment(r.body, r.mentions, r.operationId))) denied();
+  return rows;
+}
+async function repeatedComment(ctx: Ctx, roomId: string, accountId: string, operationId: string) {
+  const rows = await ctx.db.query("labThreadComments")
+    .withIndex("by_room_actor_operation", q =>
+      (q.eq("roomId", roomId as never) as unknown as { eq(field: string, value: string): { eq(field: string, value: string): never } })
+        .eq("authorId", accountId).eq("operationId", operationId)).take(2);
+  if (rows.length > 1 || rows.some(r => r.roomId !== roomId || r.authorId !== accountId)) denied();
+  return rows[0] ?? null;
+}
+export const commentAccess = queryGeneric({
+  args: { sessionId: v.id("labSessions") }, returns: v.boolean(),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, session } = await requireSession(ctx, sessionId, "view");
+    return await authorized(ctx, accountId, session.workspaceId, session.pageId, "comment");
+  },
+});
+export const listCommentThreads = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.array(v.object({
+    threadId: v.id("labCommentThreads"), blockId: v.string(),
+    resolvedAt: v.union(v.number(), v.null()), revision: v.number(),
+  })),
+  handler: async (ctx, { sessionId }) => {
+    const { room } = await requireSession(ctx, sessionId, "view");
+    const rows = await threadRows(ctx, String(room._id));
+    return rows.sort((a,b) => a.createdAt - b.createdAt || String(a._id).localeCompare(String(b._id)))
+      .map(r => ({ threadId: r._id, blockId: r.blockId, resolvedAt: r.resolvedAt, revision: r.revision }));
+  },
+});
+export const listThreadComments = queryGeneric({
+  args: { sessionId: v.id("labSessions"), threadId: v.id("labCommentThreads") },
+  returns: v.array(v.object({
+    commentId: v.id("labThreadComments"), authorId: v.union(v.string(), v.null()),
+    body: v.string(), mentions: mentionIdsV, createdAt: v.number(), kind: commentKindV,
+  })),
+  handler: async (ctx, { sessionId, threadId }) => {
+    const { room, session } = await requireSession(ctx, sessionId, "view");
+    const thread = await ctx.db.get(threadId);
+    if (!thread || thread.roomId !== room._id) denied();
+    const rows = await commentRows(ctx, String(threadId), String(room._id));
+    const result = [];
+    for (const row of rows.sort((a,b) => a.createdAt - b.createdAt || String(a._id).localeCompare(String(b._id)))) {
+      const visibleAuthor = await authorized(ctx, row.authorId, session.workspaceId, session.pageId, "view");
+      const visibleMentions = [];
+      for (const mentioned of row.mentions)
+        if (await authorized(ctx, mentioned, session.workspaceId, session.pageId, "view"))
+          visibleMentions.push(mentioned);
+      result.push({ commentId: row._id, authorId: visibleAuthor ? row.authorId : null,
+        body: row.body, mentions: visibleMentions, createdAt: row.createdAt, kind: row.kind });
+    }
+    return result;
+  },
+});
+export const createCommentThread = mutationGeneric({
+  args: { sessionId: v.id("labSessions"), blockId: v.string(), operationId: v.string(),
+    body: v.string(), mentions: mentionIdsV },
+  returns: v.object({ threadId: v.id("labCommentThreads"),
+    commentId: v.id("labThreadComments"), duplicate: v.boolean() }),
+  handler: async (ctx, { sessionId, blockId, operationId, body, mentions }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "comment");
+    if (!validScopeId(blockId) || !validComment(body, mentions, operationId)) denied();
+    await assertMentions(ctx, session, mentions);
+    const existing = await repeatedComment(ctx, String(room._id), accountId, operationId);
+    if (existing) {
+      const parent = await ctx.db.get(existing.threadId);
+      if (!parent || parent.roomId !== room._id || parent.blockId !== blockId ||
+          existing.kind !== "initial" || existing.body !== body ||
+          JSON.stringify(existing.mentions) !== JSON.stringify(mentions)) denied();
+      return { threadId: existing.threadId, commentId: existing._id, duplicate: true };
+    }
+    if ((await threadRows(ctx, String(room._id))).length >= MAX_THREADS) denied();
+    const now = Date.now();
+    const threadId = await ctx.db.insert("labCommentThreads", {
+      roomId: room._id, blockId, createdBy: accountId, createdAt: now, updatedAt: now,
+      resolvedAt: null, revision: 1,
+    });
+    const commentId = await ctx.db.insert("labThreadComments", {
+      roomId: room._id, threadId, authorId: accountId, operationId,
+      kind: "initial", body, mentions, createdAt: now,
+    });
+    return { threadId, commentId, duplicate: false };
+  },
+});
+export const replyToCommentThread = mutationGeneric({
+  args: { sessionId: v.id("labSessions"), threadId: v.id("labCommentThreads"),
+    operationId: v.string(), body: v.string(), mentions: mentionIdsV },
+  returns: v.object({ commentId: v.id("labThreadComments"), duplicate: v.boolean() }),
+  handler: async (ctx, { sessionId, threadId, operationId, body, mentions }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "comment");
+    if (!validComment(body, mentions, operationId)) denied();
+    const thread = await ctx.db.get(threadId);
+    if (!thread || thread.roomId !== room._id) denied();
+    await assertMentions(ctx, session, mentions);
+    const existing = await repeatedComment(ctx, String(room._id), accountId, operationId);
+    if (existing) {
+      if (existing.threadId !== threadId || existing.kind !== "reply" ||
+          existing.body !== body || JSON.stringify(existing.mentions) !== JSON.stringify(mentions)) denied();
+      return { commentId: existing._id, duplicate: true };
+    }
+    if (thread.resolvedAt !== null || (await commentRows(ctx, String(threadId), String(room._id))).length >= MAX_REPLIES) denied();
+    const now = Date.now();
+    const commentId = await ctx.db.insert("labThreadComments", {
+      roomId: room._id, threadId, authorId: accountId, operationId,
+      kind: "reply", body, mentions, createdAt: now,
+    });
+    await ctx.db.patch(thread._id, { updatedAt: now });
+    return { commentId, duplicate: false };
+  },
+});
+export const resolveCommentThread = mutationGeneric({
+  args: { sessionId: v.id("labSessions"), threadId: v.id("labCommentThreads"),
+    expectedRevision: v.number(), resolved: v.boolean() },
+  returns: v.object({ revision: v.number(), resolvedAt: v.union(v.number(), v.null()) }),
+  handler: async (ctx, { sessionId, threadId, expectedRevision, resolved }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "comment");
+    const thread = await ctx.db.get(threadId);
+    if (!thread || thread.roomId !== room._id || !Number.isSafeInteger(expectedRevision) ||
+        expectedRevision !== thread.revision) denied();
+    if (thread.createdBy !== accountId &&
+        !(await authorized(ctx, accountId, session.workspaceId, session.pageId, "manage"))) denied();
+    if ((thread.resolvedAt !== null) === resolved) denied();
+    const now = Date.now(), resolvedAt = resolved ? now : null, revision = thread.revision + 1;
+    await ctx.db.patch(threadId, { resolvedAt, revision, updatedAt: now });
+    return { resolvedAt, revision };
   },
 });
