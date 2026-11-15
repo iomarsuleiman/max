@@ -65,7 +65,7 @@ async function allRuns(ctx: Ctx, ws: string, db: string): Promise<AutomationRunR
     ruleUpdatedAt: r.ruleUpdatedAt, trigger: r.trigger, depth: r.depth,
     attempt: r.attempt, state: r.state, reason: r.reason,
     createdAt: r.createdAt, updatedAt: r.updatedAt, terminalAt: r.terminalAt,
-  }));
+  } as AutomationRunRow));
   if (!validAutomationRunRegistry(mapped, ws, db)) denied();
   return mapped;
 }
@@ -75,7 +75,7 @@ async function eventsFor(ctx: Ctx, run: AutomationRunRow): Promise<AutomationRun
   return rows.map((e) => ({
     workspaceId: e.workspaceId, databaseId: e.databaseId, runId: e.runId,
     sequence: e.sequence, state: e.state, actorId: e.actorId, at: e.at,
-  })).sort((a, b) => a.sequence - b.sequence);
+  } as AutomationRunEvent)).sort((a, b) => a.sequence - b.sequence);
 }
 async function findRule(ctx: Ctx, ws: string, db: string,
   ruleKey: string): Promise<AutomationRuleRow> {
