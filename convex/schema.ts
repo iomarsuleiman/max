@@ -175,6 +175,18 @@ export default defineSchema({
   })
     .index("by_recordId", ["recordId"])
     .index("by_workspace_database", ["workspaceId", "databaseId"]),
+  // PR34: bounded task-only subtasks and dependencies, isolated from personal pages.
+  workspaceTaskRelations: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    recordId: v.string(),
+    parentTaskId: nullableString,
+    dependsOn: v.array(v.string()),
+    archivedAt: nullableNumber,
+    updatedAt: v.number(),
+  })
+    .index("by_recordId", ["recordId"])
+    .index("by_workspace_database", ["workspaceId", "databaseId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
