@@ -159,6 +159,22 @@ export default defineSchema({
   })
     .index("by_workspace_database", ["workspaceId", "databaseId"])
     .index("by_pageId", ["pageId"]),
+  // PR33: separately gated semantics for registered shadow workspace records.
+  // No personal document body, freeform properties, or embedded member directory.
+  workspaceRecordSemantics: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    recordId: v.string(),
+    kind: v.union(v.literal("task"), v.literal("project"), v.literal("wiki")),
+    state: v.string(),
+    assigneeId: nullableString,
+    projectId: nullableString,
+    dueAt: nullableNumber,
+    archivedAt: nullableNumber,
+    updatedAt: v.number(),
+  })
+    .index("by_recordId", ["recordId"])
+    .index("by_workspace_database", ["workspaceId", "databaseId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
