@@ -4,6 +4,7 @@ import { canAccessWorkspacePageFromServer } from "../lib/domain/workspaceAccessG
 import { canEditSharedRecord, pageAuthorizedSharedRecords, type SharedDatabaseReadStore } from "../lib/domain/sharedDatabasePolicy";
 import { validPrincipalId, validScopeId, validWorkspaceId } from "../lib/domain/workspaceManagementPolicy";
 import { readAuthorizedRecordSemantics, validSemanticInput, type SemanticKind, type SharedSemanticStore } from "../lib/domain/workspaceRecordSemantics";
+import { canLinkTask, readAuthorizedTaskRelations, validTaskRelationGraph, validTaskRelationInput, type TaskRelationRow, type TaskRelationStore } from "../lib/domain/workspaceTaskRelations";
 
 /** Gated shadow-metadata endpoints. No owner-only content, UI or MCP access. */
 type ReadCtx = Pick<GenericQueryCtx<GenericDataModel>, "db" | "auth">;
@@ -332,5 +333,114 @@ export const upsertRecordSemantics = mutationGeneric({
       archivedAt: null, ...patch,
     });
     return updatedAt;
+  },
+});
+
+/** PR34: isolated relation adapter. All reads and writes use one Convex snapshot. */
+function taskRelationStore(ctx: ReadCtx): TaskRelationStore {
+  return {
+    ...semanticStore(ctx),
+    taskRelations: async (recordId: string) =>
+      (await ctx.db.query("workspaceTaskRelations")
+        .withIndex("by_recordId", (q) => q.eq("recordId", recordId)).take(2))
+        .map((row) => ({
+          workspaceId: row.workspaceId as string, databaseId: row.databaseId as string,
+          recordId: row.recordId as string, parentTaskId: row.parentTaskId as string | null,
+          dependsOn: row.dependsOn as string[], archivedAt: row.archivedAt as number | null,
+          updatedAt: row.updatedAt as number,
+        })),
+  };
+}
+function taskRelationReadsEnabled(): boolean {
+  return semanticReadsEnabled() && process.env.MAX_V2_TASK_RELATIONS_READS_ENABLED === "true";
+}
+function taskRelationWritesEnabled(): void {
+  semanticWritesEnabled();
+  if (process.env.MAX_V2_TASK_RELATIONS_WRITES_ENABLED !== "true") denied();
+}
+
+/** Only currently visible task targets are returned; no hidden IDs or totals. */
+export const readTaskRelations = queryGeneric({
+  args: { workspaceId: v.string(), databaseId: v.string(), recordId: v.string() },
+  returns: v.union(v.null(), v.object({
+    recordId: v.string(), parentTaskId: nullableString,
+    dependsOn: v.array(v.string()), updatedAt: v.number(),
+  })),
+  handler: async (ctx, a) => {
+    if (!taskRelationReadsEnabled()) return null;
+    try {
+      return await readAuthorizedTaskRelations(
+        taskRelationStore(ctx), await who(ctx), a.workspaceId, a.databaseId, a.recordId
+      );
+    } catch { return null; }
+  },
+});
+
+/**
+ * CAS replacement of one task's parent/dependency metadata.
+ * Every proposed target must be an existing registered visible task in the
+ * same workspace/database. A bounded transaction snapshot rejects graph cycles.
+ */
+export const upsertTaskRelations = mutationGeneric({
+  args: {
+    workspaceId: v.string(), databaseId: v.string(), recordId: v.string(),
+    parentTaskId: nullableString, dependsOn: v.array(v.string()),
+    expectedUpdatedAt: nullableNumber,
+  },
+  returns: v.number(),
+  handler: async (ctx, a) => {
+    taskRelationWritesEnabled();
+    const actor = await who(ctx);
+    if (!validWorkspaceId(a.workspaceId) || !validScopeId(a.databaseId) ||
+        a.recordId === a.databaseId || !validTaskRelationInput(a, a.recordId)) denied();
+    await exactScope(ctx, a.workspaceId, a.databaseId);
+    await exactScope(ctx, a.workspaceId, a.recordId, a.databaseId);
+    const store = taskRelationStore(ctx);
+    if (!(await canEditSharedRecord(store, actor, a.workspaceId, a.databaseId, a.recordId)) ||
+        !(await canLinkTask(store, actor, a.workspaceId, a.databaseId, a.recordId))) denied();
+
+    const targets = [...(a.parentTaskId === null ? [] : [a.parentTaskId]), ...a.dependsOn];
+    for (const target of targets) {
+      await exactScope(ctx, a.workspaceId, target, a.databaseId);
+      if (!(await canLinkTask(store, actor, a.workspaceId, a.databaseId, target))) denied();
+    }
+
+    const oldRows = await ctx.db.query("workspaceTaskRelations")
+      .withIndex("by_recordId", (q) => q.eq("recordId", a.recordId)).take(2);
+    if (oldRows.length > 1) denied();
+    const prior = oldRows[0];
+    if (prior && (prior.workspaceId !== a.workspaceId ||
+        prior.databaseId !== a.databaseId || prior.recordId !== a.recordId ||
+        prior.archivedAt !== null || !validTaskRelationInput(prior, a.recordId) ||
+        prior.updatedAt !== a.expectedUpdatedAt)) denied();
+    if (!prior && a.expectedUpdatedAt !== null) denied();
+
+    const all = await ctx.db.query("workspaceTaskRelations")
+      .withIndex("by_workspace_database", (q) =>
+        (q.eq("workspaceId", a.workspaceId) as unknown as { eq(field: string, value: string): never })
+          .eq("databaseId", a.databaseId)).take(101);
+    const currentUpdatedAt = Math.max(Date.now(), prior ? prior.updatedAt + 1 : 0);
+    if (!Number.isSafeInteger(currentUpdatedAt)) denied();
+    const proposed: TaskRelationRow = {
+      workspaceId: a.workspaceId, databaseId: a.databaseId, recordId: a.recordId,
+      parentTaskId: a.parentTaskId, dependsOn: [...a.dependsOn],
+      archivedAt: null, updatedAt: currentUpdatedAt,
+    };
+    if (!validTaskRelationGraph(
+      all.map((row) => ({
+        workspaceId: row.workspaceId as string, databaseId: row.databaseId as string,
+        recordId: row.recordId as string, parentTaskId: row.parentTaskId as string | null,
+        dependsOn: row.dependsOn as string[], archivedAt: row.archivedAt as number | null,
+        updatedAt: row.updatedAt as number,
+      })), proposed, a.workspaceId, a.databaseId
+    )) denied();
+    if (prior) {
+      await ctx.db.patch(prior._id as never, {
+        parentTaskId: a.parentTaskId, dependsOn: [...a.dependsOn], updatedAt: currentUpdatedAt,
+      });
+    } else {
+      await ctx.db.insert("workspaceTaskRelations", proposed);
+    }
+    return currentUpdatedAt;
   },
 });
