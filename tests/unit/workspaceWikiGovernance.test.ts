@@ -18,7 +18,7 @@ function fixture() {
     workspaceId, accountId, role: accountId === owner ? "owner" : "member", status: "active",
   }));
   const grants: GrantRow[] = [
-    ...[author, reviewer, viewer].map((subjectId) => ({
+    ...[author, viewer].map((subjectId) => ({
       workspaceId, pageId: databaseId, subjectType: "account" as const,
       subjectId, effect: "allow" as const, level: "view" as const,
     })),
