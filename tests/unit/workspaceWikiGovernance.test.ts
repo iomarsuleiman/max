@@ -100,8 +100,8 @@ describe("Max 2.0 PR36 team wiki governance", () => {
   });
   it("invalidates when reviewer manage access is revoked", async () => {
     const f = fixture();
-    f.grants.push({ workspaceId, pageId: recordId, subjectType: "account",
-      subjectId: reviewer, effect: "deny", level: "full_access" });
+    f.grants.find((g) => g.pageId === databaseId && g.subjectId === reviewer)!.level = "view";
+    f.grants.find((g) => g.pageId === recordId && g.subjectId === reviewer)!.level = "view";
     expect((await f.read())?.verification).toBe("stale");
   });
   it("does not allow a viewer to read after permission loss", async () => {
