@@ -6,6 +6,11 @@ import { validPrincipalId, validScopeId, validWorkspaceId } from "../lib/domain/
 import { readAuthorizedRecordSemantics, validSemanticInput, type SemanticKind, type SharedSemanticStore } from "../lib/domain/workspaceRecordSemantics";
 import { canLinkTask, readAuthorizedTaskRelations, validTaskRelationGraph, validTaskRelationInput, type TaskRelationRow, type TaskRelationStore } from "../lib/domain/workspaceTaskRelations";
 import { pageAuthorizedTaskView } from "../lib/domain/workspaceTaskViews";
+import {
+  activeWikiMember, canReadWikiRecord, readAuthorizedWikiGovernance,
+  validWikiExpiry, validWikiGovernanceRow,
+  type WikiGovernanceRow, type WikiGovernanceStore,
+} from "../lib/domain/workspaceWikiGovernance";
 
 /** Gated shadow-metadata endpoints. No owner-only content, UI or MCP access. */
 type ReadCtx = Pick<GenericQueryCtx<GenericDataModel>, "db" | "auth">;
@@ -479,5 +484,156 @@ export const listTaskView = queryGeneric({
         { view: a.view, limit: a.limit, after: a.after, from: a.from, to: a.to },
       );
     } catch { return empty; }
+  },
+});
+
+/** PR36: wiki ownership and expiring metadata verification; all gates default OFF. */
+function wikiStore(ctx: ReadCtx): WikiGovernanceStore {
+  return {
+    ...semanticStore(ctx),
+    wikiGovernance: async (recordId: string) =>
+      (await ctx.db.query("workspaceWikiGovernance")
+        .withIndex("by_recordId", (q) => q.eq("recordId", recordId)).take(2))
+        .map((row) => ({
+          workspaceId: row.workspaceId, databaseId: row.databaseId,
+          recordId: row.recordId, ownerId: row.ownerId, reviewerId: row.reviewerId,
+          verifiedAt: row.verifiedAt,
+          verifiedSemanticUpdatedAt: row.verifiedSemanticUpdatedAt,
+          verifiedMetadataUpdatedAt: row.verifiedMetadataUpdatedAt,
+          expiresAt: row.expiresAt, archivedAt: row.archivedAt,
+          updatedAt: row.updatedAt,
+        } as WikiGovernanceRow)),
+  };
+}
+function wikiWritesEnabled(): void {
+  semanticWritesEnabled();
+  if (process.env.MAX_V2_WIKI_GOVERNANCE_WRITES_ENABLED !== "true") denied();
+}
+async function canManageWiki(ctx: ReadCtx, actor: string,
+  workspaceId: string, databaseId: string, recordId: string): Promise<boolean> {
+  const store = wikiStore(ctx);
+  return await canReadWikiRecord(store, actor, workspaceId, databaseId, recordId) &&
+    await canAccessWorkspacePageFromServer(store, actor, workspaceId, databaseId, "manage") &&
+    await canAccessWorkspacePageFromServer(store, actor, workspaceId, recordId, "manage");
+}
+/** A viewer never receives another member's account ID or reviewer identity. */
+export const readWikiGovernance = queryGeneric({
+  args: { workspaceId: v.string(), databaseId: v.string(), recordId: v.string() },
+  returns: v.union(v.null(), v.object({
+    recordId: v.string(), ownedByMe: v.boolean(),
+    verification: v.union(v.literal("unverified"), v.literal("verified"),
+      v.literal("stale"), v.literal("expired")),
+    expiresAt: v.number(), updatedAt: v.number(),
+  })),
+  handler: async (ctx, a) => {
+    if (!semanticReadsEnabled() ||
+        process.env.MAX_V2_WIKI_GOVERNANCE_READS_ENABLED !== "true") return null;
+    try {
+      return await readAuthorizedWikiGovernance(
+        wikiStore(ctx), await who(ctx), a.workspaceId, a.databaseId, a.recordId, Date.now()
+      );
+    } catch { return null; }
+  },
+});
+/** Owner assignment/change always invalidates any prior verification. */
+export const setWikiGovernance = mutationGeneric({
+  args: {
+    workspaceId: v.string(), databaseId: v.string(), recordId: v.string(),
+    ownerId: v.string(), expiresAt: v.number(), expectedUpdatedAt: nullableNumber,
+  },
+  returns: v.number(),
+  handler: async (ctx, a) => {
+    wikiWritesEnabled();
+    const actor = await who(ctx), now = Date.now();
+    if (!validWorkspaceId(a.workspaceId) || !validScopeId(a.databaseId) ||
+        !validScopeId(a.recordId) || !validPrincipalId(a.ownerId) ||
+        !validWikiExpiry(a.expiresAt, now)) denied();
+    await exactScope(ctx, a.workspaceId, a.databaseId);
+    await exactScope(ctx, a.workspaceId, a.recordId, a.databaseId);
+    if (!(await canManageWiki(ctx, actor, a.workspaceId, a.databaseId, a.recordId))) denied();
+    const store = wikiStore(ctx);
+    if (!(await activeWikiMember(store, a.workspaceId, a.ownerId)) ||
+        !(await canReadWikiRecord(store, a.ownerId,
+          a.workspaceId, a.databaseId, a.recordId))) denied();
+    const rows = await ctx.db.query("workspaceWikiGovernance")
+      .withIndex("by_recordId", (q) => q.eq("recordId", a.recordId)).take(2);
+    if (rows.length > 1) denied();
+    const existing = rows[0];
+    if (existing && (!validWikiGovernanceRow(
+      existing, a.workspaceId, a.databaseId, a.recordId
+    ) || existing.updatedAt !== a.expectedUpdatedAt)) denied();
+    if (!existing && a.expectedUpdatedAt !== null) denied();
+    const updatedAt = Math.max(now, existing ? existing.updatedAt + 1 : 0);
+    if (!Number.isSafeInteger(updatedAt) || updatedAt > 4102444800000) denied();
+    const patch = {
+      ownerId: a.ownerId, expiresAt: a.expiresAt, reviewerId: null,
+      verifiedAt: null, verifiedSemanticUpdatedAt: null,
+      verifiedMetadataUpdatedAt: null, updatedAt,
+    };
+    if (existing) await ctx.db.patch(existing._id, patch);
+    else await ctx.db.insert("workspaceWikiGovernance", {
+      workspaceId: a.workspaceId, databaseId: a.databaseId,
+      recordId: a.recordId, archivedAt: null, ...patch,
+    });
+    return updatedAt;
+  },
+});
+/**
+ * Independent reviewer attests the current registered metadata revisions.
+ * A caller must present the exact revisions they reviewed, not merely the
+ * current wiki ID or an earlier successful verification.
+ */
+export const verifyWikiGovernance = mutationGeneric({
+  args: {
+    workspaceId: v.string(), databaseId: v.string(), recordId: v.string(),
+    expectedUpdatedAt: v.number(), expectedSemanticUpdatedAt: v.number(),
+    expectedMetadataUpdatedAt: v.number(),
+  },
+  returns: v.number(),
+  handler: async (ctx, a) => {
+    wikiWritesEnabled();
+    const actor = await who(ctx), now = Date.now();
+    if (!validWorkspaceId(a.workspaceId) || !validScopeId(a.databaseId) ||
+        !validScopeId(a.recordId) ||
+        !Number.isSafeInteger(a.expectedUpdatedAt) ||
+        !Number.isSafeInteger(a.expectedSemanticUpdatedAt) ||
+        !Number.isSafeInteger(a.expectedMetadataUpdatedAt)) denied();
+    await exactScope(ctx, a.workspaceId, a.databaseId);
+    await exactScope(ctx, a.workspaceId, a.recordId, a.databaseId);
+    if (!(await canManageWiki(ctx, actor, a.workspaceId, a.databaseId, a.recordId))) denied();
+    const [rows, semantics, metadata] = await Promise.all([
+      ctx.db.query("workspaceWikiGovernance")
+        .withIndex("by_recordId", (q) => q.eq("recordId", a.recordId)).take(2),
+      ctx.db.query("workspaceRecordSemantics")
+        .withIndex("by_recordId", (q) => q.eq("recordId", a.recordId)).take(2),
+      ctx.db.query("workspaceRecordMetadata")
+        .withIndex("by_pageId", (q) => q.eq("pageId", a.recordId)).take(2),
+    ]);
+    const row = rows[0], semantic = semantics[0], meta = metadata[0];
+    if (rows.length !== 1 || !validWikiGovernanceRow(
+      row, a.workspaceId, a.databaseId, a.recordId
+    ) || row.updatedAt !== a.expectedUpdatedAt ||
+        row.ownerId === actor || row.expiresAt <= now ||
+        semantics.length !== 1 || semantic.workspaceId !== a.workspaceId ||
+        semantic.databaseId !== a.databaseId || semantic.recordId !== a.recordId ||
+        semantic.kind !== "wiki" || semantic.state !== "approved" ||
+        semantic.archivedAt !== null || semantic.updatedAt !== a.expectedSemanticUpdatedAt ||
+        metadata.length !== 1 || meta.workspaceId !== a.workspaceId ||
+        meta.databaseId !== a.databaseId || meta.pageId !== a.recordId ||
+        meta.kind !== "record" || meta.archivedAt !== null ||
+        meta.updatedAt !== a.expectedMetadataUpdatedAt) denied();
+    const store = wikiStore(ctx);
+    if (!(await activeWikiMember(store, a.workspaceId, row.ownerId)) ||
+        !(await canReadWikiRecord(
+          store, row.ownerId, a.workspaceId, a.databaseId, a.recordId
+        ))) denied();
+    const updatedAt = Math.max(now, row.updatedAt + 1);
+    if (!Number.isSafeInteger(updatedAt) || updatedAt > 4102444800000) denied();
+    await ctx.db.patch(row._id, {
+      reviewerId: actor, verifiedAt: now,
+      verifiedSemanticUpdatedAt: semantic.updatedAt,
+      verifiedMetadataUpdatedAt: meta.updatedAt, updatedAt,
+    });
+    return updatedAt;
   },
 });

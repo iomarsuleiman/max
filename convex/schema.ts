@@ -187,6 +187,22 @@ export default defineSchema({
   })
     .index("by_recordId", ["recordId"])
     .index("by_workspace_database", ["workspaceId", "databaseId"]),
+  // PR36: shadow wiki ownership and expiring metadata-revision verification.
+  workspaceWikiGovernance: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    recordId: v.string(),
+    ownerId: v.string(),
+    reviewerId: nullableString,
+    verifiedAt: nullableNumber,
+    verifiedSemanticUpdatedAt: nullableNumber,
+    verifiedMetadataUpdatedAt: nullableNumber,
+    expiresAt: v.number(),
+    archivedAt: nullableNumber,
+    updatedAt: v.number(),
+  })
+    .index("by_recordId", ["recordId"])
+    .index("by_workspace_database", ["workspaceId", "databaseId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
