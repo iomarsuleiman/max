@@ -95,6 +95,14 @@ export default defineSchema({
     reviewOperationId: v.union(v.string(), v.null()), createdAt: v.number(),
   }).index("by_room", ["roomId"])
     .index("by_room_actor_operation", ["roomId", "proposedBy", "operationId"]),
+  // PR28: private, metadata-only sandbox inbox. Never copied to production.
+  labNotifications: defineTable({
+    roomId: v.id("labRooms"), recipientId: v.string(), actorId: v.string(),
+    kind: v.union(v.literal("mention"), v.literal("thread_reply"),
+      v.literal("suggestion_decision")),
+    targetId: v.string(), createdAt: v.number(),
+    readAt: v.union(v.number(), v.null()),
+  }).index("by_room_recipient", ["roomId", "recipientId"]),
   labAuditEvents: defineTable({
     workspaceId: v.string(), actorId: v.string(), targetId: v.string(),
     operation: v.string(), at: v.number(),
