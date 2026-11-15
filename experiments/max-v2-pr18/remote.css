@@ -45,3 +45,13 @@
 .pr27-diff ins{border-inline-start:3px solid #8eab9d;padding-inline-start:8px}
 .pr27-note{font-size:13px;white-space:pre-wrap}
 @media(prefers-reduced-motion:reduce){.pr27-suggestions *{animation:none!important;transition:none!important}}
+
+/* PR28: quiet, RTL-safe, responsive sandbox notification list. */
+.pr28-inbox{margin:16px 0;padding:16px;border:1px solid #485566;border-radius:12px;background:#212832}
+.pr28-inbox ol{list-style:decimal;padding-inline-start:24px;display:grid;gap:10px}
+.pr28-inbox li{padding:10px;border:1px solid #485566;border-radius:8px;overflow-wrap:anywhere;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pr28-inbox li small{color:#b5c3d4;min-width:0;overflow-wrap:anywhere}
+.pr28-inbox li button{margin-inline-start:auto}
+.pr28-inbox button:focus-visible{outline:3px solid #8bc5ef;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.pr28-inbox *{animation:none!important;transition:none!important}}
