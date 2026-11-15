@@ -203,6 +203,23 @@ export default defineSchema({
   })
     .index("by_recordId", ["recordId"])
     .index("by_workspace_database", ["workspaceId", "databaseId"]),
+  // PR37: identity-bound, expiring external-sharing PROPOSALS only.
+  // No cross-tenant ACL, personal-document visibility or content routes.
+  workspaceExternalShares: defineTable({
+    originWorkspaceId: v.string(),
+    scopeId: v.string(),
+    targetWorkspaceId: nullableString,
+    targetAccountId: v.string(),
+    createdByAccountId: v.string(),
+    status: v.union(v.literal("pending"), v.literal("accepted"),
+      v.literal("declined"), v.literal("revoked")),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    resolvedAt: nullableNumber,
+    updatedAt: v.number(),
+  })
+    .index("by_origin_scope", ["originWorkspaceId", "scopeId"])
+    .index("by_target_account", ["targetAccountId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
