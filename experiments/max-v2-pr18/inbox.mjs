@@ -1,3 +1,4 @@
+import { LocalReadLeaseDeadline } from "./read-lease-deadline.mjs";
 /** PR28: opt-in sandbox inbox. Never queues, replays or persists inbox data.
  * All subscriptions and acknowledgments are session-fenced and server-authorized.
  */
@@ -25,7 +26,7 @@ export function normalizeInbox(value) {
 }
 
 export class LabInboxClient {
-  constructor({ provider, onChange = () => {}, onError = () => {}, now = () => Date.now() }) {
+  constructor({ provider, onChange = () => {}, onError = () => {}, now = () => Date.now() , scheduleExpiry = (fn, ms) => setTimeout(fn, ms), cancelExpiry = id => clearTimeout(id) }) {
     if (!provider?.transport || typeof provider.on !== "function" || typeof provider.off !== "function")
       throw Error("SANDBOX_PROVIDER_REQUIRED");
     this.provider = provider;
@@ -39,6 +40,10 @@ export class LabInboxClient {
     this.offInbox = null;
     this.inbox = { unreadCount: 0, notifications: [] };
     this._status = () => this.reconcile();
+    this._deadline = new LocalReadLeaseDeadline({
+      now, schedule: scheduleExpiry, cancel: cancelExpiry,
+      onExpire: () => this._fail(Error("READ_LEASE_EXPIRED"), this.generation),
+    });
   }
   _live() {
     const p = this.provider;
@@ -52,6 +57,7 @@ export class LabInboxClient {
       notifications: this.inbox.notifications.slice() });
   }
   _clear() {
+    this._deadline.clear();
     this.generation++;
     this.offInbox?.();
     this.offInbox = null;
@@ -78,6 +84,9 @@ export class LabInboxClient {
     this._clear();
     this.sessionId = sessionId;
     const gen = this.generation;
+    try { this._deadline.arm(this.provider.session.expiresAt); }
+    catch (error) { this._fail(error, this.generation); return; }
+    if (!this.started || !this.sessionId) return;
     if (typeof this.transport.watchInbox !== "function" ||
         typeof this.transport.markInboxRead !== "function") {
       this._fail(Error("INBOX_TRANSPORT_UNAVAILABLE"), gen);
