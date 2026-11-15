@@ -3,7 +3,7 @@ import {
   canManageAutomationScope, dryRunAutomationRule, listManagedAutomationRules,
   nextAutomationRevision, validAutomationRegistry, validAutomationRuleInput,
   validAutomationRuleRow, validTaskState, MAX_AUTOMATION_RULES_PER_DATABASE,
-  type AutomationRuleRow, type AutomationRuleStore,
+  type AutomationRuleRow, type AutomationRuleStore, type TaskState,
 } from "@/lib/domain/workspaceAutomationRules";
 import type { ScopeRow, MembershipRow, WorkspaceRow } from "@/lib/domain/workspaceAccessGateway";
 import type { SharedDatabaseBinding } from "@/lib/domain/sharedDatabasePolicy";
@@ -55,8 +55,8 @@ function fixture() {
     workspaces, memberships, scopes, bindings, rows, store,
     list: (actor: string | null = owner) =>
       listManagedAutomationRules(store, actor, tenant, database),
-    dry: (actor: string | null = owner, before = "todo" as const,
-      after = "done" as const) =>
+    dry: (actor: string | null = owner, before: TaskState = "todo",
+      after: TaskState = "done") =>
       dryRunAutomationRule(store, actor, tenant, database, rule.ruleKey, before, after),
     fail: () => { fail = true; },
   };
