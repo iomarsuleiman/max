@@ -61,6 +61,7 @@ export class LabPresenceClient {
     if (this.heartbeat !== null) this.intervals.clear(this.heartbeat);
     this.clock = this.heartbeat = null;
     this.sessionId = null;
+    this.focusBlock = null; // never carry stale focus across leases/offline/account changes
     this.peers = [];
     this._notify();
   }

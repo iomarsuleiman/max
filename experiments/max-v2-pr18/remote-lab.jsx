@@ -1,5 +1,5 @@
 /** PR18 operator-only sandbox. Never imported by the Max production app. */
-import React,{useEffect,useMemo,useState} from "react";
+import React,{useEffect,useMemo,useState,useRef} from "react";
 import {createRoot} from "react-dom/client";
 import {Clerk} from "@clerk/clerk-js";
 import {useCreateBlockNote} from "@blocknote/react";
@@ -8,6 +8,7 @@ import {withCollaboration} from "@blocknote/core/yjs";
 import * as Y from "yjs";
 import {maxSchema} from "../../components/editor/blocks.tsx";
 import {AuthorizedYjsProvider} from "./provider.mjs";
+import {LabPresenceClient} from "./presence.mjs";
 import {createIndexedDbJournal} from "./durable-journal.mjs";
 import {acquireBrowserRoomLease} from "./room-lease.mjs";
 import {createMeteredTransport} from "./transport-meter.mjs";
@@ -91,6 +92,64 @@ function Lab({clerk}){
         : "Claiming exclusive room lease and checking durable recovery…"}
     </p></main>;
 }
+/**
+ * PR25 opt-in synthetic preview. No production editor import, no remote names
+ * or profile images, and no character-accurate caret claim. The underlying
+ * server verifies current Clerk identity and page permissions on each request.
+ */
+function PresencePreview({editor,provider,onError}){
+  const enabled=import.meta.env.VITE_PR25_ENABLE_AWARENESS_LAB==="true";
+  const [peers,setPeers]=useState([]);
+  const [invisible,setInvisible]=useState(false);
+  const client=useRef(null);
+  useEffect(()=>{
+    if(!enabled)return;
+    const awareness=new LabPresenceClient({
+      provider,onChange:setPeers,onError:e=>onError("Awareness unavailable: "+e.message),
+    });
+    client.current=awareness;
+    awareness.start();
+    return ()=>{
+      if(client.current===awareness)client.current=null;
+      awareness.stop();
+    };
+  },[provider,onError,enabled]);
+  useEffect(()=>{
+    if(!enabled)return;
+    const changed=()=>{
+      // Block identity only: zero offsets are a protocol placeholder, NOT a
+      // precise caret or range; never transmit composed Arabic text.
+      let id=null;
+      try{id=editor.getTextCursorPosition()?.block?.id??null;}catch{}
+      client.current?.setFocusBlock(id);
+    };
+    const stop=editor.onSelectionChange(changed);
+    changed();
+    return ()=>stop?.();
+  },[editor,enabled]);
+  if(!enabled)return null;
+  return <section className="pr25-presence" aria-label="Experimental collaborator awareness">
+    <div className="pr25-presence-head">
+      <span>Collaborators · sandbox preview</span>
+      <button type="button" aria-pressed={invisible} onClick={()=>{
+        setInvisible(v=>{client.current?.setVisible(v);return !v;});
+      }}>{invisible?"Invisible (on)":"Visible to collaborators"}</button>
+    </div>
+    <div role="list" aria-label="Current authorized collaborators" className="pr25-peers">
+      {peers.slice(0,5).map((peer,i)=><span
+        role="listitem" key={peer.accountId} className={"pr25-peer "+peer.state}
+        title={"Collaborator "+(i+1)+": "+(peer.state==="editing"?"editing a block":"viewing")}
+        aria-label={"Collaborator "+(i+1)+", "+(peer.state==="editing"?"editing a block":"viewing")}
+      >{i+1}</span>)}
+      {peers.length>5&&<span className="pr25-peer-extra">+{peers.length-5}</span>}
+      {peers.length===0&&<span className="pr25-empty">No other active collaborators</span>}
+    </div>
+    {peers.some(p=>p.state==="editing"&&p.blockId)&&
+      <p className="pr25-focus">Remote block focus available (no precise text cursors yet).</p>}
+    <p className="pr25-caveat">Short-lived presence only. Names, note text and cursor offsets are never displayed.</p>
+  </section>;
+}
+
 function LabEditor({clerk,session,status,error,setError}){
   const options=useMemo(()=>withCollaboration({
     schema:maxSchema,
@@ -206,6 +265,7 @@ function LabEditor({clerk,session,status,error,setError}){
       <button onClick={reviewReconnect}>Review, export & reconnect</button>
       <button onClick={()=>save(session.provider.exportSnapshot())}>Export Yjs snapshot</button>
     </nav>
+    <PresencePreview editor={editor} provider={session.provider} onError={setError}/>
     <BlockNoteView editor={editor} editable={(status.state==="online"&&status.canEdit)||(status.state==="offline"&&session.provider.lastAuthorizedCanEdit)}/>
   </main>;
 }

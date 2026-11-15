@@ -1,1 +1,12 @@
 :root{font:15px system-ui,sans-serif;color:#d9dfeb;background:#15191f}body{margin:0}main{max-width:1180px;margin:auto;padding:24px}h1{font-size:24px}p{line-height:1.6}nav{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}button{background:#394658;border:1px solid #60728a;border-radius:8px;color:inherit;padding:10px 14px;cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}button:focus-visible{outline:3px solid #8bc5ef}[role=alert]{color:#ffb6a8}.bn-editor{min-height:420px}
+
+/* PR25: intentionally quiet, responsive, direction-agnostic sandbox roster. */
+.pr25-presence{border:1px solid #485566;border-radius:12px;padding:12px 14px;background:#212832}
+.pr25-presence-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-weight:600}
+.pr25-presence-head button{font-size:13px;padding:7px 10px}
+.pr25-peers{display:flex;align-items:center;gap:6px;min-height:38px;margin-top:10px}
+.pr25-peer{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid #8698b2;background:#354457;font-size:13px}
+.pr25-peer.editing{border-color:#84b9d2;box-shadow:0 0 0 2px #2c4657}
+.pr25-peer-extra,.pr25-empty,.pr25-caveat,.pr25-focus{font-size:12px;color:#b5c3d4}
+.pr25-caveat,.pr25-focus{margin:4px 0}
+@media (prefers-reduced-motion:reduce){.pr25-presence *{animation:none!important;transition:none!important}}
