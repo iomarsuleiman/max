@@ -220,6 +220,20 @@ export default defineSchema({
   })
     .index("by_origin_scope", ["originWorkspaceId", "scopeId"])
     .index("by_target_account", ["targetAccountId"]),
+  // PR38: independently gated, manager-only link policy registry. No bearer
+  // tokens, public URLs, content gateway or legacy personal-page permissions.
+  workspaceLinkPolicies: defineTable({
+    originWorkspaceId: v.string(),
+    scopeId: v.string(),
+    issuedByAccountId: v.string(),
+    audience: v.union(v.literal("workspace_members"), v.literal("anyone_with_link")),
+    state: v.union(v.literal("active"), v.literal("revoked")),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+    revokedAt: nullableNumber,
+  })
+    .index("by_origin_scope", ["originWorkspaceId", "scopeId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
