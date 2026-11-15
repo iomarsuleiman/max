@@ -476,3 +476,110 @@ export const downgradeMemberEdit = mutationGeneric({
     return true;
   },
 });
+
+
+/** PR24 disposable lab only: ephemeral, ACL-rechecked presence, not Yjs. */
+const PRESENCE_TTL_MS = 20_000;
+const MAX_PRESENCE = 64;
+const stateV = v.union(v.literal("viewing"), v.literal("editing"));
+const selectionV = v.union(v.null(), v.object({
+  blockId: v.string(), anchor: v.number(), head: v.number(),
+}));
+type Selection = { blockId: string; anchor: number; head: number } | null;
+function validSelection(s: Selection): boolean {
+  return s === null || (validScopeId(s.blockId) &&
+    [s.anchor, s.head].every(n => Number.isSafeInteger(n) && n >= 0 && n <= 1_000_000));
+}
+async function roomPresence(ctx: Ctx, roomId: string) {
+  const rows = await ctx.db.query("labPresence")
+    .withIndex("by_room", q => q.eq("roomId", roomId as never)).take(MAX_PRESENCE + 1);
+  if (rows.length > MAX_PRESENCE) denied();
+  const sessions = new Set<string>();
+  for (const row of rows) {
+    if (row.roomId !== roomId || !validPrincipalId(row.accountId) ||
+        !Number.isSafeInteger(row.updatedAt) || !Number.isSafeInteger(row.expiresAt) ||
+        row.updatedAt >= row.expiresAt || row.expiresAt - row.updatedAt > PRESENCE_TTL_MS ||
+        !validSelection(row.blockId === null ? null : {
+          blockId: row.blockId, anchor: row.anchor!, head: row.head!,
+        }) || sessions.has(String(row.sessionId))) denied();
+    sessions.add(String(row.sessionId));
+  }
+  return rows;
+}
+
+/** A heartbeat binds to the authenticated server session, never client role/IDs.
+ * Invisible mode deletes; viewing is available with read ACL, editing needs
+ * live edit ACL. Server supplies timestamps and caps room growth. */
+export const publishPresence = mutationGeneric({
+  args: { sessionId: v.id("labSessions"), visible: v.boolean(),
+    state: stateV, selection: selectionV },
+  returns: v.union(v.null(), v.number()),
+  handler: async (ctx, { sessionId, visible, state, selection }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "view");
+    if (!validSelection(selection) || (state === "editing" &&
+        !(await authorized(ctx, accountId, session.workspaceId, session.pageId, "edit_content")))) denied();
+    const own = await ctx.db.query("labPresence")
+      .withIndex("by_session", q => q.eq("sessionId", sessionId)).take(2);
+    if (own.length > 1 || own.some(r => r.accountId !== accountId || r.roomId !== room._id)) denied();
+    if (!visible) {
+      if (own[0]) await ctx.db.delete(own[0]._id);
+      return null;
+    }
+    const now = Date.now(), expiresAt = Math.min(session.expiresAt, now + PRESENCE_TTL_MS);
+    if (expiresAt <= now) denied();
+    const rows = await roomPresence(ctx, String(room._id));
+    const expired = rows.filter(r => r.expiresAt <= now);
+    for (const row of expired) await ctx.db.delete(row._id);
+    if (rows.length - expired.length >= MAX_PRESENCE && !own[0]) denied();
+    const value = { roomId: room._id, sessionId, accountId, state,
+      blockId: selection?.blockId ?? null, anchor: selection?.anchor ?? null,
+      head: selection?.head ?? null, updatedAt: now, expiresAt };
+    if (own[0] && own[0].expiresAt > now) await ctx.db.patch(own[0]._id, value);
+    else await ctx.db.insert("labPresence", value);
+    return expiresAt;
+  },
+});
+
+/** No email, name or text content returned. Current ACL and session are
+ * rechecked for EACH participant. Clients must hide entries at expiresAt
+ * locally: a clock tick does not trigger a Convex reactive query rerun. */
+export const listPresence = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.array(v.object({ accountId: v.string(), state: stateV,
+    blockId: v.union(v.string(), v.null()),
+    anchor: v.union(v.number(), v.null()), head: v.union(v.number(), v.null()),
+    expiresAt: v.number() })),
+  handler: async (ctx, { sessionId }) => {
+    const { room } = await requireSession(ctx, sessionId, "view");
+    const rows = await roomPresence(ctx, String(room._id));
+    const now = Date.now();
+    const byAccount = new Map<string, typeof rows[number]>();
+    for (const row of rows) {
+      if (row.expiresAt <= now) continue;
+      const lease = await ctx.db.get(row.sessionId);
+      if (!lease || lease.accountId !== row.accountId || lease.roomId !== room._id ||
+          lease.revokedAt !== null || lease.expiresAt <= now ||
+          lease.expiresAt < row.expiresAt ||
+          !(await authorized(ctx, row.accountId, lease.workspaceId, lease.pageId, "view"))) continue;
+      const prior = byAccount.get(row.accountId);
+      if (!prior || prior.updatedAt < row.updatedAt) byAccount.set(row.accountId, row);
+    }
+    return [...byAccount.values()].sort((a,b) => a.accountId.localeCompare(b.accountId))
+      .map(r => ({ accountId: r.accountId, state: r.state,
+        blockId: r.blockId, anchor: r.anchor, head: r.head, expiresAt: r.expiresAt }));
+  },
+});
+
+/** Explicit self stop, separate from the Yjs data/journal lifecycle. */
+export const stopPresence = mutationGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.boolean(),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, room } = await requireSession(ctx, sessionId, "view");
+    const rows = await ctx.db.query("labPresence")
+      .withIndex("by_session", q => q.eq("sessionId", sessionId)).take(2);
+    if (rows.length > 1 || rows.some(r => r.accountId !== accountId || r.roomId !== room._id)) denied();
+    if (rows[0]) await ctx.db.delete(rows[0]._id);
+    return true;
+  },
+});

@@ -61,6 +61,14 @@ export default defineSchema({
     operationId: v.string(), base64: v.string(), createdAt: v.number(),
   }).index("by_room_seq", ["roomId", "seq"])
     .index("by_room_actor_operation", ["roomId", "actorId", "operationId"]),
+  // PR24 sandbox only: short-lived awareness, not CRDT data or history.
+  labPresence: defineTable({
+    roomId: v.id("labRooms"), sessionId: v.id("labSessions"), accountId: v.string(),
+    state: v.union(v.literal("viewing"), v.literal("editing")),
+    blockId: nullable, anchor: v.union(v.number(), v.null()),
+    head: v.union(v.number(), v.null()),
+    updatedAt: v.number(), expiresAt: v.number(),
+  }).index("by_room", ["roomId"]).index("by_session", ["sessionId"]),
   labAuditEvents: defineTable({
     workspaceId: v.string(), actorId: v.string(), targetId: v.string(),
     operation: v.string(), at: v.number(),
