@@ -9,6 +9,7 @@ import * as Y from "yjs";
 import {maxSchema} from "../../components/editor/blocks.tsx";
 import {AuthorizedYjsProvider} from "./provider.mjs";
 import {LabPresenceClient} from "./presence.mjs";
+import {LabCommentClient} from "./comments.mjs";
 import {createIndexedDbJournal} from "./durable-journal.mjs";
 import {acquireBrowserRoomLease} from "./room-lease.mjs";
 import {createMeteredTransport} from "./transport-meter.mjs";
@@ -150,6 +151,100 @@ function PresencePreview({editor,provider,onError}){
   </section>;
 }
 
+
+/** PR26: explicitly enabled operator preview. Only real, server-authorized
+ * subjects can be mentioned; no identity directory or synthetic notifications.
+ * Missing blocks are orphaned visibly rather than guessed from text offsets.
+ */
+function CommentsPreview({editor,provider,onError}){
+  const enabled=import.meta.env.VITE_PR26_ENABLE_COMMENT_LAB==="true";
+  const [data,setData]=useState({connected:false,canComment:false,threads:[],comments:[],selectedThreadId:null});
+  const [focus,setFocus]=useState(null);
+  const [draft,setDraft]=useState("");
+  const [mentionInput,setMentionInput]=useState("");
+  const [documentVersion,setDocumentVersion]=useState(0);
+  const adapter=useRef(null);
+  useEffect(()=>{
+    if(!enabled)return;
+    const c=new LabCommentClient({provider,onChange:setData,onError:e=>onError("Comments unavailable: "+e.message)});
+    adapter.current=c;c.start();
+    return ()=>{if(adapter.current===c)adapter.current=null;c.stop();};
+  },[provider,onError,enabled]);
+  useEffect(()=>{
+    if(!enabled)return;
+    const selection=()=>{
+      try{setFocus(editor.getTextCursorPosition()?.block?.id??null);}
+      catch{setFocus(null);}
+    };
+    const stopSelection=editor.onSelectionChange(selection);
+    const stopDoc=editor.onChange(()=>setDocumentVersion(v=>v+1));
+    selection();
+    return ()=>{stopSelection?.();stopDoc?.();};
+  },[editor,enabled]);
+  const blocks=useMemo(()=>{
+    const ids=new Set();
+    const visit=items=>{for(const block of items??[]){if(block?.id)ids.add(block.id);visit(block?.children);}};
+    visit(editor.document);
+    return ids;
+  },[editor,documentVersion]);
+  if(!enabled)return null;
+  const selected=data.threads.find(t=>t.threadId===data.selectedThreadId);
+  const mentions=()=>mentionInput.split(",").map(s=>s.trim()).filter(Boolean);
+  const execute=async work=>{
+    try{await work();setDraft("");setMentionInput("");}
+    catch(e){onError("Comments: "+String(e.message??e));}
+  };
+  const canWrite=data.connected&&data.canComment;
+  return <section className="pr26-comments" aria-label="Experimental anchored comments and mentions">
+    <div className="pr26-head"><strong>Block comments · sandbox preview</strong>
+      <span>{canWrite?"Comment permission verified":data.connected?"Read only":"Disconnected"}</span>
+    </div>
+    <p className="pr26-help">Selected block: <code>{focus??"none"}</code>. Comments track an exact block ID, never a character offset.</p>
+    <label htmlFor="pr26-comment-draft">New thread or reply</label>
+    <textarea id="pr26-comment-draft" value={draft} maxLength={2000} rows={2}
+      onChange={e=>setDraft(e.target.value)} placeholder="Add a comment to this block…"/>
+    <label htmlFor="pr26-mentions">Mention exact authorized account IDs (comma separated, max 3)</label>
+    <input id="pr26-mentions" value={mentionInput} onChange={e=>setMentionInput(e.target.value)}
+      placeholder="Optional Clerk subject IDs" autoComplete="off"/>
+    <div className="pr26-actions">
+      <button type="button" disabled={!canWrite||!focus||!blocks.has(focus)||!draft.trim()}
+        onClick={()=>execute(async()=>{
+          const result=await adapter.current.create({blockId:focus,body:draft,mentions:mentions()});
+          // Reactive thread list may arrive after the mutation acknowledgment.
+          if(!result?.threadId)throw Error("COMMENT_CREATE_UNACKNOWLEDGED");
+        })}>Comment on selected block</button>
+      <button type="button" disabled={!canWrite||!selected||selected.resolvedAt!==null||!draft.trim()}
+        onClick={()=>execute(()=>adapter.current.reply({threadId:selected.threadId,body:draft,mentions:mentions()}))}>
+        Reply to selected thread</button>
+    </div>
+    <div className="pr26-thread-list" role="group" aria-label="Anchored discussion threads">
+      {data.threads.length===0&&<p>No sandbox threads yet.</p>}
+      {data.threads.map(t=><button key={t.threadId} type="button"
+        aria-pressed={data.selectedThreadId===t.threadId}
+        onClick={()=>adapter.current?.selectThread(t.threadId)}>
+        <span>{t.blockId}</span>
+        <span>{!blocks.has(t.blockId)?" · Missing anchor":t.resolvedAt?" · Resolved":" · Open"}</span>
+      </button>)}
+    </div>
+    {selected&&<div className="pr26-thread-panel">
+      <div className="pr26-head"><strong>Thread at {selected.blockId}</strong>
+        {selected.canResolve&&<button type="button" disabled={!canWrite} onClick={()=>execute(()=>
+          adapter.current.resolve({threadId:selected.threadId,expectedRevision:selected.revision,resolved:selected.resolvedAt===null})
+        )}>{selected.resolvedAt?"Reopen":"Resolve"}</button>}
+      </div>
+      {!blocks.has(selected.blockId)&&<p role="status" className="pr26-orphan">
+        Anchored block missing from this Yjs document. Thread remains intact; no automatic reattachment.
+      </p>}
+      <ol>{data.comments.map(c=><li key={c.commentId}>
+        <strong>{c.authorId??"Former collaborator"}</strong>
+        <p>{c.body}</p>
+        {c.mentions.length>0&&<small>Mentions: {c.mentions.join(", ")}</small>}
+      </li>)}</ol>
+    </div>}
+    <p className="pr26-help">No email/name directory, mention delivery, text-range anchors or production data.</p>
+  </section>;
+}
+
 function LabEditor({clerk,session,status,error,setError}){
   const options=useMemo(()=>withCollaboration({
     schema:maxSchema,
@@ -266,6 +361,7 @@ function LabEditor({clerk,session,status,error,setError}){
       <button onClick={()=>save(session.provider.exportSnapshot())}>Export Yjs snapshot</button>
     </nav>
     <PresencePreview editor={editor} provider={session.provider} onError={setError}/>
+    <CommentsPreview editor={editor} provider={session.provider} onError={setError}/>
     <BlockNoteView editor={editor} editable={(status.state==="online"&&status.canEdit)||(status.state==="offline"&&session.provider.lastAuthorizedCanEdit)}/>
   </main>;
 }

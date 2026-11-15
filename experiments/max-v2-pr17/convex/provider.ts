@@ -653,13 +653,14 @@ export const listCommentThreads = queryGeneric({
   args: { sessionId: v.id("labSessions") },
   returns: v.array(v.object({
     threadId: v.id("labCommentThreads"), blockId: v.string(),
-    resolvedAt: v.union(v.number(), v.null()), revision: v.number(),
+    resolvedAt: v.union(v.number(), v.null()), revision: v.number(), canResolve: v.boolean(),
   })),
   handler: async (ctx, { sessionId }) => {
-    const { room } = await requireSession(ctx, sessionId, "view");
+    const { room, accountId, session } = await requireSession(ctx, sessionId, "view");
+    const canManage = await authorized(ctx, accountId, session.workspaceId, session.pageId, "manage");
     const rows = await threadRows(ctx, String(room._id));
     return rows.sort((a,b) => a.createdAt - b.createdAt || String(a._id).localeCompare(String(b._id)))
-      .map(r => ({ threadId: r._id, blockId: r.blockId, resolvedAt: r.resolvedAt, revision: r.revision }));
+      .map(r => ({ threadId: r._id, blockId: r.blockId, resolvedAt: r.resolvedAt, revision: r.revision, canResolve: canManage || r.createdBy === accountId }));
   },
 });
 export const listThreadComments = queryGeneric({

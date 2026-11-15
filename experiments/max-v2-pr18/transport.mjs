@@ -6,6 +6,9 @@ const fn = (name) => makeFunctionReference("provider:" + name);
 const JOIN = fn("join"), READ = fn("readUpdates"), WRITE = fn("appendUpdate");
 const STATUS = fn("sessionStatus"), REVOKE = fn("revokeMember"), DOWNGRADE = fn("downgradeMemberEdit");
 const COMPACT = fn("compactLog"), CHECKPOINT = fn("checkpointStatus");
+const COMMENT_ACCESS = fn("commentAccess"), COMMENT_THREADS = fn("listCommentThreads");
+const COMMENT_ITEMS = fn("listThreadComments"), COMMENT_CREATE = fn("createCommentThread");
+const COMMENT_REPLY = fn("replyToCommentThread"), COMMENT_RESOLVE = fn("resolveCommentThread");
 const PRESENCE_PUBLISH = fn("publishPresence"), PRESENCE_LIST = fn("listPresence"), PRESENCE_STOP = fn("stopPresence");
 
 export function createAuthenticatedConvexTransport({ url, getToken }) {
@@ -28,6 +31,13 @@ export function createAuthenticatedConvexTransport({ url, getToken }) {
     publishPresence: (args) => client.mutation(PRESENCE_PUBLISH, args),
     watchPresence: (args, onUpdate, onError) => client.onUpdate(PRESENCE_LIST, args, onUpdate, onError),
     stopPresence: (args) => client.mutation(PRESENCE_STOP, args),
+    // PR26: authenticated, sandbox-only block anchors + threaded discussion.
+    watchCommentAccess: (args, update, error) => client.onUpdate(COMMENT_ACCESS, args, update, error),
+    watchCommentThreads: (args, update, error) => client.onUpdate(COMMENT_THREADS, args, update, error),
+    watchThreadComments: (args, update, error) => client.onUpdate(COMMENT_ITEMS, args, update, error),
+    createCommentThread: (args) => client.mutation(COMMENT_CREATE, args),
+    replyToCommentThread: (args) => client.mutation(COMMENT_REPLY, args),
+    resolveCommentThread: (args) => client.mutation(COMMENT_RESOLVE, args),
     close: () => client.close(),
   };
 }

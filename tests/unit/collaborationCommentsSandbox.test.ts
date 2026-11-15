@@ -102,13 +102,22 @@ describe("PR26 sandbox anchored threads and mentions",()=>{
     await alice.mutation(downgrade,{workspaceId,pageId,targetAccountId:"bob"});
     expect(await bob.query(access,{sessionId:b.sessionId})).toBe(false);
     await expect(bob.mutation(reply,{sessionId:b.sessionId,threadId:made.threadId,operationId:"downgradereply01",body:"x",mentions:[]})).rejects.toThrow();
-    await t.run(async ctx=>{
-      const grants=await ctx.db.query("workspacePageGrants").withIndex("by_workspace_page",q=>q.eq("workspaceId",workspaceId).eq("pageId",pageId)).collect();
-      const c=grants.find(r=>r.subjectId==="carol");
-      if(c)await ctx.db.patch(c._id,{level:"comment"});
-    });
-    const {carol,c}=await setup(); // distinct fixture verifies independent grant by default
-    expect(await carol.query(access,{sessionId:c.sessionId})).toBe(false);
+    const {carol,c}=await (async()=>{
+      const identities=await t.run(async ctx=>{
+        const grants=await ctx.db.query("workspacePageGrants")
+          .withIndex("by_workspace_page",q=>(q.eq("workspaceId",workspaceId) as unknown as {eq(field:string,value:string):never}).eq("pageId",pageId)).collect();
+        const row=grants.find(r=>r.subjectId==="carol");
+        if(!row)throw Error("missing test grant");
+        await ctx.db.patch(row._id,{level:"comment"});
+      });
+      void identities;
+      const carol=t.withIdentity({subject:"carol",tokenIdentifier:"pr26|carol-new"});
+      const c=await carol.mutation(join,{workspaceId,pageId});
+      return {carol,c};
+    })();
+    expect(await carol.query(access,{sessionId:c.sessionId})).toBe(true);
+    const created=await carol.mutation(create,first(c.sessionId,"commentonlynew001"));
+    expect(created.duplicate).toBe(false);
   });
   it("owner resolves with OCC; non-owner cannot resolve and resolved thread blocks replies",async()=>{
     const {alice,bob,a,b}=await setup();
