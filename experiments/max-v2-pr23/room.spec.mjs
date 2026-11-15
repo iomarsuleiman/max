@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const scope = { accountId: "alice", workspaceId: "pr23-lab", pageId: "page-1" };
+const scope = { accountId: "alice", workspaceId: "pr19-lab", pageId: "page1" };
 const open = async (page, overrides = {}) => {
   return page.evaluate(async values => {
     const { acquireBrowserRoomLease } = await import("/room-lease.mjs");
@@ -36,7 +36,7 @@ test("different account or page may hold its own lock; explicit release permits 
   await Promise.all([first, account, page].map(p => p.goto("/journal-test.html")));
   expect(await open(first)).toBe(true);
   expect(await open(account, { accountId: "bob" })).toBe(true);
-  expect(await open(page, { pageId: "page-2" })).toBe(true);
+  expect(await open(page, { pageId: "page2" })).toBe(true);
   await first.evaluate(() => window.__pr23Lease.release());
   await expect.poll(() => tryOpen(first), { timeout: 10_000 }).toBe("acquired");
   await Promise.all([first, account, page].map(p => p.close()));
