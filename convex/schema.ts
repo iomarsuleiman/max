@@ -234,6 +234,27 @@ export default defineSchema({
     revokedAt: nullableNumber,
   })
     .index("by_origin_scope", ["originWorkspaceId", "scopeId"]),
+  // PR40: dormant rule DESCRIPTORS for existing registered shadow databases.
+  // All state is draft/paused/retired: no executor, scheduler, action delivery,
+  // shared-document access, or MCP integration is enabled by this registry.
+  workspaceAutomationRules: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    ruleKey: v.string(),
+    createdByAccountId: v.string(),
+    name: v.string(),
+    trigger: v.union(v.literal("task_state_changed"), v.literal("manual_button")),
+    condition: v.union(v.literal("always"), v.literal("state_equals")),
+    conditionValue: nullableString,
+    action: v.union(v.literal("notify_creator"), v.literal("set_task_state")),
+    actionValue: nullableString,
+    state: v.union(v.literal("draft"), v.literal("paused"), v.literal("retired")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    retiredAt: nullableNumber,
+  })
+    .index("by_workspace_database", ["workspaceId", "databaseId"])
+    .index("by_database_rule_key", ["workspaceId", "databaseId", "ruleKey"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
