@@ -11,6 +11,7 @@ import {AuthorizedYjsProvider} from "./provider.mjs";
 import {LabPresenceClient} from "./presence.mjs";
 import {LabCommentClient} from "./comments.mjs";
 import {LabSuggestionClient} from "./suggestions.mjs";
+import {LabInboxClient} from "./inbox.mjs";
 import {createIndexedDbJournal} from "./durable-journal.mjs";
 import {acquireBrowserRoomLease} from "./room-lease.mjs";
 import {createMeteredTransport} from "./transport-meter.mjs";
@@ -370,7 +371,54 @@ function SuggestionsPreview({editor,provider,onError}){
         </article>;
       })}
     </div>
-    <p className="pr26-help">No automatic apply, inline rich-block patching, offline replay, notifications or production editor integration. Approved edits require deliberate manual changes in the editor.</p>
+    <p className="pr26-help">No automatic apply, inline rich-block patching, offline replay or production editor integration. PR28 notification metadata is separate. Approved edits require deliberate manual changes in the editor.</p>
+  </section>;
+}
+
+
+/** PR28: metadata-only, opt-in, sandbox inbox preview.
+ * The server rechecks permissions per subscription and acknowledgment.
+ * No page/document bodies, push delivery, backfilled history or storage.
+ */
+function InboxPreview({provider,onError}){
+  const enabled=import.meta.env.VITE_PR28_ENABLE_INBOX_LAB==="true";
+  const [data,setData]=useState({connected:false,unreadCount:0,notifications:[]});
+  const adapter=useRef(null);
+  useEffect(()=>{
+    if(!enabled)return;
+    const client=new LabInboxClient({
+      provider,onChange:setData,onError:e=>onError("Inbox unavailable: "+e.message),
+    });
+    adapter.current=client;
+    client.start();
+    return ()=>{if(adapter.current===client)adapter.current=null;client.stop();};
+  },[provider,onError,enabled]);
+  if(!enabled)return null;
+  const label={mention:"Mention in a comment",thread_reply:"Reply to your thread",
+    suggestion_decision:"Your suggestion was reviewed"};
+  const mark=async id=>{
+    try{await adapter.current?.markRead(id);}
+    catch(e){onError("Inbox acknowledgment: "+String(e.message??e));}
+  };
+  return <section className="pr28-inbox" aria-label="Experimental collaboration inbox">
+    <div className="pr26-head">
+      <strong>Collaboration inbox · sandbox</strong>
+      <span role="status">{data.connected
+        ? data.unreadCount+" unread":"Disconnected · no current inbox access"}</span>
+    </div>
+    <p className="pr26-help">Private events only: no comment text, proposed edits, push notifications or archived access.</p>
+    <ol aria-label="Recent collaboration events">
+      {data.connected&&data.notifications.length===0&&<li>No notifications yet.</li>}
+      {!data.connected&&<li>Reconnect an authorized sandbox session to read notifications.</li>}
+      {data.connected&&data.notifications.map(item=><li key={item.notificationId}>
+        <span><strong>{label[item.kind]}</strong> · {item.actorId?"Collaborator":"Former collaborator"}</span>
+        <small>Reference <code>{item.targetId}</code></small>
+        <span>{item.readAt===null?"Unread":"Read"}</span>
+        <button type="button" disabled={item.readAt!==null} onClick={()=>mark(item.notificationId)}>
+          Mark as read
+        </button>
+      </li>)}
+    </ol>
   </section>;
 }
 
@@ -492,6 +540,7 @@ function LabEditor({clerk,session,status,error,setError}){
     <PresencePreview editor={editor} provider={session.provider} onError={setError}/>
     <CommentsPreview editor={editor} provider={session.provider} onError={setError}/>
     <SuggestionsPreview editor={editor} provider={session.provider} onError={setError}/>
+    <InboxPreview provider={session.provider} onError={setError}/>
     <BlockNoteView editor={editor} editable={(status.state==="online"&&status.canEdit)||(status.state==="offline"&&session.provider.lastAuthorizedCanEdit)}/>
   </main>;
 }
