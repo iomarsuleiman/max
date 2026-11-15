@@ -41,9 +41,10 @@ async function who(ctx: Ctx): Promise<string> {
 function externalStore(ctx: Ctx): ExternalShareStore {
   return {
     ...sharedStore(ctx),
-    globalScopes: (id: string) =>
-      ctx.db.query("workspacePageScopes").withIndex("by_pageId",
-        (q) => q.eq("pageId", id)).take(2),
+    globalScopes: async (id: string) =>
+      (await ctx.db.query("workspacePageScopes").withIndex("by_pageId",
+        (q) => q.eq("pageId", id)).take(2))
+        .map((row) => ({ workspaceId: row.workspaceId as string, pageId: row.pageId as string })),
     externalShares: async (id: string) => {
       try {
         // The untrusted ID is used solely as an index lookup; the policy
