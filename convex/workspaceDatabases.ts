@@ -30,43 +30,43 @@ async function who(ctx: ReadCtx): Promise<string> {
 /** Same workspace permission engine and bounded queries as workspaceAccess.ts. */
 function sharedStore(ctx: ReadCtx): SharedDatabaseReadStore {
   return {
-    workspaces: (id) =>
+    workspaces: (id: string) =>
       ctx.db.query("workspaces").withIndex("by_workspaceId", (q) => q.eq("workspaceId", id)).take(2),
-    memberships: (id, account) =>
+    memberships: (id: string, account: string) =>
       ctx.db.query("workspaceMemberships").withIndex("by_workspace_account", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(2),
-    groups: async (id, account) =>
+    groups: async (id: string, account: string) =>
       (await ctx.db.query("workspaceGroupMemberships").withIndex("by_workspace_account", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(101))
         .map((row) => ({ workspaceId: row.workspaceId, accountId: row.accountId, id: row.groupId, status: row.status })),
-    teamspaces: async (id, account) =>
+    teamspaces: async (id: string, account: string) =>
       (await ctx.db.query("workspaceTeamspaceMemberships").withIndex("by_workspace_account", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("accountId", account)).take(101))
         .map((row) => ({ workspaceId: row.workspaceId, accountId: row.accountId, id: row.teamspaceId, status: row.status })),
-    groupRegistrations: (id, groupId) =>
+    groupRegistrations: (id: string, groupId: string) =>
       ctx.db.query("workspaceGroups").withIndex("by_workspace_group", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("groupId", groupId)).take(2),
-    teamspaceRegistrations: (id, teamspaceId) =>
+    teamspaceRegistrations: (id: string, teamspaceId: string) =>
       ctx.db.query("workspaceTeamspaces").withIndex("by_workspace_teamspace", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("teamspaceId", teamspaceId)).take(2),
-    scopes: (id, pageId) =>
+    scopes: (id: string, pageId: string) =>
       ctx.db.query("workspacePageScopes").withIndex("by_workspace_page", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("pageId", pageId)).take(2),
-    grants: async (id, pageId) =>
+    grants: async (id: string, pageId: string) =>
       (await ctx.db.query("workspacePageGrants").withIndex("by_workspace_page", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("pageId", pageId)).take(101))
         .map((row) => ({
           workspaceId: row.workspaceId, pageId: row.pageId, subjectType: row.subjectType,
           subjectId: row.subjectId, effect: row.effect, level: row.level,
         })),
-    databaseBindings: async (id, databaseId) =>
+    databaseBindings: async (id: string, databaseId: string) =>
       (await ctx.db.query("workspaceDatabaseBindings").withIndex("by_workspace_database", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("databaseId", databaseId)).take(2))
         .map((row) => ({
           workspaceId: row.workspaceId as string, pageId: row.databaseId as string,
           kind: row.kind as "database", archivedAt: row.archivedAt as number | null,
         })),
-    recordCandidates: async (id, databaseId) =>
+    recordCandidates: async (id: string, databaseId: string) =>
       (await ctx.db.query("workspaceRecordMetadata").withIndex("by_workspace_database", (q) =>
         (q.eq("workspaceId", id) as unknown as { eq(field: string, value: string): never }).eq("databaseId", databaseId)).take(101))
         .map((row) => ({
