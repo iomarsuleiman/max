@@ -10,6 +10,7 @@ import {maxSchema} from "../../components/editor/blocks.tsx";
 import {AuthorizedYjsProvider} from "./provider.mjs";
 import {createIndexedDbJournal} from "./durable-journal.mjs";
 import {acquireBrowserRoomLease} from "./room-lease.mjs";
+import {createMeteredTransport} from "./transport-meter.mjs";
 import {createAuthenticatedConvexTransport} from "./transport.mjs";
 import "@blocknote/shadcn/style.css";
 import "./remote.css";
@@ -32,10 +33,10 @@ function Lab({clerk}){
   const [access,setAccess]=useState("checking");
   const session=useMemo(()=>{
     const doc=new Y.Doc();
-    const transport=createAuthenticatedConvexTransport({
+    const transport=createMeteredTransport(createAuthenticatedConvexTransport({
       url:config.url,
       getToken:()=>clerk.session?.getToken({template:"convex"})??null,
-    });
+    }));
     const provider=new AuthorizedYjsProvider({
       doc,transport,workspaceId:config.workspaceId,pageId:config.pageId,
       accountIdHint:clerk.user.id,journal:createIndexedDbJournal(),onState:setStatus,
@@ -172,6 +173,7 @@ function LabEditor({clerk,session,status,error,setError}){
           sessionId:session.provider.session.sessionId,
         });
       },
+      operationEvidence: () => session.provider.transport.operationEvidence(),
     } : {}),
     };
     return ()=>{delete window.__maxPr18;};
