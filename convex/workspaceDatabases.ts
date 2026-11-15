@@ -75,7 +75,7 @@ function sharedStore(ctx: ReadCtx): SharedDatabaseReadStore {
           archivedAt: row.archivedAt as number | null, title: row.title as string,
           updatedAt: row.updatedAt as number,
         })),
-  };
+  } as unknown as SharedDatabaseReadStore;
 }
 
 /** Validate global page identity and ancestry before registering metadata. */
