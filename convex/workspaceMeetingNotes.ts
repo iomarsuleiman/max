@@ -73,7 +73,7 @@ async function allMeetings(ctx: Ctx, ws: string, db: string): Promise<MeetingRow
     agenda: r.agenda, decisions: r.decisions, actions: r.actions,
     state: r.state, createdAt: r.createdAt,
     updatedAt: r.updatedAt, archivedAt: r.archivedAt,
-  } as MeetingRow));
+  } as unknown as MeetingRow));
   if (!validMeetingRegistry(result, ws, db)) denied();
   return result;
 }
