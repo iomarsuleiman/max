@@ -596,6 +596,95 @@ export const stopPresence = mutationGeneric({
 });
 
 
+
+/**
+ * PR28: metadata-only, per-recipient inbox for this disposable collaboration
+ * room. Called in the SAME mutation as the originating comment/review event.
+ * No remote push, message bodies, paragraph text, or address directory.
+ * The existing source operation's idempotency prevents duplicate delivery.
+ */
+const MAX_INBOX_PER_RECIPIENT = 64;
+type LabRoomId = string & { __tableName: "labRooms" };
+type InboxKind = "mention" | "thread_reply" | "suggestion_decision";
+async function deliverInbox(
+  ctx: GenericMutationCtx<LabDataModel>,
+  room: { _id: LabRoomId; workspaceId: string; pageId: string },
+  actorId: string, kind: InboxKind, targetId: string, recipients: string[],
+) {
+  for (const recipientId of new Set(recipients)) {
+    if (recipientId === actorId || !validPrincipalId(recipientId) ||
+        !(await authorized(ctx, recipientId, room.workspaceId, room.pageId, "view"))) continue;
+    const rows = await ctx.db.query("labNotifications")
+      .withIndex("by_room_recipient", q =>
+        (q.eq("roomId", room._id) as unknown as { eq(field: string, value: string): never })
+          .eq("recipientId", recipientId))
+      .take(MAX_INBOX_PER_RECIPIENT + 1);
+    if (rows.length > MAX_INBOX_PER_RECIPIENT ||
+        rows.some(row => row.roomId !== room._id || row.recipientId !== recipientId)) denied();
+    // Oldest-first eviction is bounded and private to the recipient. No other
+    // collaborator's inbox is deleted, and source content is never modified.
+    if (rows.length === MAX_INBOX_PER_RECIPIENT) await ctx.db.delete(rows[0]._id);
+    await ctx.db.insert("labNotifications", {
+      roomId: room._id, recipientId, actorId, kind, targetId,
+      readAt: null, createdAt: Date.now(),
+    });
+  }
+}
+
+export const listInbox = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.object({
+    unreadCount: v.number(),
+    notifications: v.array(v.object({
+      notificationId: v.id("labNotifications"),
+      kind: v.union(v.literal("mention"), v.literal("thread_reply"),
+        v.literal("suggestion_decision")),
+      actorId: v.union(v.string(), v.null()), targetId: v.string(),
+      createdAt: v.number(), readAt: v.union(v.number(), v.null()),
+    })),
+  }),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "view");
+    const rows = await ctx.db.query("labNotifications")
+      .withIndex("by_room_recipient", q =>
+        (q.eq("roomId", room._id) as unknown as { eq(field: string, value: string): never })
+          .eq("recipientId", accountId))
+      .take(MAX_INBOX_PER_RECIPIENT + 1);
+    if (rows.length > MAX_INBOX_PER_RECIPIENT ||
+        rows.some(row => row.roomId !== room._id || row.recipientId !== accountId ||
+          !validPrincipalId(row.actorId) ||
+          !["mention", "thread_reply", "suggestion_decision"].includes(row.kind) ||
+          !Number.isSafeInteger(row.createdAt) ||
+          !(row.readAt === null || Number.isSafeInteger(row.readAt)))) denied();
+    const notifications = [];
+    for (const row of rows.slice().reverse()) {
+      const visible = await authorized(ctx, row.actorId, session.workspaceId, session.pageId, "view");
+      notifications.push({
+        notificationId: row._id, kind: row.kind,
+        actorId: visible ? row.actorId : null,
+        targetId: row.targetId, createdAt: row.createdAt, readAt: row.readAt,
+      });
+    }
+    return { unreadCount: rows.filter(row => row.readAt === null).length, notifications };
+  },
+});
+export const markInboxRead = mutationGeneric({
+  args: { sessionId: v.id("labSessions"), notificationId: v.id("labNotifications") },
+  returns: v.object({ readAt: v.number(), duplicate: v.boolean() }),
+  handler: async (ctx, { sessionId, notificationId }) => {
+    const { accountId, room } = await requireSession(ctx, sessionId, "view");
+    const row = await ctx.db.get(notificationId);
+    if (!row || row.roomId !== room._id || row.recipientId !== accountId) denied();
+    if (row.readAt !== null) {
+      if (!Number.isSafeInteger(row.readAt)) denied();
+      return { readAt: row.readAt, duplicate: true };
+    }
+    const readAt = Date.now();
+    await ctx.db.patch(notificationId, { readAt });
+    return { readAt, duplicate: false };
+  },
+});
+
 /**
  * PR26: threaded, block-anchored discussion for synthetic rooms ONLY.
  * No text positions are persisted: a deleted BlockNote block remains a
@@ -714,6 +803,7 @@ export const createCommentThread = mutationGeneric({
       roomId: room._id, threadId, authorId: accountId, operationId,
       kind: "initial", body, mentions, createdAt: now,
     });
+    await deliverInbox(ctx, room, accountId, "mention", String(commentId), mentions);
     return { threadId, commentId, duplicate: false };
   },
 });
@@ -740,6 +830,9 @@ export const replyToCommentThread = mutationGeneric({
       kind: "reply", body, mentions, createdAt: now,
     });
     await ctx.db.patch(thread._id, { updatedAt: now });
+    await deliverInbox(ctx, room, accountId, "mention", String(commentId), mentions);
+    if (!mentions.includes(thread.createdBy))
+      await deliverInbox(ctx, room, accountId, "thread_reply", String(commentId), [thread.createdBy]);
     return { commentId, duplicate: false };
   },
 });
@@ -915,6 +1008,7 @@ export const reviewSuggestion = mutationGeneric({
       status, revision, reviewedBy: accountId, reviewedAt: Date.now(),
       reviewOperationId: operationId,
     });
+    await deliverInbox(ctx, room, accountId, "suggestion_decision", String(suggestionId), [row.proposedBy]);
     return { status, revision, duplicate: false };
   },
 });
