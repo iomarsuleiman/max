@@ -760,3 +760,161 @@ export const resolveCommentThread = mutationGeneric({
     return { resolvedAt, revision };
   },
 });
+
+
+/**
+ * PR27: independent suggestions/review metadata for the disposable sandbox.
+ * Approval NEVER writes into the opaque Yjs document. Reviewers must manually
+ * reconcile an approved change with the live editor; an approval is not proof
+ * the underlying CRDT block still exists or contains the supplied preimage.
+ */
+const MAX_SUGGESTIONS = 32;
+const MAX_SUGGESTION_TEXT = 2_000;
+const MAX_SUGGESTION_NOTE = 500;
+const suggestionDecision = v.union(v.literal("accept"), v.literal("reject"));
+function safeSuggestionString(s: string, limit: number) {
+  return typeof s === "string" && s.length <= limit &&
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(s);
+}
+function validSuggestion(originalText: string, replacementText: string, note: string,
+  operationId: string): boolean {
+  return safeSuggestionString(originalText, MAX_SUGGESTION_TEXT) &&
+    safeSuggestionString(replacementText, MAX_SUGGESTION_TEXT) &&
+    safeSuggestionString(note, MAX_SUGGESTION_NOTE) &&
+    originalText !== replacementText && replacementText.trim().length > 0 &&
+    MIN_OP.test(operationId);
+}
+async function suggestionRows(ctx: Ctx, roomId: string) {
+  const rows = await ctx.db.query("labSuggestions")
+    .withIndex("by_room", q => q.eq("roomId", roomId as never))
+    .take(MAX_SUGGESTIONS + 1);
+  if (rows.length > MAX_SUGGESTIONS ||
+    rows.some(row => row.roomId !== roomId || !validScopeId(row.blockId) ||
+      !validPrincipalId(row.proposedBy) || !MIN_OP.test(row.operationId) ||
+      !validSuggestion(row.originalText, row.replacementText, row.note, row.operationId) ||
+      !Number.isSafeInteger(row.baseSeq) || row.baseSeq < 0 ||
+      !Number.isSafeInteger(row.revision) || row.revision < 1 ||
+      !["pending","accepted","rejected"].includes(row.status) ||
+      (row.status === "pending" && (row.reviewedBy !== null ||
+        row.reviewedAt !== null || row.reviewOperationId !== null)) ||
+      (row.status !== "pending" && (!row.reviewedBy ||
+        !MIN_OP.test(row.reviewOperationId ?? "") ||
+        !Number.isSafeInteger(row.reviewedAt))))) denied();
+  return rows;
+}
+export const suggestionAccess = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.object({ canSuggest: v.boolean(), canReview: v.boolean() }),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, session } = await requireSession(ctx, sessionId, "view");
+    return {
+      canSuggest: await authorized(ctx, accountId, session.workspaceId, session.pageId, "comment"),
+      canReview: await authorized(ctx, accountId, session.workspaceId, session.pageId, "edit_content"),
+    };
+  },
+});
+export const listSuggestions = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.array(v.object({
+    suggestionId: v.id("labSuggestions"), blockId: v.string(), baseSeq: v.number(),
+    originalText: v.string(), replacementText: v.string(), note: v.string(),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("rejected")),
+    revision: v.number(), proposedBy: v.union(v.string(), v.null()),
+    reviewedBy: v.union(v.string(), v.null()), canReview: v.boolean(),
+    createdAt: v.number(),
+  })),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "view");
+    const canEdit = await authorized(ctx, accountId, session.workspaceId, session.pageId, "edit_content");
+    const canManage = await authorized(ctx, accountId, session.workspaceId, session.pageId, "manage");
+    const rows = await suggestionRows(ctx, String(room._id));
+    const result = [];
+    for (const row of rows.sort((a,b) => a.createdAt - b.createdAt ||
+      String(a._id).localeCompare(String(b._id)))) {
+      const authorVisible = await authorized(ctx, row.proposedBy, session.workspaceId, session.pageId, "view");
+      const reviewerVisible = row.reviewedBy === null ? false :
+        await authorized(ctx, row.reviewedBy, session.workspaceId, session.pageId, "view");
+      result.push({
+        suggestionId: row._id, blockId: row.blockId, baseSeq: row.baseSeq,
+        originalText: row.originalText, replacementText: row.replacementText,
+        note: row.note, status: row.status, revision: row.revision,
+        createdAt: row.createdAt,
+        proposedBy: authorVisible ? row.proposedBy : null,
+        reviewedBy: reviewerVisible ? row.reviewedBy : null,
+        canReview: canEdit && (row.proposedBy !== accountId || canManage),
+      });
+    }
+    return result;
+  },
+});
+export const createSuggestion = mutationGeneric({
+  args: {
+    sessionId: v.id("labSessions"), blockId: v.string(), originalText: v.string(),
+    replacementText: v.string(), note: v.string(),
+    expectedHeadSeq: v.number(), operationId: v.string(),
+  },
+  returns: v.object({ suggestionId: v.id("labSuggestions"), duplicate: v.boolean() }),
+  handler: async (ctx, { sessionId, blockId, originalText, replacementText, note, expectedHeadSeq, operationId }) => {
+    const { accountId, room } = await requireSession(ctx, sessionId, "comment");
+    if (!validScopeId(blockId) || !validSuggestion(originalText, replacementText, note, operationId) ||
+        !Number.isSafeInteger(expectedHeadSeq) || expectedHeadSeq < 0) denied();
+    const matches = await ctx.db.query("labSuggestions")
+      .withIndex("by_room_actor_operation", q =>
+        (q.eq("roomId", room._id) as unknown as {
+          eq(field: string, value: string): { eq(field: string, value: string): never }
+        }).eq("proposedBy", accountId).eq("operationId", operationId)).take(2);
+    if (matches.length > 1) denied();
+    if (matches[0]) {
+      const prev = matches[0];
+      if (prev.roomId !== room._id || prev.blockId !== blockId ||
+          prev.originalText !== originalText || prev.replacementText !== replacementText ||
+          prev.note !== note || prev.baseSeq !== expectedHeadSeq) denied();
+      return { suggestionId: prev._id, duplicate: true };
+    }
+    // The CRDT log head is an OCC fence, not a server-side proof of block text.
+    if (expectedHeadSeq !== room.nextSeq ||
+        (await suggestionRows(ctx, String(room._id))).length >= MAX_SUGGESTIONS) denied();
+    const suggestionId = await ctx.db.insert("labSuggestions", {
+      roomId: room._id, blockId, proposedBy: accountId, operationId,
+      originalText, replacementText, note, baseSeq: expectedHeadSeq,
+      status: "pending", revision: 1, reviewedBy: null,
+      reviewedAt: null, reviewOperationId: null, createdAt: Date.now(),
+    });
+    return { suggestionId, duplicate: false };
+  },
+});
+export const reviewSuggestion = mutationGeneric({
+  args: {
+    sessionId: v.id("labSessions"), suggestionId: v.id("labSuggestions"),
+    expectedRevision: v.number(), expectedHeadSeq: v.number(),
+    decision: suggestionDecision, operationId: v.string(),
+  },
+  returns: v.object({ status: v.union(v.literal("accepted"), v.literal("rejected")),
+    revision: v.number(), duplicate: v.boolean() }),
+  handler: async (ctx, { sessionId, suggestionId, expectedRevision, expectedHeadSeq, decision, operationId }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "edit_content");
+    if (!MIN_OP.test(operationId) || !Number.isSafeInteger(expectedRevision) ||
+        !Number.isSafeInteger(expectedHeadSeq) || expectedHeadSeq < 0) denied();
+    const row = await ctx.db.get(suggestionId);
+    if (!row || row.roomId !== room._id) denied();
+    if (row.reviewedBy === accountId && row.reviewOperationId === operationId) {
+      if (row.revision !== expectedRevision + 1 ||
+          row.status !== (decision === "accept" ? "accepted" : "rejected") ||
+          expectedHeadSeq !== row.baseSeq) denied();
+      return { status: row.status, revision: row.revision, duplicate: true };
+    }
+    if (row.status !== "pending" || row.revision !== expectedRevision ||
+        expectedHeadSeq !== row.baseSeq) denied();
+    if (row.proposedBy === accountId &&
+        !(await authorized(ctx, accountId, session.workspaceId, session.pageId, "manage"))) denied();
+    // Rejecting does not need the unchanged CRDT head; accepting does.
+    if (decision === "accept" && room.nextSeq !== row.baseSeq) denied();
+    const status = decision === "accept" ? "accepted" : "rejected";
+    const revision = row.revision + 1;
+    await ctx.db.patch(suggestionId, {
+      status, revision, reviewedBy: accountId, reviewedAt: Date.now(),
+      reviewOperationId: operationId,
+    });
+    return { status, revision, duplicate: false };
+  },
+});
