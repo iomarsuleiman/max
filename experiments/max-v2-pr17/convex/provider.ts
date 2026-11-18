@@ -596,6 +596,159 @@ export const stopPresence = mutationGeneric({
 });
 
 
+
+/**
+ * PR28: metadata-only, per-recipient inbox for this disposable collaboration
+ * room. Called in the SAME mutation as the originating comment/review event.
+ * No remote push, message bodies, paragraph text, or address directory.
+ * The existing source operation's idempotency prevents duplicate delivery.
+ */
+// PR29: append activity atomically with the already-authorized source mutation.
+// Retain 128 metadata events per room; never store comment/proposal/Yjs text.
+const MAX_ROOM_ACTIVITY = 128;
+type RoomActivityKind =
+  | "thread_opened" | "thread_replied" | "thread_resolved" | "thread_reopened"
+  | "suggestion_proposed" | "suggestion_accepted" | "suggestion_rejected";
+const roomActivityKindV = v.union(
+  v.literal("thread_opened"), v.literal("thread_replied"),
+  v.literal("thread_resolved"), v.literal("thread_reopened"),
+  v.literal("suggestion_proposed"), v.literal("suggestion_accepted"),
+  v.literal("suggestion_rejected"),
+);
+const ROOM_ACTIVITY_KINDS = new Set<RoomActivityKind>([
+  "thread_opened", "thread_replied", "thread_resolved", "thread_reopened",
+  "suggestion_proposed", "suggestion_accepted", "suggestion_rejected",
+]);
+async function appendRoomActivity(
+  ctx: GenericMutationCtx<LabDataModel>,
+  roomId: string & { __tableName: "labRooms" },
+  actorId: string, kind: RoomActivityKind, targetId: string,
+) {
+  if (!validPrincipalId(actorId) || !ROOM_ACTIVITY_KINDS.has(kind) || !targetId) denied();
+  const rows = await ctx.db.query("labRoomActivity")
+    .withIndex("by_room", q => q.eq("roomId", roomId)).take(MAX_ROOM_ACTIVITY + 1);
+  if (rows.length > MAX_ROOM_ACTIVITY || rows.some(row => row.roomId !== roomId)) denied();
+  // Convex's indexed query is ordered by insertion time, oldest first.
+  if (rows.length === MAX_ROOM_ACTIVITY) await ctx.db.delete(rows[0]._id);
+  await ctx.db.insert("labRoomActivity", {
+    roomId, actorId, kind, targetId, createdAt: Date.now(),
+  });
+}
+
+/** Read-only timeline. All queries require live Clerk subject, room session,
+ * lease and current page grant; actor identity is redacted on revocation.
+ * This never returns content or allows navigation without source authorization. */
+export const listRoomActivity = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.array(v.object({
+    activityId: v.id("labRoomActivity"), kind: roomActivityKindV,
+    actorId: v.union(v.string(), v.null()), targetId: v.string(),
+    createdAt: v.number(),
+  })),
+  handler: async (ctx, { sessionId }) => {
+    const { session, room } = await requireSession(ctx, sessionId, "view");
+    const rows = await ctx.db.query("labRoomActivity")
+      .withIndex("by_room", q => q.eq("roomId", room._id))
+      .take(MAX_ROOM_ACTIVITY + 1);
+    if (rows.length > MAX_ROOM_ACTIVITY || rows.some(row =>
+      row.roomId !== room._id || !validPrincipalId(row.actorId) ||
+      !ROOM_ACTIVITY_KINDS.has(row.kind) || !row.targetId ||
+      !Number.isSafeInteger(row.createdAt))) denied();
+    const result = [];
+    // Respond with at most the latest 40, while validating the full bounded set.
+    for (const row of rows.slice(-40).reverse()) {
+      const visible = await authorized(ctx, row.actorId, session.workspaceId, session.pageId, "view");
+      result.push({
+        activityId: row._id, kind: row.kind, actorId: visible ? row.actorId : null,
+        targetId: row.targetId, createdAt: row.createdAt,
+      });
+    }
+    return result;
+  },
+});
+
+const MAX_INBOX_PER_RECIPIENT = 64;
+type LabRoomId = string & { __tableName: "labRooms" };
+type InboxKind = "mention" | "thread_reply" | "suggestion_decision";
+async function deliverInbox(
+  ctx: GenericMutationCtx<LabDataModel>,
+  room: { _id: LabRoomId; workspaceId: string; pageId: string },
+  actorId: string, kind: InboxKind, targetId: string, recipients: string[],
+) {
+  for (const recipientId of new Set(recipients)) {
+    if (recipientId === actorId || !validPrincipalId(recipientId) ||
+        !(await authorized(ctx, recipientId, room.workspaceId, room.pageId, "view"))) continue;
+    const rows = await ctx.db.query("labNotifications")
+      .withIndex("by_room_recipient", q =>
+        (q.eq("roomId", room._id) as unknown as { eq(field: string, value: string): never })
+          .eq("recipientId", recipientId))
+      .take(MAX_INBOX_PER_RECIPIENT + 1);
+    if (rows.length > MAX_INBOX_PER_RECIPIENT ||
+        rows.some(row => row.roomId !== room._id || row.recipientId !== recipientId)) denied();
+    // Oldest-first eviction is bounded and private to the recipient. No other
+    // collaborator's inbox is deleted, and source content is never modified.
+    if (rows.length === MAX_INBOX_PER_RECIPIENT) await ctx.db.delete(rows[0]._id);
+    await ctx.db.insert("labNotifications", {
+      roomId: room._id, recipientId, actorId, kind, targetId,
+      readAt: null, createdAt: Date.now(),
+    });
+  }
+}
+
+export const listInbox = queryGeneric({
+  args: { sessionId: v.id("labSessions") },
+  returns: v.object({
+    unreadCount: v.number(),
+    notifications: v.array(v.object({
+      notificationId: v.id("labNotifications"),
+      kind: v.union(v.literal("mention"), v.literal("thread_reply"),
+        v.literal("suggestion_decision")),
+      actorId: v.union(v.string(), v.null()), targetId: v.string(),
+      createdAt: v.number(), readAt: v.union(v.number(), v.null()),
+    })),
+  }),
+  handler: async (ctx, { sessionId }) => {
+    const { accountId, session, room } = await requireSession(ctx, sessionId, "view");
+    const rows = await ctx.db.query("labNotifications")
+      .withIndex("by_room_recipient", q =>
+        (q.eq("roomId", room._id) as unknown as { eq(field: string, value: string): never })
+          .eq("recipientId", accountId))
+      .take(MAX_INBOX_PER_RECIPIENT + 1);
+    if (rows.length > MAX_INBOX_PER_RECIPIENT ||
+        rows.some(row => row.roomId !== room._id || row.recipientId !== accountId ||
+          !validPrincipalId(row.actorId) ||
+          !["mention", "thread_reply", "suggestion_decision"].includes(row.kind) ||
+          !Number.isSafeInteger(row.createdAt) ||
+          !(row.readAt === null || Number.isSafeInteger(row.readAt)))) denied();
+    const notifications = [];
+    for (const row of rows.slice().reverse()) {
+      const visible = await authorized(ctx, row.actorId, session.workspaceId, session.pageId, "view");
+      notifications.push({
+        notificationId: row._id, kind: row.kind,
+        actorId: visible ? row.actorId : null,
+        targetId: row.targetId, createdAt: row.createdAt, readAt: row.readAt,
+      });
+    }
+    return { unreadCount: rows.filter(row => row.readAt === null).length, notifications };
+  },
+});
+export const markInboxRead = mutationGeneric({
+  args: { sessionId: v.id("labSessions"), notificationId: v.id("labNotifications") },
+  returns: v.object({ readAt: v.number(), duplicate: v.boolean() }),
+  handler: async (ctx, { sessionId, notificationId }) => {
+    const { accountId, room } = await requireSession(ctx, sessionId, "view");
+    const row = await ctx.db.get(notificationId);
+    if (!row || row.roomId !== room._id || row.recipientId !== accountId) denied();
+    if (row.readAt !== null) {
+      if (!Number.isSafeInteger(row.readAt)) denied();
+      return { readAt: row.readAt, duplicate: true };
+    }
+    const readAt = Date.now();
+    await ctx.db.patch(notificationId, { readAt });
+    return { readAt, duplicate: false };
+  },
+});
+
 /**
  * PR26: threaded, block-anchored discussion for synthetic rooms ONLY.
  * No text positions are persisted: a deleted BlockNote block remains a
@@ -714,6 +867,8 @@ export const createCommentThread = mutationGeneric({
       roomId: room._id, threadId, authorId: accountId, operationId,
       kind: "initial", body, mentions, createdAt: now,
     });
+    await appendRoomActivity(ctx, room._id, accountId, "thread_opened", String(threadId));
+    await deliverInbox(ctx, room, accountId, "mention", String(commentId), mentions);
     return { threadId, commentId, duplicate: false };
   },
 });
@@ -740,6 +895,10 @@ export const replyToCommentThread = mutationGeneric({
       kind: "reply", body, mentions, createdAt: now,
     });
     await ctx.db.patch(thread._id, { updatedAt: now });
+    await appendRoomActivity(ctx, room._id, accountId, "thread_replied", String(commentId));
+    await deliverInbox(ctx, room, accountId, "mention", String(commentId), mentions);
+    if (!mentions.includes(thread.createdBy))
+      await deliverInbox(ctx, room, accountId, "thread_reply", String(commentId), [thread.createdBy]);
     return { commentId, duplicate: false };
   },
 });
@@ -757,6 +916,8 @@ export const resolveCommentThread = mutationGeneric({
     if ((thread.resolvedAt !== null) === resolved) denied();
     const now = Date.now(), resolvedAt = resolved ? now : null, revision = thread.revision + 1;
     await ctx.db.patch(threadId, { resolvedAt, revision, updatedAt: now });
+    await appendRoomActivity(ctx, room._id, accountId,
+      resolved ? "thread_resolved" : "thread_reopened", String(threadId));
     return { resolvedAt, revision };
   },
 });
@@ -880,6 +1041,7 @@ export const createSuggestion = mutationGeneric({
       status: "pending", revision: 1, reviewedBy: null,
       reviewedAt: null, reviewOperationId: null, createdAt: Date.now(),
     });
+    await appendRoomActivity(ctx, room._id, accountId, "suggestion_proposed", String(suggestionId));
     return { suggestionId, duplicate: false };
   },
 });
@@ -915,6 +1077,9 @@ export const reviewSuggestion = mutationGeneric({
       status, revision, reviewedBy: accountId, reviewedAt: Date.now(),
       reviewOperationId: operationId,
     });
+    await appendRoomActivity(ctx, room._id, accountId,
+      decision === "accept" ? "suggestion_accepted" : "suggestion_rejected", String(suggestionId));
+    await deliverInbox(ctx, room, accountId, "suggestion_decision", String(suggestionId), [row.proposedBy]);
     return { status, revision, duplicate: false };
   },
 });

@@ -1,3 +1,4 @@
+import { LocalReadLeaseDeadline } from "./read-lease-deadline.mjs";
 /** PR27: suggestions are *review metadata*, never automatic Yjs changes.
  * Current Clerk identity + live Convex ACL + lease are enforced server-side.
  * No queue, local persistence, replay after reconnect or production integration.
@@ -30,7 +31,7 @@ export function normalizeSuggestions(rows) {
   });
 }
 export class LabSuggestionClient {
-  constructor({provider,onChange=()=>{},onError=()=>{},now=()=>Date.now()}){
+  constructor({provider,onChange=()=>{},onError=()=>{},now=()=>Date.now(), scheduleExpiry = (fn, ms) => setTimeout(fn, ms), cancelExpiry = id => clearTimeout(id) }){
     if(!provider?.transport||typeof provider.on!=="function"||typeof provider.off!=="function")
       throw Error("SANDBOX_PROVIDER_REQUIRED");
     this.provider=provider;this.transport=provider.transport;
@@ -39,6 +40,10 @@ export class LabSuggestionClient {
     this.offAccess=null;this.offSuggestions=null;
     this.canSuggest=false;this.canReview=false;this.suggestions=[];
     this._status=()=>this.reconcile();
+    this._deadline = new LocalReadLeaseDeadline({
+      now, schedule: scheduleExpiry, cancel: cancelExpiry,
+      onExpire: () => this._fail(Error("READ_LEASE_EXPIRED"), this.generation),
+    });
   }
   _live(){
     const p=this.provider;
@@ -52,6 +57,7 @@ export class LabSuggestionClient {
       suggestions:this.suggestions.slice()});
   }
   _clear(){
+    this._deadline.clear();
     this.generation++;
     this.offAccess?.();this.offSuggestions?.();
     this.offAccess=null;this.offSuggestions=null;this.sessionId=null;
@@ -75,6 +81,9 @@ export class LabSuggestionClient {
     if(this.sessionId===sessionId)return;
     this._clear();this.sessionId=sessionId;
     const gen=this.generation;
+    try { this._deadline.arm(this.provider.session.expiresAt); }
+    catch (error) { this._fail(error, this.generation); return; }
+    if (!this.started || !this.sessionId) return;
     if(typeof this.transport.watchSuggestionAccess!=="function"||
        typeof this.transport.watchSuggestions!=="function"){
       this._fail(Error("SUGGESTION_TRANSPORT_UNAVAILABLE"),gen);return;

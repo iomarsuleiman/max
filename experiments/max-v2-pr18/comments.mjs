@@ -1,3 +1,4 @@
+import { LocalReadLeaseDeadline } from "./read-lease-deadline.mjs";
 /** PR26: a read-only-by-default adapter for isolated synthetic lab threads.
  * Server ACLs are authoritative. A session ID never grants access by itself.
  * No localStorage, outbox, notifications or production editor integration.
@@ -36,7 +37,7 @@ function normalizeComments(rows){
 }
 const opId=()=>crypto.randomUUID().replaceAll("-","");
 export class LabCommentClient{
-  constructor({provider,onChange=()=>{},onError=()=>{},now=()=>Date.now()}){
+  constructor({provider,onChange=()=>{},onError=()=>{},now=()=>Date.now(), scheduleExpiry = (fn, ms) => setTimeout(fn, ms), cancelExpiry = id => clearTimeout(id) }){
     if(!provider?.transport||typeof provider.on!=="function"||typeof provider.off!=="function")
       throw Error("Authorized sandbox provider required");
     this.provider=provider;this.transport=provider.transport;
@@ -45,6 +46,10 @@ export class LabCommentClient{
     this.offAccess=null;this.offThreads=null;this.offComments=null;
     this.canComment=false;this.threads=[];this.comments=[];this.selectedThreadId=null;
     this._status=()=>this.reconcile();
+    this._deadline = new LocalReadLeaseDeadline({
+      now, schedule: scheduleExpiry, cancel: cancelExpiry,
+      onExpire: () => this._fail(Error("READ_LEASE_EXPIRED"), this.generation),
+    });
   }
   _live(){
     const p=this.provider;
@@ -56,6 +61,7 @@ export class LabCommentClient{
       threads:this.threads.slice(),comments:this.comments.slice(),selectedThreadId:this.selectedThreadId});
   }
   _clear(){
+    this._deadline.clear();
     this.generation++;
     this.offAccess?.();this.offThreads?.();this.offComments?.();
     this.offAccess=this.offThreads=this.offComments=null;
@@ -79,6 +85,9 @@ export class LabCommentClient{
     if(sessionId===this.sessionId)return;
     this._clear();this.sessionId=sessionId;
     const gen=this.generation;
+    try { this._deadline.arm(this.provider.session.expiresAt); }
+    catch (error) { this._fail(error, this.generation); return; }
+    if (!this.started || !this.sessionId) return;
     if(typeof this.transport.watchCommentAccess!=="function"||
         typeof this.transport.watchCommentThreads!=="function"||
         typeof this.transport.watchThreadComments!=="function") {
