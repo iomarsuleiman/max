@@ -1,32 +1,28 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-test("landing butterfly responds to keyboard, drag and reduced motion", async ({ page }) => {
+test("landing butterfly flaps its wings on arrival, click and keyboard, and stays still with reduced motion", async ({ page }) => {
   await page.goto("/welcome");
-  const logo = page.getByRole("button", { name: "Spin the Max butterfly" });
+  const logo = page.getByRole("button", { name: "Flap the Max butterfly's wings" });
   await expect(logo).toBeVisible();
-  await logo.focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(logo.locator("span")).not.toHaveAttribute("style", /rotate\(0deg\)/);
-  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 8500 });
-  const box = await logo.boundingBox();
-  expect(box).not.toBeNull();
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box!.x + box!.width - 10, box!.y + box!.height / 2, { steps: 6 });
-  await page.mouse.up();
-  await expect(logo.locator("span")).not.toHaveAttribute("style", /rotate\(30deg\)/);
-  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 8500 });
+  const body = logo.locator(".butterfly-body");
+  // Flaps once on arrival, then settles.
+  await expect(body).toHaveAttribute("data-flapping", "");
+  const wing = logo.locator(".butterfly-wing--left");
+  await expect.poll(() => wing.evaluate((el) => getComputedStyle(el).animationName)).toBe("butterfly-wing-left");
+  await page.waitForTimeout(1100);
   await logo.click();
-  await expect(logo.locator("span")).not.toHaveAttribute("style", /rotate\(0deg\)/);
-  await expect(logo.locator("span")).toHaveAttribute("style", /rotate\(0deg\)/, { timeout: 8500 });
+  await expect(body).toHaveAttribute("data-flapping", "");
+  await page.waitForTimeout(1100);
   await logo.focus();
-  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Enter");
+  await expect(body).toHaveAttribute("data-flapping", "");
+  await page.waitForTimeout(1100);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.waitForTimeout(60);
-  const paused = await logo.locator("span").getAttribute("style");
-  await page.waitForTimeout(100);
-  expect(await logo.locator("span").getAttribute("style")).toBe(paused);
+  await logo.click();
+  await expect(logo).toHaveAttribute("data-still", "true");
+  await expect.poll(() => wing.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(results.violations.map((violation) => violation.id)).toEqual([]);
   await page.screenshot({ path: "test-results/max-landing.png", fullPage: true });
