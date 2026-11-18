@@ -21,9 +21,11 @@ export interface ExternalShareRow {
   resolvedAt: number | null;
   updatedAt: number;
 }
-export interface ExternalShareStore extends WorkspaceAuthorizationStore {
-  externalShares(shareId: string): Promise<readonly ExternalShareRow[]>;
+export interface ExternalScopeAccessStore extends WorkspaceAuthorizationStore {
   globalScopes(pageId: string): Promise<readonly { workspaceId: string; pageId: string }[]>;
+}
+export interface ExternalShareStore extends ExternalScopeAccessStore {
+  externalShares(shareId: string): Promise<readonly ExternalShareRow[]>;
 }
 export interface ExternalSharePreview {
   shareId: string;
@@ -104,7 +106,7 @@ export async function validExternalShareRecipient(
  * invitation's historical authorization snapshot or browser-supplied role.
  */
 export async function canManageExternalScope(
-  store: ExternalShareStore, actor: string,
+  store: ExternalScopeAccessStore, actor: string,
   originWorkspaceId: string, scopeId: string,
 ): Promise<boolean> {
   if (!validPrincipalId(actor) || !validWorkspaceId(originWorkspaceId) ||
