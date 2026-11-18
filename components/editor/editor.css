@@ -87,7 +87,7 @@
 .lx-editor .bn-toggle-add-block-button { margin-left: 0; margin-inline-start: 22px; color: var(--lx-handle); }
 .lx-editor .bn-toggle-button { color: var(--lx-handle-hover); border-radius: 4px; }
 .lx-editor .bn-toggle-button:dir(rtl) > svg { transform: scaleX(-1); }
-.lx-editor .bn-toggle-wrapper[data-show-children="true"] .bn-toggle-button:dir(rtl) > svg { transform: rotate(90deg); }
+.lx-editor .bn-toggle-button[aria-expanded="true"]:dir(rtl) > svg { transform: rotate(90deg); }
 .lx-editor .bn-block-content[data-content-type="codeBlock"] { border-radius: 6px; }
 .lx-editor .bn-block-content[data-content-type="codeBlock"] pre { direction: ltr; text-align: left; }
 .lx-editor .bn-block-content[data-content-type="table"] { overflow-x: auto; }
