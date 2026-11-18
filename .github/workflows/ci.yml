@@ -175,3 +175,17 @@ jobs:
           name: pr23-multitab-results
           path: test-results/
           retention-days: 7
+
+  # PR44: green means release remains blocked until separately reviewed.
+  # This check does not attest to evidence, approve deployment or enable a flag.
+  max-v2-release-lock:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/release/max-v2-release-readiness.test.mjs
+      - run: node scripts/max-v2-release-readiness.mjs --verify-locked

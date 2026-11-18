@@ -107,6 +107,20 @@ async function collectAuthorizedRecords(
   }
 }
 
+/**
+ * PR35 internal projection source: return all CURRENTLY visible shadow-record
+ * previews from the same bounded 100-candidate scan. This is NOT a public
+ * Convex query and never returns hidden rows, totals or raw index cursors.
+ */
+export async function authorizedSharedRecordCandidates(
+  store: SharedDatabaseReadStore,
+  verifiedAccountId: string | null,
+  workspaceId: string,
+  databaseId: string,
+): Promise<readonly SharedRecordPreview[]> {
+  return collectAuthorizedRecords(store, verifiedAccountId, workspaceId, databaseId);
+}
+
 /** PR31 compatibility: bounded authorization-only preview, no cursor. */
 export async function previewAuthorizedSharedRecords(
   store: SharedDatabaseReadStore,
