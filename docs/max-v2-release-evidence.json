@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "plannedMilestones": 44,
+  "createdMilestones": 44,
+  "candidateSha": null,
+  "releaseApproved": false,
+  "approval": null,
+  "gates": {
+    "stack_integrity": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "baseline_issue_42": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "independent_security_review": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "live_multi_account_auth": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "revocation_and_races": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "isolated_cloud_restore": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "asset_digest_integrity": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "retention_export_and_deletion": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "dependency_review": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "performance_and_cost_budgets": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "rtl_accessibility_and_mobile": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "browser_and_offline_qa": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "mcp_and_ai_boundary": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "automation_execution_boundary": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "rollout_and_rollback": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "privacy_and_consent": {
+      "status": "pending",
+      "verifiedForSha": null,
+      "evidenceUrl": null,
+      "performedBy": null,
+      "reviewedBy": null,
+      "reviewedAt": null
+    }
+  }
+}
