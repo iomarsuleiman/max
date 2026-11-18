@@ -1,3 +1,4 @@
+import { LocalReadLeaseDeadline } from "./read-lease-deadline.mjs";
 /** PR29: read-only room activity, never stored in browser or sent to production. */
 const kinds = new Set(["thread_opened", "thread_replied", "thread_resolved",
   "thread_reopened", "suggestion_proposed", "suggestion_accepted", "suggestion_rejected"]);
@@ -17,7 +18,7 @@ export function normalizeRoomActivity(value) {
   });
 }
 export class LabRoomActivityClient {
-  constructor({provider, onChange = () => {}, onError = () => {}, now = () => Date.now()}) {
+  constructor({provider, onChange = () => {}, onError = () => {}, now = () => Date.now(), scheduleExpiry = (fn, ms) => setTimeout(fn, ms), cancelExpiry = id => clearTimeout(id) }) {
     if (!provider?.transport || typeof provider.on !== "function" ||
         typeof provider.off !== "function") throw Error("SANDBOX_PROVIDER_REQUIRED");
     this.provider = provider;
@@ -31,6 +32,10 @@ export class LabRoomActivityClient {
     this.offActivity = null;
     this.items = [];
     this._status = () => this.reconcile();
+    this._deadline = new LocalReadLeaseDeadline({
+      now, schedule: scheduleExpiry, cancel: cancelExpiry,
+      onExpire: () => this._fail(Error("READ_LEASE_EXPIRED"), this.generation),
+    });
   }
   _live() {
     const p = this.provider;
@@ -43,6 +48,7 @@ export class LabRoomActivityClient {
       activities: this.items.slice()});
   }
   _clear() {
+    this._deadline.clear();
     this.generation++;
     this.offActivity?.();
     this.offActivity = null;
@@ -72,6 +78,9 @@ export class LabRoomActivityClient {
     this._clear();
     this.sessionId = sessionId;
     const generation = this.generation;
+    try { this._deadline.arm(this.provider.session.expiresAt); }
+    catch (error) { this._fail(error, this.generation); return; }
+    if (!this.started || !this.sessionId) return;
     if (typeof this.transport.watchRoomActivity !== "function") {
       this._fail(Error("ACTIVITY_TRANSPORT_UNAVAILABLE"), generation);
       return;
