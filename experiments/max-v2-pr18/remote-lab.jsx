@@ -12,6 +12,7 @@ import {LabPresenceClient} from "./presence.mjs";
 import {LabCommentClient} from "./comments.mjs";
 import {LabSuggestionClient} from "./suggestions.mjs";
 import {LabInboxClient} from "./inbox.mjs";
+import {LabRoomActivityClient} from "./activity.mjs";
 import {createIndexedDbJournal} from "./durable-journal.mjs";
 import {acquireBrowserRoomLease} from "./room-lease.mjs";
 import {createMeteredTransport} from "./transport-meter.mjs";
@@ -380,6 +381,49 @@ function SuggestionsPreview({editor,provider,onError}){
  * The server rechecks permissions per subscription and acknowledgment.
  * No page/document bodies, push delivery, backfilled history or storage.
  */
+/** PR29: metadata-only history for a synthetic room, disabled by default.
+ * No raw comment text, page titles, actor profiles or direct deep links.
+ */
+function ActivityPreview({provider,onError}){
+  const enabled=import.meta.env.VITE_PR29_ENABLE_ACTIVITY_LAB==="true";
+  const [data,setData]=useState({connected:false,activities:[]});
+  const client=useRef(null);
+  useEffect(()=>{
+    if(!enabled)return;
+    const adapter=new LabRoomActivityClient({
+      provider,onChange:setData,onError:e=>onError("Activity unavailable: "+e.message),
+    });
+    client.current=adapter;
+    adapter.start();
+    return ()=>{if(client.current===adapter)client.current=null;adapter.stop();};
+  },[provider,onError,enabled]);
+  if(!enabled)return null;
+  const labels={
+    thread_opened:"Opened a thread",thread_replied:"Replied to a thread",
+    thread_resolved:"Resolved a thread",thread_reopened:"Reopened a thread",
+    suggestion_proposed:"Proposed a change",
+    suggestion_accepted:"Approved a suggestion",
+    suggestion_rejected:"Rejected a suggestion",
+  };
+  return <section className="pr29-activity" aria-label="Experimental room activity timeline">
+    <div className="pr26-head"><strong>Room activity · sandbox</strong>
+      <span role="status">{data.connected
+        ? "Authorized, read-only timeline":"Disconnected · no timeline access"}</span>
+    </div>
+    <p className="pr26-help">Latest 40 room actions only. No note text, comments or proposed changes are transmitted.</p>
+    <ol aria-label="Recent room actions">
+      {!data.connected&&<li>Connect an authorized sandbox session to view activity.</li>}
+      {data.connected&&data.activities.length===0&&<li>No activity yet.</li>}
+      {data.connected&&data.activities.map(item=><li key={item.activityId}>
+        <strong>{labels[item.kind]}</strong>
+        <small>{item.actorId?"Authorized collaborator":"Former collaborator"} ·
+          <time dateTime={new Date(item.createdAt).toISOString()}>{new Date(item.createdAt).toLocaleString()}</time>
+        </small>
+      </li>)}
+    </ol>
+  </section>;
+}
+
 function InboxPreview({provider,onError}){
   const enabled=import.meta.env.VITE_PR28_ENABLE_INBOX_LAB==="true";
   const [data,setData]=useState({connected:false,unreadCount:0,notifications:[]});
@@ -541,6 +585,7 @@ function LabEditor({clerk,session,status,error,setError}){
     <CommentsPreview editor={editor} provider={session.provider} onError={setError}/>
     <SuggestionsPreview editor={editor} provider={session.provider} onError={setError}/>
     <InboxPreview provider={session.provider} onError={setError}/>
+    <ActivityPreview provider={session.provider} onError={setError}/>
     <BlockNoteView editor={editor} editable={(status.state==="online"&&status.canEdit)||(status.state==="offline"&&session.provider.lastAuthorizedCanEdit)}/>
   </main>;
 }

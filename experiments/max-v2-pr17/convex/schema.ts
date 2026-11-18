@@ -95,6 +95,16 @@ export default defineSchema({
     reviewOperationId: v.union(v.string(), v.null()), createdAt: v.number(),
   }).index("by_room", ["roomId"])
     .index("by_room_actor_operation", ["roomId", "proposedBy", "operationId"]),
+  // PR29: bounded, metadata-only room history in the disposable collaboration lab.
+  labRoomActivity: defineTable({
+    roomId: v.id("labRooms"), actorId: v.string(),
+    kind: v.union(v.literal("thread_opened"), v.literal("thread_replied"),
+      v.literal("thread_resolved"), v.literal("thread_reopened"),
+      v.literal("suggestion_proposed"), v.literal("suggestion_accepted"),
+      v.literal("suggestion_rejected")),
+    targetId: v.string(), createdAt: v.number(),
+  }).index("by_room", ["roomId"]),
+
   // PR28: private, metadata-only sandbox inbox. Never copied to production.
   labNotifications: defineTable({
     roomId: v.id("labRooms"), recipientId: v.string(), actorId: v.string(),
