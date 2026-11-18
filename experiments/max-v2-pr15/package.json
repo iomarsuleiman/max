@@ -1,0 +1,18 @@
+{
+  "name": "@max-experiments/pr15-provider-runtime",
+  "private": true,
+  "type": "module",
+  "description": "Isolated provider primitive experiments; no production sync or shared data access",
+  "scripts": {
+    "test": "node --test ./provider-runtime.test.mjs"
+  },
+  "dependencies": {
+    "@blocknote/core": "0.55.0",
+    "@convex-dev/prosemirror-sync": "0.2.7",
+    "prosemirror-collab": "1.3.1",
+    "prosemirror-model": "1.25.13",
+    "prosemirror-state": "1.4.4",
+    "y-prosemirror": "1.3.7",
+    "yjs": "13.6.33"
+  }
+}

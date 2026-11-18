@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   '@blocknote/core@0.55.0':
-    hash: b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a
+    hash: e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd
     path: patches/@blocknote__core@0.55.0.patch
 
 importers:
@@ -15,10 +15,10 @@ importers:
     dependencies:
       '@blocknote/code-block':
         specifier: 0.55.0
-        version: 0.55.0(@blocknote/core@0.55.0(patch_hash=b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a)(@types/hast@3.0.5))
+        version: 0.55.0(@blocknote/core@0.55.0(patch_hash=e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd)(@types/hast@3.0.5))
       '@blocknote/core':
         specifier: 0.55.0
-        version: 0.55.0(patch_hash=b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a)(@types/hast@3.0.5)
+        version: 0.55.0(patch_hash=e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd)(@types/hast@3.0.5)
       '@blocknote/react':
         specifier: 0.55.0
         version: 0.55.0(@floating-ui/dom@1.8.0)(@types/hast@3.0.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -65,8 +65,8 @@ importers:
         specifier: ^1.49.0
         version: 1.49.0(@clerk/react@6.18.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
       d3-force:
-        specifier: 3.0.0
-        version: 3.0.0
+        specifier: 3.0.1
+        version: 3.0.1
       emojibase-data:
         specifier: ^18.0.0
         version: 18.0.0(emojibase@18.0.0)
@@ -77,8 +77,8 @@ importers:
         specifier: ^0.19.1
         version: 0.19.1
       lucide-react:
-        specifier: ^1.70.0
-        version: 1.70.0(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^1.75.0
+        version: 1.75.0(@types/react@19.3.0)(react@19.3.1)
       mermaid:
         specifier: 12.1.0
         version: 12.1.0
@@ -168,11 +168,11 @@ importers:
         specifier: ^8.5.32
         version: 8.5.32
       prettier:
-        specifier: ^3.9.10
-        version: 3.9.10
+        specifier: ^3.10.1
+        version: 3.10.1
       prettier-plugin-tailwindcss:
         specifier: ^0.8.1
-        version: 0.8.1(prettier@3.9.10)
+        version: 0.8.1(prettier@3.10.1)
       tailwindcss:
         specifier: ^4.3.5
         version: 4.3.5
@@ -2748,10 +2748,6 @@ packages:
     resolution: {integrity: sha512-1wGF62bgjMRbF6mqbD+6rRWBL2hwWVYQjFO2UP3Wm1nIAvJZKaQxXM5caVY7athoCa8wIq9lCf7g44lPWFk50g==}
     engines: {node: '>=12'}
 
-  d3-force@3.0.0:
-    resolution: {integrity: sha512-zxV/SsA+U4yte8051P4ECydjD/S+qeYtnaIyAs9tgHCqfguma/aAQDjo85A9Z6EKhBirHRJHXIgJUlffT4wdLg==}
-    engines: {node: '>=12'}
-
   d3-force@3.0.1:
     resolution: {integrity: sha512-kAaaHLFebBYwgi5cYBXAI8vKrQFMCD2MEswj2QuPKKbdU1wYLc8WXtS7O8F/b6POCIe3gJjY6hkDstHi1yMETQ==}
     engines: {node: '>=12'}
@@ -3714,8 +3710,8 @@ packages:
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  lucide-react@1.70.0:
-    resolution: {integrity: sha512-gCTPPN1MlQUBtUgdsUv+0CAUj+X8hifRUiRBw4E5v7lvDIOIpx0EZezdGQMSimS8pKA6esvullJub4GYr0mCHA==}
+  lucide-react@1.75.0:
+    resolution: {integrity: sha512-piesXAZIXru9d5lHBoM6cPHOBs5+QkMx+3EXwG3xWJ7qdViuz92JtYN0u9jMB6jt+2WbQrwhvJGdMwGnL3EOfA==}
     peerDependencies:
       '@types/react': '*'
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -4048,8 +4044,8 @@ packages:
       prettier-plugin-svelte:
         optional: true
 
-  prettier@3.9.10:
-    resolution: {integrity: sha512-skGHTH1Yb9QvaTC4hWnRTzEYtCpApF0UMBPz+t/0ZPzP8ihefo/btKd+QA7pUE0fEwA1SbS/NmhyEcstdXOIdA==}
+  prettier@3.10.1:
+    resolution: {integrity: sha512-70vp3ZUYoPlFbF9uiTdXHUUCGEIp7d4+6p+8DYbkm2jP7x/3i/paXVF6dopSI3zd/CEitrZN1rc4i85xWmmXlg==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -4939,9 +4935,9 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  '@blocknote/code-block@0.55.0(@blocknote/core@0.55.0(patch_hash=b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a)(@types/hast@3.0.5))':
+  '@blocknote/code-block@0.55.0(@blocknote/core@0.55.0(patch_hash=e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd)(@types/hast@3.0.5))':
     dependencies:
-      '@blocknote/core': 0.55.0(patch_hash=b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a)(@types/hast@3.0.5)
+      '@blocknote/core': 0.55.0(patch_hash=e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd)(@types/hast@3.0.5)
       '@shikijs/core': 4.6.0
       '@shikijs/engine-javascript': 4.6.0
       '@shikijs/langs-precompiled': 4.6.0
@@ -4949,7 +4945,7 @@ snapshots:
     optionalDependencies:
       '@shikijs/types': 4.6.0
 
-  '@blocknote/core@0.55.0(patch_hash=b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a)(@types/hast@3.0.5)':
+  '@blocknote/core@0.55.0(patch_hash=e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd)(@types/hast@3.0.5)':
     dependencies:
       '@emoji-mart/data': 1.2.1
       '@handlewithcare/prosemirror-inputrules': 0.1.4(prosemirror-model@1.25.13)(prosemirror-state@1.4.4)(prosemirror-view@1.42.9)
@@ -4983,7 +4979,7 @@ snapshots:
 
   '@blocknote/react@0.55.0(@floating-ui/dom@1.8.0)(@types/hast@3.0.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
-      '@blocknote/core': 0.55.0(patch_hash=b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a)(@types/hast@3.0.5)
+      '@blocknote/core': 0.55.0(patch_hash=e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd)(@types/hast@3.0.5)
       '@emoji-mart/data': 1.2.1
       '@floating-ui/react': 0.27.20(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tiptap/core': 3.33.0(@tiptap/pm@3.33.0)
@@ -5017,7 +5013,7 @@ snapshots:
   '@blocknote/shadcn@0.55.0(@floating-ui/dom@1.8.0)(@types/hast@3.0.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)':
     dependencies:
       '@base-ui/react': 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@blocknote/core': 0.55.0(patch_hash=b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a)(@types/hast@3.0.5)
+      '@blocknote/core': 0.55.0(patch_hash=e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd)(@types/hast@3.0.5)
       '@blocknote/react': 0.55.0(@floating-ui/dom@1.8.0)(@types/hast@3.0.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       class-variance-authority: 0.7.1
       clsx: 2.1.1
@@ -5048,7 +5044,7 @@ snapshots:
 
   '@blocknote/xl-multi-column@0.55.0(@floating-ui/dom@1.8.0)(@tiptap/pm@3.33.0)(@types/hast@3.0.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
-      '@blocknote/core': 0.55.0(patch_hash=b0a88447aad1edc55a1cc2de3cc4391fa6fbb8710b1c9645c811e0f3c86bbd6a)(@types/hast@3.0.5)
+      '@blocknote/core': 0.55.0(patch_hash=e4131a958df0b8ea5dad99b6c1f0142a3100bcb81782c60fd3010239888062cd)(@types/hast@3.0.5)
       '@blocknote/react': 0.55.0(@floating-ui/dom@1.8.0)(@types/hast@3.0.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tiptap/core': 3.33.0(@tiptap/pm@3.33.0)
       prosemirror-model: 1.25.13
@@ -7237,7 +7233,7 @@ snapshots:
   convex@1.49.0(@clerk/react@6.18.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1):
     dependencies:
       esbuild: 0.27.0
-      prettier: 3.9.10
+      prettier: 3.10.1
       ws: 8.21.0
     optionalDependencies:
       '@clerk/react': 6.18.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -7333,12 +7329,6 @@ snapshots:
   d3-fetch@3.0.2:
     dependencies:
       d3-dsv: 3.0.2
-
-  d3-force@3.0.0:
-    dependencies:
-      d3-dispatch: 3.0.2
-      d3-quadtree: 3.0.2
-      d3-timer: 3.0.2
 
   d3-force@3.0.1:
     dependencies:
@@ -8517,7 +8507,7 @@ snapshots:
     dependencies:
       react: 19.3.1
 
-  lucide-react@1.70.0(@types/react@19.3.0)(react@19.3.1):
+  lucide-react@1.75.0(@types/react@19.3.0)(react@19.3.1):
     dependencies:
       react: 19.3.1
     optionalDependencies:
@@ -8808,11 +8798,11 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  prettier-plugin-tailwindcss@0.8.1(prettier@3.9.10):
+  prettier-plugin-tailwindcss@0.8.1(prettier@3.10.1):
     dependencies:
-      prettier: 3.9.10
+      prettier: 3.10.1
 
-  prettier@3.9.10: {}
+  prettier@3.10.1: {}
 
   prop-types@15.8.1:
     dependencies:

@@ -2,15 +2,17 @@
 import { OfflineNotice } from "@/components/feedback/OfflineSupport";
 
 import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Dialog as D } from "radix-ui";
 import { useConvexAuth } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { CLOUD } from "@/lib/config";
+import { isWorkspacePreviewRoute } from "@/lib/domain/workspaceNavigationState";
 import { LogoMark } from "@/components/brand/Logo";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
+import { WorkspaceRail, WorkspacePreviewSidebar, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
 import { SearchDialog } from "./SearchDialog";
 import dynamic from "next/dynamic";
 import { ProfileCardInvitation } from "@/components/profile/ProfileCardInvitation";
@@ -93,32 +95,76 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 }
 
 function WorkspaceRoot({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isPreview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   const inner = (identity: Identity) => (
     <Suspense fallback={<Splash />}>
-      <WorkspaceProvider identity={identity}>
-        <Frame>{children}</Frame>
-      </WorkspaceProvider>
+      {isPreview ? (
+        <WorkspacePreviewFrame>{children}</WorkspacePreviewFrame>
+      ) : (
+        <WorkspaceProvider identity={identity}>
+          <Frame>{children}</Frame>
+        </WorkspaceProvider>
+      )}
     </Suspense>
   );
   return CLOUD ? <CloudGate>{inner}</CloudGate> : inner(LOCAL_IDENTITY);
 }
 
+/** Preview paths cannot mount personal data providers, editors or search. */
+function WorkspacePreviewFrame({ children }: { children: ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  return (
+    <div className="max-workspace-frame flex h-dvh overflow-hidden bg-canvas">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[90] focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2">
+        Skip to content
+      </a>
+      <WorkspaceRail />
+      <div className="hidden md:flex"><WorkspacePreviewSidebar /></div>
+      <D.Root open={mobileOpen} onOpenChange={setMobileOpen}>
+        <D.Portal>
+          <D.Overlay className="fixed inset-0 z-[55] bg-[var(--scrim)] md:hidden" />
+          <D.Content className="fixed inset-y-0 start-0 z-[56] flex w-[min(86vw,320px)] shadow-dialog outline-none md:hidden" aria-describedby={undefined}>
+            <D.Title className="sr-only">Workspace navigation</D.Title>
+            <WorkspacePreviewSidebar />
+            <D.Close className="absolute end-2 top-2 grid size-11 place-items-center rounded-md text-xs text-fg-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent" aria-label="Close workspace navigation">
+              Close
+            </D.Close>
+          </D.Content>
+        </D.Portal>
+      </D.Root>
+      <main id="main" tabIndex={-1} className="relative flex min-h-0 min-w-0 flex-1 flex-col outline-none">
+        <div className="border-b border-line px-3 py-2 pt-[max(8px,env(safe-area-inset-top))] md:hidden">
+          <button type="button" onClick={() => setMobileOpen(true)} aria-haspopup="dialog" aria-expanded={mobileOpen}
+            className="min-h-11 rounded-md border border-line px-4 text-[13px] text-fg hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent">
+            Workspaces
+          </button>
+        </div>
+        {children}
+      </main>
+    </div>
+  );
+}
+
 function Frame({ children }: { children: ReactNode }) {
   const ws = useWorkspace();
+  const pathname = usePathname();
+  const preview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   return (
     <div className="max-workspace-frame flex h-dvh overflow-hidden bg-canvas" data-font={ws.settings?.font}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[90] focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2 focus:shadow-pop">
         Skip to content
       </a>
+      {WORKSPACE_NAVIGATION_PREVIEW && <WorkspaceRail />}
       <div className={cn("hidden md:flex", !ws.sidebarOpen && "md:hidden")}>
-        <Sidebar />
+        {preview ? <WorkspacePreviewSidebar /> : <Sidebar />}
       </div>
       <D.Root open={ws.mobileNavOpen} onOpenChange={ws.setMobileNavOpen}>
         <D.Portal>
           <D.Overlay className="fixed inset-0 z-[55] bg-[var(--scrim)] md:hidden [animation:max-fade_150ms_ease]" />
           <D.Content className="fixed inset-y-0 start-0 z-[56] flex shadow-dialog outline-none md:hidden [animation:max-in_180ms_var(--ease)]" aria-describedby={undefined}>
             <D.Title className="sr-only">Navigation</D.Title>
-            <Sidebar mobile />
+            {preview ? <WorkspacePreviewSidebar /> : <Sidebar mobile />}
           </D.Content>
         </D.Portal>
       </D.Root>
@@ -126,9 +172,9 @@ function Frame({ children }: { children: ReactNode }) {
         <OfflineNotice />
         {children}
       </main>
-      <SearchDialog />
-      <ProfileCardInvitation />
-      <LazyDialogs />
+      {!preview && <SearchDialog />}
+      {!preview && <ProfileCardInvitation />}
+      {!preview && <LazyDialogs />}
     </div>
   );
 }

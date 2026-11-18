@@ -41,6 +41,7 @@ import { PageIcon } from "./PageIcon";
 import { PageMenu } from "./PageMenu";
 import { PageTree } from "./PageTree";
 import { TrashPanel } from "./TrashPanel";
+import { MobileWorkspacePicker, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
 
 type SectionId = SettingsRow["sidebarSections"][number];
 const SECTION_LABEL: Partial<Record<SectionId, string>> = { favorites: "Favorites", recents: "Recents", pages: "Private" };
@@ -90,6 +91,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
       style={mobile ? undefined : { width }}
     >
       <SidebarHeader mobile={mobile} />
+      {WORKSPACE_NAVIGATION_PREVIEW && <MobileWorkspacePicker />}
       <nav className="grid gap-px ps-4 pe-2 pb-2" aria-label="Main">
         <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
         <NavLink href="/templates" icon={<LayoutTemplate />} label="Templates" />

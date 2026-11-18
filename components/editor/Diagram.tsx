@@ -110,7 +110,7 @@ export default function Diagram({ text }: { text: string }) {
       ) : error ? (
         <output className="text-[13px] text-fg-3">Check the diagram syntax below.</output>
       ) : (
-        <div className="skeleton h-40 w-full" aria-label="Drawing diagram…" />
+        <div role="status" className="skeleton h-40 w-full" aria-label="Drawing diagram…" />
       )}
     </figure>
   );

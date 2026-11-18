@@ -1,0 +1,65 @@
+:root{font:15px system-ui,sans-serif;color:#d9dfeb;background:#15191f}body{margin:0}main{max-width:1180px;margin:auto;padding:24px}h1{font-size:24px}p{line-height:1.6}nav{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}button{background:#394658;border:1px solid #60728a;border-radius:8px;color:inherit;padding:10px 14px;cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}button:focus-visible{outline:3px solid #8bc5ef}[role=alert]{color:#ffb6a8}.bn-editor{min-height:420px}
+
+/* PR25: intentionally quiet, responsive, direction-agnostic sandbox roster. */
+.pr25-presence{border:1px solid #485566;border-radius:12px;padding:12px 14px;background:#212832}
+.pr25-presence-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-weight:600}
+.pr25-presence-head button{font-size:13px;padding:7px 10px}
+.pr25-peers{display:flex;align-items:center;gap:6px;min-height:38px;margin-top:10px}
+.pr25-peer{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid #8698b2;background:#354457;font-size:13px}
+.pr25-peer.editing{border-color:#84b9d2;box-shadow:0 0 0 2px #2c4657}
+.pr25-peer-extra,.pr25-empty,.pr25-caveat,.pr25-focus{font-size:12px;color:#b5c3d4}
+.pr25-caveat,.pr25-focus{margin:4px 0}
+@media (prefers-reduced-motion:reduce){.pr25-presence *{animation:none!important;transition:none!important}}
+
+/* PR26 synthetic-only anchored discussion, neutral for Arabic/RTL layouts. */
+.pr26-comments{margin:16px 0;border:1px solid #485566;border-radius:12px;background:#212832;padding:16px}
+.pr26-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.pr26-head span,.pr26-help,.pr26-orphan{color:#b5c3d4;font-size:13px}
+.pr26-comments label{display:block;font-size:13px;margin-top:12px;margin-bottom:5px}
+.pr26-comments input,.pr26-comments textarea{box-sizing:border-box;width:100%;border:1px solid #6a7b90;border-radius:8px;background:#1c232d;color:inherit;padding:10px;font:inherit}
+.pr26-comments :is(input,textarea,button):focus-visible{outline:3px solid #8bc5ef;outline-offset:2px}
+.pr26-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.pr26-thread-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.pr26-thread-list button[aria-pressed=true]{border-color:#98c9e9;background:#2e4656}
+.pr26-thread-panel{border-top:1px solid #485566;margin-top:14px;padding-top:12px}
+.pr26-thread-panel ol{padding-inline-start:22px}
+.pr26-thread-panel li{margin-block:12px;overflow-wrap:anywhere}
+.pr26-thread-panel li p{white-space:pre-wrap;margin:4px 0}
+.pr26-orphan{border-inline-start:3px solid #b5a279;padding-inline-start:9px}
+@media (prefers-reduced-motion:reduce){.pr26-comments *{transition:none!important;animation:none!important}}
+
+
+/* PR27: neutral, keyboard-friendly review preview with bidi-safe proposed text. */
+.pr27-suggestions{margin:16px 0;padding:16px;border:1px solid #485566;border-radius:12px;background:#212832}
+.pr27-suggestions label{display:block;font-size:13px;margin:12px 0 5px}
+.pr27-suggestions textarea{box-sizing:border-box;width:100%;font:inherit;background:#1c232d;color:inherit;border:1px solid #6a7b90;border-radius:8px;padding:10px}
+.pr27-suggestions :is(textarea,button):focus-visible{outline:3px solid #8bc5ef;outline-offset:2px}
+.pr27-list{display:grid;gap:12px;margin-block:16px}
+.pr27-card{padding:14px;border:1px solid #485566;border-radius:10px;overflow-wrap:anywhere}
+.pr27-attribution{font-size:12px;color:#b5c3d4}
+.pr27-diff{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:8px}
+.pr27-diff div{min-width:0;padding:10px;background:#1c232d;border-radius:8px}
+.pr27-diff small{display:block;color:#b5c3d4;margin-bottom:8px}
+.pr27-diff :is(del,ins){display:block;text-decoration:none;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
+.pr27-diff del{border-inline-start:3px solid #b9898b;padding-inline-start:8px}
+.pr27-diff ins{border-inline-start:3px solid #8eab9d;padding-inline-start:8px}
+.pr27-note{font-size:13px;white-space:pre-wrap}
+@media(prefers-reduced-motion:reduce){.pr27-suggestions *{animation:none!important;transition:none!important}}
+
+/* PR28: quiet, RTL-safe, responsive sandbox notification list. */
+.pr28-inbox{margin:16px 0;padding:16px;border:1px solid #485566;border-radius:12px;background:#212832}
+.pr28-inbox ol{list-style:decimal;padding-inline-start:24px;display:grid;gap:10px}
+.pr28-inbox li{padding:10px;border:1px solid #485566;border-radius:8px;overflow-wrap:anywhere;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pr28-inbox li small{color:#b5c3d4;min-width:0;overflow-wrap:anywhere}
+.pr28-inbox li button{margin-inline-start:auto}
+.pr28-inbox button:focus-visible{outline:3px solid #8bc5ef;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.pr28-inbox *{animation:none!important;transition:none!important}}
+
+/* PR29: read-only room timeline, fluid layout and logical RTL spacing. */
+.pr29-activity{margin:16px 0;padding:16px;border:1px solid #485566;border-radius:12px;background:#212832}
+.pr29-activity ol{display:grid;gap:8px;list-style:decimal;padding-inline-start:24px}
+.pr29-activity li{padding:10px;border:1px solid #485566;border-radius:8px;overflow-wrap:anywhere}
+.pr29-activity li strong,.pr29-activity li small{display:block}
+.pr29-activity li small{color:#b5c3d4;margin-block-start:4px}
+@media(prefers-reduced-motion:reduce){.pr29-activity *{animation:none!important;transition:none!important}}

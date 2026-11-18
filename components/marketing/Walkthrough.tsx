@@ -3,10 +3,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 const features = [
-  { id: "editor", title: "Write freely.", body: "A page for whatever comes next.", alt: "Max's block editor and sidebar, showing a design journal with headings, checklists and linked notes" },
+  { id: "editor", title: "Write freely.", body: "A page for whatever comes next.", alt: "Max's block editor and sidebar, showing a trip plan with headings, a checklist and linked pages" },
   { id: "graph", title: "Connect the dots.", body: "See the threads between your ideas.", alt: "Max's graph view showing connected pages from a sample personal workspace" },
   { id: "card", title: "Make it yours.", body: "A little card. Entirely you.", alt: "Max's membership card screen with a personalized card, Change control and download action" },
-  { id: "sidebar", title: "Keep it close.", body: "Your pages, right where you left them.", alt: "Max's sidebar with a reading shelf and the workspace's pages" },
+  { id: "sidebar", title: "Keep it close.", body: "Your pages, right where you left them.", alt: "Max's sidebar with favorites, recent pages and a reading list" },
 ];
 
 /** Real app captures from disposable sample notes, not an imitation of the product. */

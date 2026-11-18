@@ -1,0 +1,25 @@
+{
+  "name": "@max-experiments/pr18-remote-blocknote-provider",
+  "private": true,
+  "type": "module",
+  "description": "Synthetic Max BlockNote + authorized remote Convex sandbox only",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 3238 --strictPort",
+    "build": "vite build",
+    "test": "node --test provider.test.mjs durable-journal.test.mjs security-fences.test.mjs room-lease.test.mjs partition.test.mjs transport-meter.test.mjs presence.test.mjs comments.test.mjs suggestions.test.mjs inbox.test.mjs activity.test.mjs read-lease-deadline.test.mjs"
+  },
+  "dependencies": {
+    "@blocknote/core": "0.55.0",
+    "@blocknote/react": "0.55.0",
+    "@blocknote/shadcn": "0.55.0",
+    "@blocknote/xl-multi-column": "0.55.0",
+    "@clerk/clerk-js": "^6.0.0",
+    "convex": "1.49.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "vite": "7.2.2",
+    "yjs": "13.6.33",
+    "y-prosemirror": "1.3.7",
+    "y-protocols": "1.0.6"
+  }
+}
