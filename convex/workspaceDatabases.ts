@@ -36,7 +36,8 @@ async function who(ctx: ReadCtx): Promise<string> {
 }
 
 /** Same workspace permission engine and bounded queries as workspaceAccess.ts. */
-function sharedStore(ctx: ReadCtx): SharedDatabaseReadStore {
+/** Reused by the isolated external-share proposal endpoints; same trusted ACL snapshot. */
+export function sharedStore(ctx: ReadCtx): SharedDatabaseReadStore {
   return {
     workspaces: (id: string) =>
       ctx.db.query("workspaces").withIndex("by_workspaceId", (q) => q.eq("workspaceId", id)).take(2),
