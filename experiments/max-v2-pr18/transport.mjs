@@ -9,6 +9,10 @@ const COMPACT = fn("compactLog"), CHECKPOINT = fn("checkpointStatus");
 const COMMENT_ACCESS = fn("commentAccess"), COMMENT_THREADS = fn("listCommentThreads");
 const COMMENT_ITEMS = fn("listThreadComments"), COMMENT_CREATE = fn("createCommentThread");
 const COMMENT_REPLY = fn("replyToCommentThread"), COMMENT_RESOLVE = fn("resolveCommentThread");
+const SUGGEST_ACCESS = fn("suggestionAccess"), SUGGEST_LIST = fn("listSuggestions");
+const SUGGEST_CREATE = fn("createSuggestion"), SUGGEST_REVIEW = fn("reviewSuggestion");
+const INBOX_LIST = fn("listInbox"), INBOX_READ = fn("markInboxRead");
+const ACTIVITY_LIST = fn("listRoomActivity");
 const PRESENCE_PUBLISH = fn("publishPresence"), PRESENCE_LIST = fn("listPresence"), PRESENCE_STOP = fn("stopPresence");
 
 export function createAuthenticatedConvexTransport({ url, getToken }) {
@@ -38,6 +42,16 @@ export function createAuthenticatedConvexTransport({ url, getToken }) {
     createCommentThread: (args) => client.mutation(COMMENT_CREATE, args),
     replyToCommentThread: (args) => client.mutation(COMMENT_REPLY, args),
     resolveCommentThread: (args) => client.mutation(COMMENT_RESOLVE, args),
+    // PR27: separate, opt-in suggestion review; no CRDT apply endpoint.
+    watchSuggestionAccess: (args,update,error) => client.onUpdate(SUGGEST_ACCESS,args,update,error),
+    watchSuggestions: (args,update,error) => client.onUpdate(SUGGEST_LIST,args,update,error),
+    createSuggestion: args => client.mutation(SUGGEST_CREATE,args),
+    reviewSuggestion: args => client.mutation(SUGGEST_REVIEW,args),
+    // PR28: private sandbox notifications, never platform push delivery.
+    watchInbox: (args, update, error) => client.onUpdate(INBOX_LIST, args, update, error),
+    markInboxRead: args => client.mutation(INBOX_READ, args),
+    // PR29: metadata-only, read-only room history. Permission checked per emission.
+    watchRoomActivity: (args, update, error) => client.onUpdate(ACTIVITY_LIST, args, update, error),
     close: () => client.close(),
   };
 }
