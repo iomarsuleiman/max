@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 3238 --strictPort",
     "build": "vite build",
-    "test": "node --test provider.test.mjs durable-journal.test.mjs security-fences.test.mjs"
+    "test": "node --test provider.test.mjs durable-journal.test.mjs security-fences.test.mjs room-lease.test.mjs partition.test.mjs transport-meter.test.mjs presence.test.mjs comments.test.mjs suggestions.test.mjs inbox.test.mjs activity.test.mjs read-lease-deadline.test.mjs"
   },
   "dependencies": {
     "@blocknote/core": "0.55.0",

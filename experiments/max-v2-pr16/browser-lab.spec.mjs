@@ -126,3 +126,32 @@ test("broader real Max-schema custom/inline fixtures preserve IDs, metadata and 
   expect(snapshot.alice).toEqual(snapshot.bob);
   expect(await page.evaluate(()=>window.__maxLab.replayOfflineSnapshot())).toMatchObject({equal:true});
 });
+
+test("synthetic Arabic composition during partition preserves combined marks through Yjs reconnect", async ({ page }) => {
+  await seed(page);
+  const text = "التَّعلُّم باللغة العربية — مَرْحَبًا 👩‍⚕️";
+  const editable = page.locator('[data-editor="alice"] [contenteditable="true"]').first();
+  await expect(editable).toBeVisible();
+  await page.evaluate(() => window.__maxLab.disconnect());
+  await editable.click();
+  await editable.press("End");
+  await editable.evaluate(el => {
+    el.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
+    el.dispatchEvent(new CompositionEvent("compositionupdate", { bubbles: true, data: "التَّعلُّم" }));
+  });
+  await page.keyboard.insertText(text);
+  await editable.evaluate(el => {
+    el.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "التَّعلُّم" }));
+  });
+  await expect.poll(async () =>
+    JSON.stringify((await readLab(page)).alice).includes(text), { timeout: 35_000 }
+  ).toBe(true);
+  expect(JSON.stringify((await readLab(page)).bob)).not.toContain(text);
+  await page.evaluate(() => window.__maxLab.reconnect());
+  await expect.poll(async () =>
+    JSON.stringify((await readLab(page)).bob).includes(text), { timeout: 35_000 }
+  ).toBe(true);
+  const snapshot = await readLab(page);
+  expect(snapshot.alice).toEqual(snapshot.bob);
+  expect(await page.evaluate(() => window.__maxLab.replayOfflineSnapshot())).toMatchObject({ equal: true });
+});
