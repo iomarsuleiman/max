@@ -38,7 +38,7 @@ async function who(ctx: Ctx): Promise<string> {
   if (!identity?.subject || !validPrincipalId(identity.subject)) denied();
   return identity.subject;
 }
-function externalStore(ctx: Ctx): ExternalShareStore {
+export function externalStore(ctx: Ctx): ExternalShareStore {
   return {
     ...sharedStore(ctx),
     globalScopes: async (id: string) =>

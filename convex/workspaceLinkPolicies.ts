@@ -34,7 +34,7 @@ async function who(ctx: Ctx): Promise<string> {
   if (!identity?.subject || !validPrincipalId(identity.subject)) denied();
   return identity.subject;
 }
-function storeFor(ctx: Ctx): LinkPolicyStore {
+export function storeFor(ctx: Ctx): LinkPolicyStore {
   return {
     ...sharedStore(ctx),
     globalScopes: async (id: string) =>
