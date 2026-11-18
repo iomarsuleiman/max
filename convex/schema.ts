@@ -137,6 +137,28 @@ export default defineSchema({
     next: nullableString,
     at: v.number(),
   }).index("by_workspaceId", ["workspaceId"]),
+  // PR32 shadow metadata only: no personal pages or content are shared.
+  workspaceDatabaseBindings: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    kind: v.literal("database"),
+    archivedAt: nullableNumber,
+    createdAt: v.number(),
+    createdBy: v.string(),
+  })
+    .index("by_workspace_database", ["workspaceId", "databaseId"])
+    .index("by_databaseId", ["databaseId"]),
+  workspaceRecordMetadata: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    pageId: v.string(),
+    kind: v.literal("record"),
+    archivedAt: nullableNumber,
+    title: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace_database", ["workspaceId", "databaseId"])
+    .index("by_pageId", ["pageId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),

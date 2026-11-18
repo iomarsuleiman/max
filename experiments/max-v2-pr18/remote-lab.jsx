@@ -9,6 +9,10 @@ import * as Y from "yjs";
 import {maxSchema} from "../../components/editor/blocks.tsx";
 import {AuthorizedYjsProvider} from "./provider.mjs";
 import {LabPresenceClient} from "./presence.mjs";
+import {LabCommentClient} from "./comments.mjs";
+import {LabSuggestionClient} from "./suggestions.mjs";
+import {LabInboxClient} from "./inbox.mjs";
+import {LabRoomActivityClient} from "./activity.mjs";
 import {createIndexedDbJournal} from "./durable-journal.mjs";
 import {acquireBrowserRoomLease} from "./room-lease.mjs";
 import {createMeteredTransport} from "./transport-meter.mjs";
@@ -150,6 +154,318 @@ function PresencePreview({editor,provider,onError}){
   </section>;
 }
 
+
+/** PR26: explicitly enabled operator preview. Only real, server-authorized
+ * subjects can be mentioned; no identity directory or synthetic notifications.
+ * Missing blocks are orphaned visibly rather than guessed from text offsets.
+ */
+function CommentsPreview({editor,provider,onError}){
+  const enabled=import.meta.env.VITE_PR26_ENABLE_COMMENT_LAB==="true";
+  const [data,setData]=useState({connected:false,canComment:false,threads:[],comments:[],selectedThreadId:null});
+  const [focus,setFocus]=useState(null);
+  const [draft,setDraft]=useState("");
+  const [mentionInput,setMentionInput]=useState("");
+  const [documentVersion,setDocumentVersion]=useState(0);
+  const adapter=useRef(null);
+  useEffect(()=>{
+    if(!enabled)return;
+    const c=new LabCommentClient({provider,onChange:setData,onError:e=>onError("Comments unavailable: "+e.message)});
+    adapter.current=c;c.start();
+    return ()=>{if(adapter.current===c)adapter.current=null;c.stop();};
+  },[provider,onError,enabled]);
+  useEffect(()=>{
+    if(!enabled)return;
+    const selection=()=>{
+      try{setFocus(editor.getTextCursorPosition()?.block?.id??null);}
+      catch{setFocus(null);}
+    };
+    const stopSelection=editor.onSelectionChange(selection);
+    const stopDoc=editor.onChange(()=>setDocumentVersion(v=>v+1));
+    selection();
+    return ()=>{stopSelection?.();stopDoc?.();};
+  },[editor,enabled]);
+  const blocks=useMemo(()=>{
+    void documentVersion; // re-scan actual Yjs BlockNote tree after edits
+    const ids=new Set();
+    const visit=items=>{for(const block of items??[]){if(block?.id)ids.add(block.id);visit(block?.children);}};
+    visit(editor.document);
+    return ids;
+  },[editor,documentVersion]);
+  if(!enabled)return null;
+  const selected=data.threads.find(t=>t.threadId===data.selectedThreadId);
+  const mentions=()=>mentionInput.split(",").map(s=>s.trim()).filter(Boolean);
+  const execute=async work=>{
+    try{await work();setDraft("");setMentionInput("");}
+    catch(e){onError("Comments: "+String(e.message??e));}
+  };
+  const canWrite=data.connected&&data.canComment;
+  return <section className="pr26-comments" aria-label="Experimental anchored comments and mentions">
+    <div className="pr26-head"><strong>Block comments · sandbox preview</strong>
+      <span>{canWrite?"Comment permission verified":data.connected?"Read only":"Disconnected"}</span>
+    </div>
+    <p className="pr26-help">Selected block: <code>{focus??"none"}</code>. Comments track an exact block ID, never a character offset.</p>
+    <label htmlFor="pr26-comment-draft">New thread or reply</label>
+    <textarea id="pr26-comment-draft" value={draft} maxLength={2000} rows={2}
+      onChange={e=>setDraft(e.target.value)} placeholder="Add a comment to this block…"/>
+    <label htmlFor="pr26-mentions">Mention exact authorized account IDs (comma separated, max 3)</label>
+    <input id="pr26-mentions" value={mentionInput} onChange={e=>setMentionInput(e.target.value)}
+      placeholder="Optional Clerk subject IDs" autoComplete="off"/>
+    <div className="pr26-actions">
+      <button type="button" disabled={!canWrite||!focus||!blocks.has(focus)||!draft.trim()}
+        onClick={()=>execute(async()=>{
+          const result=await adapter.current.create({blockId:focus,body:draft,mentions:mentions()});
+          // Reactive thread list may arrive after the mutation acknowledgment.
+          if(!result?.threadId)throw Error("COMMENT_CREATE_UNACKNOWLEDGED");
+        })}>Comment on selected block</button>
+      <button type="button" disabled={!canWrite||!selected||selected.resolvedAt!==null||!draft.trim()}
+        onClick={()=>execute(()=>adapter.current.reply({threadId:selected.threadId,body:draft,mentions:mentions()}))}>
+        Reply to selected thread</button>
+    </div>
+    <div className="pr26-thread-list" role="group" aria-label="Anchored discussion threads">
+      {data.threads.length===0&&<p>No sandbox threads yet.</p>}
+      {data.threads.map(t=><button key={t.threadId} type="button"
+        aria-pressed={data.selectedThreadId===t.threadId}
+        onClick={()=>adapter.current?.selectThread(t.threadId)}>
+        <span>{t.blockId}</span>
+        <span>{!blocks.has(t.blockId)?" · Missing anchor":t.resolvedAt?" · Resolved":" · Open"}</span>
+      </button>)}
+    </div>
+    {selected&&<div className="pr26-thread-panel">
+      <div className="pr26-head"><strong>Thread at {selected.blockId}</strong>
+        {selected.canResolve&&<button type="button" disabled={!canWrite} onClick={()=>execute(()=>
+          adapter.current.resolve({threadId:selected.threadId,expectedRevision:selected.revision,resolved:selected.resolvedAt===null})
+        )}>{selected.resolvedAt?"Reopen":"Resolve"}</button>}
+      </div>
+      {!blocks.has(selected.blockId)&&<p role="status" className="pr26-orphan">
+        Anchored block missing from this Yjs document. Thread remains intact; no automatic reattachment.
+      </p>}
+      <ol>{data.comments.map(c=><li key={c.commentId}>
+        <strong>{c.authorId??"Former collaborator"}</strong>
+        <p>{c.body}</p>
+        {c.mentions.length>0&&<small>Mentions: {c.mentions.join(", ")}</small>}
+      </li>)}</ol>
+    </div>}
+    <p className="pr26-help">No email/name directory, mention delivery, text-range anchors or production data.</p>
+  </section>;
+}
+
+
+/** PR27: plain-text *proposal* review in the disposable collaboration lab.
+ * A reviewed suggestion is NOT an applied Yjs update. Every acceptance is
+ * bounded by server HEAD and client-side block/preimage checks; reviewers
+ * must separately edit the real document after inspecting the live content.
+ */
+function plainBlockText(block){
+  if(!block||block.type!=="paragraph"||!Array.isArray(block.content))return null;
+  if(!block.content.every(item=>item?.type==="text"&&typeof item.text==="string"))return null;
+  return block.content.map(item=>item.text).join("");
+}
+function findBlock(blocks,id){
+  for(const b of blocks??[]){
+    if(b?.id===id)return b;
+    const match=findBlock(b?.children,id);
+    if(match)return match;
+  }
+  return null;
+}
+function SuggestionsPreview({editor,provider,onError}){
+  const enabled=import.meta.env.VITE_PR27_ENABLE_SUGGESTIONS_LAB==="true";
+  const [data,setData]=useState({connected:false,canSuggest:false,canReview:false,suggestions:[]});
+  const [focus,setFocus]=useState(null);
+  const [replacement,setReplacement]=useState("");
+  const [note,setNote]=useState("");
+  const [docVersion,setDocVersion]=useState(0);
+  const adapter=useRef(null);
+  useEffect(()=>{
+    if(!enabled)return;
+    const client=new LabSuggestionClient({
+      provider,onChange:setData,onError:e=>onError("Suggestion review unavailable: "+e.message),
+    });
+    adapter.current=client;client.start();
+    return ()=>{if(adapter.current===client)adapter.current=null;client.stop();};
+  },[provider,onError,enabled]);
+  useEffect(()=>{
+    if(!enabled)return;
+    const select=()=>{
+      try{
+        const id=editor.getTextCursorPosition()?.block?.id??null;
+        setFocus(id);
+        setReplacement(plainBlockText(findBlock(editor.document,id))??"");
+      }catch{setFocus(null);setReplacement("");}
+    };
+    const offSelection=editor.onSelectionChange(select);
+    const offChange=editor.onChange(()=>setDocVersion(v=>v+1));
+    select();
+    return ()=>{offSelection?.();offChange?.();};
+  },[editor,enabled]);
+  if(!enabled)return null;
+  void docVersion;
+  const original=plainBlockText(findBlock(editor.document,focus));
+  const validFocus=!!focus&&original!==null&&
+    Number.isSafeInteger(provider.cursor)&&provider.cursor>=0;
+  const canSuggest=data.connected&&data.canSuggest&&validFocus;
+  const act=async fn=>{
+    try{await fn();setNote("");}
+    catch(error){onError("Suggestion review: "+String(error.message??error));}
+  };
+  return <section className="pr27-suggestions" aria-label="Experimental suggestions and change review">
+    <div className="pr26-head">
+      <strong>Suggestions &amp; change review · sandbox</strong>
+      <span>{!data.connected?"Disconnected":data.canReview?"Reviewer":data.canSuggest?"Suggest-only":"Read-only"}</span>
+    </div>
+    <p className="pr26-help">Proposals reference one stable paragraph block and a bounded Yjs-log head. Review decisions do not alter the document.</p>
+    <label htmlFor="pr27-replacement">Suggest replacement text for selected paragraph <code>{focus??"none"}</code></label>
+    <textarea id="pr27-replacement" rows={3} maxLength={2000}
+      value={replacement} onChange={e=>setReplacement(e.target.value)}
+      disabled={!canSuggest} placeholder="Proposed replacement, including Arabic text"/>
+    <label htmlFor="pr27-note">Rationale (optional)</label>
+    <textarea id="pr27-note" rows={2} maxLength={500} value={note}
+      onChange={e=>setNote(e.target.value)} disabled={!canSuggest}/>
+    {focus&&original===null&&<p className="pr26-orphan" role="status">
+      Only ordinary text paragraphs can be proposed in this experiment; rich blocks cannot be replaced.
+    </p>}
+    <div className="pr26-actions">
+      <button type="button"
+        disabled={!canSuggest||!replacement.trim()||original===replacement||data.suggestions.length>=32}
+        onClick={()=>act(()=>adapter.current.propose({
+          blockId:focus,originalText:original,replacementText:replacement,
+          note,expectedHeadSeq:provider.cursor,
+        }))}>Submit suggestion</button>
+    </div>
+    <div className="pr27-list" role="list" aria-label="Pending and reviewed changes">
+      {data.suggestions.length===0&&<p>No review suggestions yet.</p>}
+      {data.suggestions.map(suggestion=>{
+        const block=findBlock(editor.document,suggestion.blockId);
+        const text=plainBlockText(block);
+        const orphan=!block;
+        const changed=text===null||text!==suggestion.originalText;
+        const stale=provider.cursor!==suggestion.baseSeq||changed;
+        const canDecide=data.connected&&data.canReview&&suggestion.canReview&&
+          provider.canEdit&&suggestion.status==="pending";
+        return <article role="listitem" key={suggestion.suggestionId} className="pr27-card">
+          <div className="pr26-head">
+            <strong>Block <code>{suggestion.blockId}</code></strong>
+            <span>{suggestion.status==="accepted"?"Approved — not applied":
+              suggestion.status==="rejected"?"Rejected":"Awaiting review"}</span>
+          </div>
+          <p className="pr27-attribution">Suggested by {suggestion.proposedBy??"Former collaborator"} · Reviewed by {suggestion.reviewedBy??"—"}</p>
+          <div className="pr27-diff">
+            <div><small>Before</small><del dir="auto">{suggestion.originalText||"(empty)"}</del></div>
+            <div><small>Proposed</small><ins dir="auto">{suggestion.replacementText}</ins></div>
+          </div>
+          {suggestion.note&&<p className="pr27-note" dir="auto">{suggestion.note}</p>}
+          {orphan&&<p role="status" className="pr26-orphan">Anchor missing. Proposal is preserved; review acceptance is blocked.</p>}
+          {!orphan&&stale&&suggestion.status==="pending"&&
+            <p role="status" className="pr26-orphan">
+              Block text or Yjs head changed since proposal; acceptance needs a new suggestion.
+            </p>}
+          {canDecide&&<div className="pr26-actions">
+            <button type="button" disabled={stale} onClick={()=>act(()=>adapter.current.review({
+              suggestionId:suggestion.suggestionId,expectedRevision:suggestion.revision,
+              expectedHeadSeq:suggestion.baseSeq,decision:"accept",
+            }))}>Approve review (does not apply)</button>
+            <button type="button" onClick={()=>act(()=>adapter.current.review({
+              suggestionId:suggestion.suggestionId,expectedRevision:suggestion.revision,
+              expectedHeadSeq:suggestion.baseSeq,decision:"reject",
+            }))}>Reject</button>
+          </div>}
+        </article>;
+      })}
+    </div>
+    <p className="pr26-help">No automatic apply, inline rich-block patching, offline replay or production editor integration. PR28 notification metadata is separate. Approved edits require deliberate manual changes in the editor.</p>
+  </section>;
+}
+
+
+/** PR28: metadata-only, opt-in, sandbox inbox preview.
+ * The server rechecks permissions per subscription and acknowledgment.
+ * No page/document bodies, push delivery, backfilled history or storage.
+ */
+/** PR29: metadata-only history for a synthetic room, disabled by default.
+ * No raw comment text, page titles, actor profiles or direct deep links.
+ */
+function ActivityPreview({provider,onError}){
+  const enabled=import.meta.env.VITE_PR29_ENABLE_ACTIVITY_LAB==="true";
+  const [data,setData]=useState({connected:false,activities:[]});
+  const client=useRef(null);
+  useEffect(()=>{
+    if(!enabled)return;
+    const adapter=new LabRoomActivityClient({
+      provider,onChange:setData,onError:e=>onError("Activity unavailable: "+e.message),
+    });
+    client.current=adapter;
+    adapter.start();
+    return ()=>{if(client.current===adapter)client.current=null;adapter.stop();};
+  },[provider,onError,enabled]);
+  if(!enabled)return null;
+  const labels={
+    thread_opened:"Opened a thread",thread_replied:"Replied to a thread",
+    thread_resolved:"Resolved a thread",thread_reopened:"Reopened a thread",
+    suggestion_proposed:"Proposed a change",
+    suggestion_accepted:"Approved a suggestion",
+    suggestion_rejected:"Rejected a suggestion",
+  };
+  return <section className="pr29-activity" aria-label="Experimental room activity timeline">
+    <div className="pr26-head"><strong>Room activity · sandbox</strong>
+      <span role="status">{data.connected
+        ? "Authorized, read-only timeline":"Disconnected · no timeline access"}</span>
+    </div>
+    <p className="pr26-help">Latest 40 room actions only. No note text, comments or proposed changes are transmitted.</p>
+    <ol aria-label="Recent room actions">
+      {!data.connected&&<li>Connect an authorized sandbox session to view activity.</li>}
+      {data.connected&&data.activities.length===0&&<li>No activity yet.</li>}
+      {data.connected&&data.activities.map(item=><li key={item.activityId}>
+        <strong>{labels[item.kind]}</strong>
+        <small>{item.actorId?"Authorized collaborator":"Former collaborator"} ·
+          <time dateTime={new Date(item.createdAt).toISOString()}>{new Date(item.createdAt).toLocaleString()}</time>
+        </small>
+      </li>)}
+    </ol>
+  </section>;
+}
+
+function InboxPreview({provider,onError}){
+  const enabled=import.meta.env.VITE_PR28_ENABLE_INBOX_LAB==="true";
+  const [data,setData]=useState({connected:false,unreadCount:0,notifications:[]});
+  const adapter=useRef(null);
+  useEffect(()=>{
+    if(!enabled)return;
+    const client=new LabInboxClient({
+      provider,onChange:setData,onError:e=>onError("Inbox unavailable: "+e.message),
+    });
+    adapter.current=client;
+    client.start();
+    return ()=>{if(adapter.current===client)adapter.current=null;client.stop();};
+  },[provider,onError,enabled]);
+  if(!enabled)return null;
+  const label={mention:"Mention in a comment",thread_reply:"Reply to your thread",
+    suggestion_decision:"Your suggestion was reviewed"};
+  const mark=async id=>{
+    try{await adapter.current?.markRead(id);}
+    catch(e){onError("Inbox acknowledgment: "+String(e.message??e));}
+  };
+  return <section className="pr28-inbox" aria-label="Experimental collaboration inbox">
+    <div className="pr26-head">
+      <strong>Collaboration inbox · sandbox</strong>
+      <span role="status">{data.connected
+        ? data.unreadCount+" unread":"Disconnected · no current inbox access"}</span>
+    </div>
+    <p className="pr26-help">Private events only: no comment text, proposed edits, push notifications or archived access.</p>
+    <ol aria-label="Recent collaboration events">
+      {data.connected&&data.notifications.length===0&&<li>No notifications yet.</li>}
+      {!data.connected&&<li>Reconnect an authorized sandbox session to read notifications.</li>}
+      {data.connected&&data.notifications.map(item=><li key={item.notificationId}>
+        <span><strong>{label[item.kind]}</strong> · {item.actorId?"Collaborator":"Former collaborator"}</span>
+        <small>Reference <code>{item.targetId}</code></small>
+        <span>{item.readAt===null?"Unread":"Read"}</span>
+        <button type="button" disabled={item.readAt!==null} onClick={()=>mark(item.notificationId)}>
+          Mark as read
+        </button>
+      </li>)}
+    </ol>
+  </section>;
+}
+
 function LabEditor({clerk,session,status,error,setError}){
   const options=useMemo(()=>withCollaboration({
     schema:maxSchema,
@@ -266,6 +582,10 @@ function LabEditor({clerk,session,status,error,setError}){
       <button onClick={()=>save(session.provider.exportSnapshot())}>Export Yjs snapshot</button>
     </nav>
     <PresencePreview editor={editor} provider={session.provider} onError={setError}/>
+    <CommentsPreview editor={editor} provider={session.provider} onError={setError}/>
+    <SuggestionsPreview editor={editor} provider={session.provider} onError={setError}/>
+    <InboxPreview provider={session.provider} onError={setError}/>
+    <ActivityPreview provider={session.provider} onError={setError}/>
     <BlockNoteView editor={editor} editable={(status.state==="online"&&status.canEdit)||(status.state==="offline"&&session.provider.lastAuthorizedCanEdit)}/>
   </main>;
 }
