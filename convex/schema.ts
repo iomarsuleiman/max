@@ -187,6 +187,130 @@ export default defineSchema({
   })
     .index("by_recordId", ["recordId"])
     .index("by_workspace_database", ["workspaceId", "databaseId"]),
+  // PR36: shadow wiki ownership and expiring metadata-revision verification.
+  workspaceWikiGovernance: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    recordId: v.string(),
+    ownerId: v.string(),
+    reviewerId: nullableString,
+    verifiedAt: nullableNumber,
+    verifiedSemanticUpdatedAt: nullableNumber,
+    verifiedMetadataUpdatedAt: nullableNumber,
+    expiresAt: v.number(),
+    archivedAt: nullableNumber,
+    updatedAt: v.number(),
+  })
+    .index("by_recordId", ["recordId"])
+    .index("by_workspace_database", ["workspaceId", "databaseId"]),
+  // PR37: identity-bound, expiring external-sharing PROPOSALS only.
+  // No cross-tenant ACL, personal-document visibility or content routes.
+  workspaceExternalShares: defineTable({
+    originWorkspaceId: v.string(),
+    scopeId: v.string(),
+    targetWorkspaceId: nullableString,
+    targetAccountId: v.string(),
+    createdByAccountId: v.string(),
+    status: v.union(v.literal("pending"), v.literal("accepted"),
+      v.literal("declined"), v.literal("revoked")),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    resolvedAt: nullableNumber,
+    updatedAt: v.number(),
+  })
+    .index("by_origin_scope", ["originWorkspaceId", "scopeId"])
+    .index("by_target_account", ["targetAccountId"]),
+  // PR38: independently gated, manager-only link policy registry. No bearer
+  // tokens, public URLs, content gateway or legacy personal-page permissions.
+  workspaceLinkPolicies: defineTable({
+    originWorkspaceId: v.string(),
+    scopeId: v.string(),
+    issuedByAccountId: v.string(),
+    audience: v.union(v.literal("workspace_members"), v.literal("anyone_with_link")),
+    state: v.union(v.literal("active"), v.literal("revoked")),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+    revokedAt: nullableNumber,
+  })
+    .index("by_origin_scope", ["originWorkspaceId", "scopeId"]),
+  // PR40: dormant rule DESCRIPTORS for existing registered shadow databases.
+  // All state is draft/paused/retired: no executor, scheduler, action delivery,
+  // shared-document access, or MCP integration is enabled by this registry.
+  workspaceAutomationRules: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    ruleKey: v.string(),
+    createdByAccountId: v.string(),
+    name: v.string(),
+    trigger: v.union(v.literal("task_state_changed"), v.literal("manual_button")),
+    condition: v.union(v.literal("always"), v.literal("state_equals")),
+    conditionValue: nullableString,
+    action: v.union(v.literal("notify_creator"), v.literal("set_task_state")),
+    actionValue: nullableString,
+    state: v.union(v.literal("draft"), v.literal("paused"), v.literal("retired")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    retiredAt: nullableNumber,
+  })
+    .index("by_workspace_database", ["workspaceId", "databaseId"])
+    .index("by_database_rule_key", ["workspaceId", "databaseId", "ruleKey"]),
+  // PR41: inert, manually recorded execution-intent journal. These rows are
+  // NEVER consumed by background workers or allowed to mutate domain data.
+  workspaceAutomationRunIntents: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    ruleKey: v.string(),
+    runKey: v.string(),
+    requestedByAccountId: v.string(),
+    ruleUpdatedAt: v.number(),
+    trigger: v.literal("manual_button"),
+    depth: v.number(),
+    attempt: v.number(),
+    state: v.union(v.literal("recorded"), v.literal("canceled"), v.literal("dead_letter")),
+    reason: v.union(v.literal("operator_cancelled"), v.literal("policy_blocked"),
+      v.literal("retry_exhausted"), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    terminalAt: nullableNumber,
+  })
+    .index("by_workspace_database", ["workspaceId", "databaseId"])
+    .index("by_workspace_database_run_key", ["workspaceId", "databaseId", "runKey"]),
+  // Append-only event rows written in the SAME Convex transaction as each
+  // intent status change. Max two rows per intent in this safe foundation.
+  workspaceAutomationRunEvents: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    runId: v.string(),
+    sequence: v.number(),
+    state: v.union(v.literal("recorded"), v.literal("canceled"), v.literal("dead_letter")),
+    actorId: v.string(),
+    at: v.number(),
+  }).index("by_runId", ["runId"]),
+  // PR42 shadow-only manual meeting drafts. These rows do not become pages,
+  // calendar events, task actions, automation triggers or public content.
+  workspaceMeetingNotes: defineTable({
+    workspaceId: v.string(),
+    databaseId: v.string(),
+    meetingKey: v.string(),
+    createdByAccountId: v.string(),
+    title: v.string(),
+    scheduledAt: v.number(),
+    recurrence: v.union(v.literal("none"), v.literal("weekly"), v.literal("monthly")),
+    meetingLink: nullableString,
+    participants: v.array(v.string()),
+    agenda: v.array(v.string()),
+    decisions: v.array(v.string()),
+    actions: v.array(v.object({
+      text: v.string(),
+      status: v.union(v.literal("open"), v.literal("done")),
+      dueAt: nullableNumber,
+    })),
+    state: v.union(v.literal("draft"), v.literal("archived")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    archivedAt: nullableNumber,
+  }).index("by_workspace_database", ["workspaceId", "databaseId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
