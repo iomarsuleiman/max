@@ -11,7 +11,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
       </Link>
       {children}
       <p className="max-w-sm text-center text-xs leading-relaxed text-fg-3">
-        Your workspace is private to your account. Nothing you write is shared or used to train models.{" "}
+        Your workspace is private to your account until you choose to share a page. Nothing you write is used to train models.{" "}
         <Link href="/privacy" className="underline underline-offset-2">
           How Max handles your data
         </Link>

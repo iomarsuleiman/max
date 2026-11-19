@@ -2,11 +2,14 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/brand/Logo";
 import { CLOUD, REPO_URL } from "@/lib/config";
+import { Fraunces } from "next/font/google";
 import { ThemeToggle } from "./ThemeToggle";
+
+const serif = Fraunces({ subsets: ["latin"], display: "swap", weight: ["600"], variable: "--font-landing-serif" });
 
 export function PublicFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="paper-grain flex min-h-dvh flex-col bg-canvas">
+    <div className={`${serif.variable} paper-grain flex min-h-dvh flex-col bg-canvas`}>
       <header className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 text-fg" aria-label="Max home">
           <LogoMark className="size-6" />
