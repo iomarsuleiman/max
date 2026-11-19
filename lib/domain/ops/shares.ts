@@ -132,3 +132,31 @@ export const sharesSetLink = defineOp({
     return { link: { token, level, public: web } };
   },
 });
+
+export const sharesOverview = defineOp({
+  name: "shares.overview",
+  kind: "query",
+  title: "List everything I share",
+  description: "Every page you share: who has access to it, and whether its link is open to people in Max or published to the web.",
+  input: z.object({}),
+  async run(ctx) {
+    const shares = await ctx.db.list("shares", ctx.ownerId);
+    const links = await ctx.db.list("shareLinks", ctx.ownerId);
+    const ids = [...new Set([...shares.map((s) => s.pageId), ...links.map((l) => l.pageId)])];
+    const pages: { _id: string; title: string; icon: string | null; kind: string; people: { name: string | null; email: string | null; image: string | null; level: ShareLevel }[]; link: { level: ShareLevel; public: boolean; token: string } | null }[] = [];
+    for (const id of ids) {
+      const page = await ctx.db.get("pages", id);
+      if (!page || page.ownerId !== ctx.ownerId || page.archivedAt) continue;
+      const link = links.find((l) => l.pageId === id);
+      pages.push({
+        _id: page._id,
+        title: page.title,
+        icon: page.icon,
+        kind: page.kind,
+        people: shares.filter((s) => s.pageId === id).map((s) => ({ name: s.name, email: s.email, image: s.image, level: s.level })),
+        link: link ? { level: link.level, public: !!link.public, token: link.token } : null,
+      });
+    }
+    return { pages: pages.sort((a, b) => (a.title || "").localeCompare(b.title || "")) };
+  },
+});

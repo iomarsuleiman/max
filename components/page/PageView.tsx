@@ -409,6 +409,7 @@ function DocumentEditor({ pageId, doc, readOnly, smallText, outline, live = fals
   const onReady = useCallback(
     (editor: MaxEditorType) => {
       editorRef.current = editor;
+      if (live) room.session?.setView(editor.prosemirrorView);
       if (takeEditorFocusRequest(pageId)) requestAnimationFrame(() => focusEditorStart(editor));
       if (draftChecked.current || live) return;
       draftChecked.current = true;
@@ -425,7 +426,7 @@ function DocumentEditor({ pageId, doc, readOnly, smallText, outline, live = fals
         setRecovered("stale");
       }
     },
-    [doc.blocks, doc.revision, sync, live],
+    [doc.blocks, doc.revision, sync, live, room.session],
   );
 
   // Remote changes (another tab or a connected assistant).

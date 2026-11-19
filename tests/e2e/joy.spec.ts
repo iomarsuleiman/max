@@ -18,6 +18,16 @@ test("landing butterfly flaps its wings on arrival, click and keyboard, and stay
   await page.keyboard.press("Enter");
   await expect(body).toHaveAttribute("data-flapping", "");
   await page.waitForTimeout(1100);
+  // Grab it, carry it away and fling it: it spins, then floats home upright.
+  const mover = body.locator("..");
+  const box = (await logo.boundingBox())!;
+  await page.waitForTimeout(1100);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2 + i * 30, box.y + box.height / 2 + i * 6, { steps: 1 });
+  await page.mouse.up();
+  await expect.poll(() => mover.evaluate((el) => el.style.transform)).toMatch(/translate\((?!0px, 0px)/);
+  await expect.poll(() => mover.evaluate((el) => el.style.transform), { timeout: 15_000 }).toBe("translate(0px, 0px) rotate(0deg)");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.waitForTimeout(60);
   await logo.click();
@@ -48,7 +58,7 @@ test("landing texture stays small and static, with system colors and no navigati
       text: getComputedStyle(element.querySelector("h1")!).color,
     };
   });
-  expect(paint.image).toContain("/textures/paper.png");
+  expect(paint.image).toContain("/textures/grain.svg");
   expect(paint.animation).toBe("none");
   expect(paint.filter).toBe("none");
   expect(paint.blend).toBe("normal");
@@ -74,15 +84,16 @@ test("landing texture stays small and static, with system colors and no navigati
   await expect(shot).toHaveAttribute("src", "/screenshots/card-light.webp");
   await explore.getByRole("tab").nth(3).click();
   await expect(shot).toHaveAttribute("src", "/screenshots/sidebar-light.webp");
-  expect((await shot.boundingBox())!.x + (await shot.boundingBox())!.width).toBeGreaterThan(1440);
+  // The screenshot is shown whole, never cut off at the edge of the window.
+  expect((await shot.boundingBox())!.x + (await shot.boundingBox())!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await explore.getByRole("tab").first().click();
-  const texture = await page.request.get("/textures/paper.png");
+  const texture = await page.request.get("/textures/grain.svg");
   expect((await texture.body()).byteLength).toBeLessThan(2048);
   await page.screenshot({ path: "test-results/max-landing-light.png", fullPage: true });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(landing).toHaveCSS("color-scheme", "dark");
-  await expect(landing).toHaveCSS("background-image", /paper-dark\.png/);
+  await expect(landing).toHaveCSS("background-image", /grain-dark\.svg/);
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze()).violations.map((violation) => violation.id)).toEqual([]);
   await page.screenshot({ path: "test-results/max-landing-dark.png", fullPage: true });
   await page.goto("/connect/status?reason=invalid_target");

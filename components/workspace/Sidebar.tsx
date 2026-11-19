@@ -88,7 +88,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
   return (
     <aside
       aria-label="Sidebar"
-      className={cn("group/sidebar relative flex h-full shrink-0 flex-col bg-surface text-fg-2", mobile ? "w-[min(86vw,320px)]" : "border-e border-line")}
+      className={cn("group/sidebar relative flex h-full shrink-0 flex-col text-fg-2", mobile && "max-space w-[min(86vw,320px)]")}
       style={mobile ? undefined : { width }}
     >
       <SidebarHeader mobile={mobile} />

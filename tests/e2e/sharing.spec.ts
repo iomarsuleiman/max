@@ -114,13 +114,18 @@ test("type together live with cursors, publish to the web, and duplicate", async
   await expect(be).toHaveAttribute("contenteditable", "true");
 
   // Both type at the same time, in different places; nothing is lost and nobody gets a conflict.
+  // At human speed: a key pressed within a few milliseconds of moving the caret can land before the
+  // editor has read the move (ProseMirror ignores caret changes briefly after it redraws).
+  const human = { delay: 40 };
   await ae.getByText("Agenda").click();
-  await a.keyboard.press("End");
-  await a.keyboard.type(" for Monday");
+  await a.keyboard.press("End", human);
+  await a.waitForTimeout(150);
+  await a.keyboard.type(" for Monday", human);
   await be.getByText("Agenda").click();
-  await b.keyboard.press("End");
-  await b.keyboard.press("Enter");
-  await b.keyboard.type("Bob was here");
+  await b.keyboard.press("End", human);
+  await b.waitForTimeout(150);
+  await b.keyboard.press("Enter", human);
+  await b.keyboard.type("Bob was here", human);
   await expect(ae).toContainText("Agenda for Monday");
   await expect(ae).toContainText("Bob was here", { timeout: 15_000 });
   await expect(be).toContainText("Agenda for Monday", { timeout: 15_000 });
@@ -146,6 +151,14 @@ test("type together live with cursors, publish to the web, and duplicate", async
   await a.keyboard.press("Escape");
   const link = (await ops("shares.list", "query", { pageId: page._id })).link as { token: string; public: boolean };
   expect(link.public).toBe(true);
+  // Settings → Sharing lists it as shared with Bob and published.
+  await a.goto("/home?settings=sharing");
+  const sharingSettings = a.getByRole("dialog", { name: "Settings", exact: true });
+  await expect(sharingSettings.getByRole("heading", { name: "Sharing" })).toBeVisible();
+  await expect(sharingSettings.getByText("Live notes").first()).toBeVisible();
+  await expect(sharingSettings.getByText(/1 person: Bob/).first()).toBeVisible();
+  await expect(sharingSettings.getByText("Published to the web").first()).toBeVisible();
+  await a.keyboard.press("Escape");
   const visitor = await browser.newContext();
   const v = await visitor.newPage();
   await v.goto(`/s/${link.token}/live-notes-${page._id}`);

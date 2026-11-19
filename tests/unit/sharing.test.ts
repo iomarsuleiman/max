@@ -150,4 +150,14 @@ describe("page sharing", () => {
     await expect(as(cara, res.id)("documents.get", { pageId: res.id })).rejects.toThrow();
     await expect(h.db.transaction(() => duplicateShared(h.db, { id: ANONYMOUS, name: "Visitor", image: null }, root._id, Date.now()))).rejects.toThrow(/Sign in/);
   });
+
+  it("lists everything an owner shares, with people and link settings", async () => {
+    const { alice, root, child } = await world();
+    await alice("shares.invite", { pageId: root._id, granteeId: bob.id, name: "Bob", level: "edit" });
+    await alice("shares.setLink", { pageId: child._id, level: "view", web: true });
+    const { pages } = await alice<{ pages: { title: string; people: { name: string }[]; link: { public: boolean } | null }[] }>("shares.overview", {});
+    expect(pages.map((p) => p.title)).toEqual(["Milestones", "Team plan"]);
+    expect(pages.find((p) => p.title === "Team plan")).toMatchObject({ people: [{ name: "Bob" }], link: null });
+    expect(pages.find((p) => p.title === "Milestones")?.link).toMatchObject({ public: true });
+  });
 });

@@ -86,6 +86,16 @@ export class CollabSession {
   private committing: Promise<void> | null = null;
   private awarenessTimer: ReturnType<typeof setTimeout> | undefined;
   private seenCursors = new Map<string, { data: string; clients: number[] }>();
+  private view: { domObserver?: { flush?: () => void } } | null = null;
+
+  /**
+   * The editor view bound to this room. Before others' edits are applied, the editor must read the
+   * caret from the page first: a key like End moves it in the browser before ProseMirror notices,
+   * and the sync layer would otherwise restore the old caret, so the next Enter splits in the wrong place.
+   */
+  setView(view: unknown) {
+    this.view = view as typeof this.view;
+  }
 
   constructor(
     private t: CollabTransport,
@@ -149,6 +159,11 @@ export class CollabSession {
   }
 
   private apply(r: CollabPull) {
+    try {
+      this.view?.domObserver?.flush?.();
+    } catch {
+      // The view may be mid-teardown; nothing to read then.
+    }
     if (r.updates.length) {
       Y.transact(this.doc, () => {
         for (const u of r.updates) {
@@ -186,6 +201,7 @@ export class CollabSession {
     }
     this.apply(r);
   };
+
 
   private onLocalUpdate = (update: Uint8Array, origin: unknown) => {
     if (origin === REMOTE || this.closed) return;

@@ -100,6 +100,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `settings_update` | Update settings | Write | Changes one or more preferences. Workspace and card names stay synchronized; other fields change only when passed. |
 | `shares_invite` | Share a page with someone | Write | Gives one person (by Max account id, as shares.list shows) access to a page and everything inside it. Inviting someone again changes their level. To invite by email, use shares_inviteByEmail. |
 | `shares_list` | List who a page is shared with | Read | People with access to a page: shared directly, or through a page above it, plus the link setting. |
+| `shares_overview` | List everything I share | Read | Every page you share: who has access to it, and whether its link is open to people in Max or published to the web. |
 | `shares_remove` | Remove someone's access | Write | Stops sharing a page with one person. Their comments stay. |
 | `shares_setLink` | Set link access | Write | Sets who can open a page with its link: anyone signed in to Max (view, comment or edit), or, with web: true, anyone on the web without an account (view only, published). Level null turns link access off. |
 | `shares_update` | Change someone's access | Write | Changes the access level of one share. |

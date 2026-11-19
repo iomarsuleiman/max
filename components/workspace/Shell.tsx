@@ -9,6 +9,7 @@ import { useClerk, useUser } from "@clerk/nextjs";
 import { CLOUD } from "@/lib/config";
 import { isWorkspacePreviewRoute } from "@/lib/domain/workspaceNavigationState";
 import { LogoMark } from "@/components/brand/Logo";
+import { cardPalette } from "@/lib/domain/profileCard";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
@@ -146,12 +147,29 @@ function WorkspacePreviewFrame({ children }: { children: ReactNode }) {
   );
 }
 
+/** Tints your space with your membership card's colors (Arc-style), remembered for the next visit. */
+function useSpaceTint(theme: string | undefined) {
+  useEffect(() => {
+    let t = theme;
+    try {
+      if (t) localStorage.setItem("max:space-tint", t);
+      else t = localStorage.getItem("max:space-tint") ?? undefined;
+    } catch {
+      // Storage can be unavailable; the default tint still applies.
+    }
+    const palette = cardPalette(t ?? "sunset");
+    document.documentElement.style.setProperty("--tint-1", palette.first);
+    document.documentElement.style.setProperty("--tint-2", palette.second);
+  }, [theme]);
+}
+
 function Frame({ children }: { children: ReactNode }) {
   const ws = useWorkspace();
+  useSpaceTint((ws.settings?.profileCard as { theme?: string } | undefined)?.theme);
   const pathname = usePathname();
   const preview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   return (
-    <div className="max-workspace-frame flex h-dvh overflow-hidden bg-canvas" data-font={ws.settings?.font}>
+    <div className="max-workspace-frame max-space flex h-dvh overflow-hidden" data-font={ws.settings?.font}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[90] focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2 focus:shadow-pop">
         Skip to content
       </a>
@@ -168,7 +186,7 @@ function Frame({ children }: { children: ReactNode }) {
           </D.Content>
         </D.Portal>
       </D.Root>
-      <main id="main" className="relative flex min-w-0 flex-1 flex-col">
+      <main id="main" className="max-panel relative flex min-w-0 flex-1 flex-col" data-alone={!ws.sidebarOpen || undefined}>
         <OfflineNotice />
         {children}
       </main>
