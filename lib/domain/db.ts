@@ -35,7 +35,7 @@ export interface Db {
   listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number): Promise<Tables[T][]>;
 }
 
-export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites";
+export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites" | "usernames";
 export type CrossField<T extends CrossTable> = T extends "shares"
   ? "granteeId" | "pageId"
   : T extends "shareLinks"
@@ -44,7 +44,9 @@ export type CrossField<T extends CrossTable> = T extends "shares"
       ? "roomId"
       : T extends "sites"
         ? "slug" | "pageId"
-        : "pageId";
+        : T extends "usernames"
+          ? "username"
+          : "pageId";
 
 export type IndexedField<T extends TableName> = T extends "pages"
   ? "parentId" | "databaseId"

@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { MaxError, serializeError } from "../lib/domain/errors";
 import { ANONYMOUS, accessInfo, duplicateShared, executeShared, heartbeat, joinByLink, leaveShare, present, sharedWithMe, type Actor } from "../lib/domain/sharing";
 import { convexDb, convexStorage } from "./convexDb";
+import { resolveOwner } from "../lib/domain/workspaces";
 
 /**
  * Sharing entry points. The caller is always the signed-in Clerk identity; what they may do on
@@ -93,10 +94,12 @@ export const publicQuery = queryGeneric({
 
 /** Copies a page shared with you (or published) into your own workspace. */
 export const duplicate = mutationGeneric({
-  args: { pageId: v.string(), linkToken: v.optional(v.union(v.string(), v.null())) },
+  args: { pageId: v.string(), linkToken: v.optional(v.union(v.string(), v.null())), ws: v.optional(v.string()) },
   handler: async (ctx, a) => {
     const actor = await actorOf(ctx);
-    return guard(() => duplicateShared(convexDb((ctx as GenericMutationCtx<GenericDataModel>).db), actor, a.pageId, Date.now(), a.linkToken));
+    const db = convexDb((ctx as GenericMutationCtx<GenericDataModel>).db);
+    // Into the workspace the person has open.
+    return guard(async () => duplicateShared(db, actor, a.pageId, Date.now(), a.linkToken, await resolveOwner(db, actor.id, a.ws)));
   },
 });
 

@@ -324,7 +324,7 @@ function useDuplicateSharedCloud() {
   return useCallback(
     async (pageId: string, linkToken: string | null) => {
       try {
-        return (await convex.mutation(anyApi.sharing.duplicate, { pageId, linkToken })) as { id: string; title: string; copied: number };
+        return (await convex.mutation(anyApi.sharing.duplicate, { pageId, linkToken, ...wsArgs() })) as { id: string; title: string; copied: number };
       } catch (err) {
         throw toOpError(err);
       }
@@ -335,7 +335,7 @@ function useDuplicateSharedCloud() {
 
 function useDuplicateSharedLocal() {
   return useCallback(async (pageId: string, linkToken: string | null) => {
-    const result = (await postSharing({ fn: "duplicate", pageId, linkToken })) as { id: string; title: string; copied: number };
+    const result = (await postSharing({ fn: "duplicate", pageId, linkToken, ...wsArgs() })) as { id: string; title: string; copied: number };
     await invalidateLocal();
     return result;
   }, []);

@@ -22,6 +22,7 @@ const emptyState = (): State => ({
   sites: new Map(),
   reports: new Map(),
   moderation: new Map(),
+  usernames: new Map(),
 });
 
 let counter = 0;

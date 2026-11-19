@@ -90,12 +90,12 @@ function SiteFrame({ data, pageId, hrefFor, nav }: { data: SiteNav; pageId: stri
             <PageIcon icon={site.icon} kind="page" size={22} />
             <span className="truncate text-[16px] font-semibold tracking-tight">{site.name}</span>
           </Link>
-          <div className="ms-auto flex items-center gap-1">
+          <div className="ms-auto flex items-center gap-2">
             {site.search && (
-              <button type="button" onClick={() => setSearching(true)} className="flex h-9 items-center gap-2 rounded-full px-3 text-[13.5px] text-fg-2 shadow-[0_0_0_1px_var(--line)] hover:bg-hover hover:text-fg max-sm:size-9 max-sm:justify-center max-sm:px-0" aria-label="Search this site">
-                <Search className="size-4" />
+              <button type="button" onClick={() => setSearching(true)} className="site-search-btn" aria-label="Search this site">
+                <Search className="size-4" aria-hidden />
                 <span className="max-sm:hidden">Search</span>
-                <kbd className="ms-2 font-sans text-[11px] text-fg-3 max-sm:hidden">⌘K</kbd>
+                <kbd className="ms-3 font-sans text-[11px] text-fg-3 max-sm:hidden">⌘K</kbd>
               </button>
             )}
             <ThemeToggle />
@@ -141,7 +141,7 @@ function SiteFrame({ data, pageId, hrefFor, nav }: { data: SiteNav; pageId: stri
           )}
         </main>
       </div>
-      {searching && <SiteSearch slug={site.slug} hrefFor={hrefFor} onClose={() => setSearching(false)} />}
+      {searching && <SiteSearch slug={site.slug} hrefFor={hrefFor} onClose={() => setSearching(false)} pages={order.out} />}
       {reporting && <ReportDialog open={reporting} onOpenChange={setReporting} defaultKind="content" context={{ siteSlug: site.slug, pageId }} />}
     </div>
   );
@@ -248,39 +248,77 @@ function SitePage({ pageId, siteName, hrefFor }: { pageId: string; siteName: str
   );
 }
 
-function SiteSearch({ slug, hrefFor, onClose }: { slug: string; hrefFor: (id: string, title: string) => string; onClose: () => void }) {
+/** Highlights where the query appears. */
+function Mark({ text, q }: { text: string; q: string }) {
+  const at = q.length >= 2 ? text.toLowerCase().indexOf(q.toLowerCase()) : -1;
+  if (at < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark className="rounded-[3px] bg-[color-mix(in_oklch,var(--accent)_22%,transparent)] px-px text-inherit">{text.slice(at, at + q.length)}</mark>
+      {text.slice(at + q.length)}
+    </>
+  );
+}
+
+/** Search the site: every page to browse before typing, matches as you type, arrows and Enter to open. */
+function SiteSearch({ slug, hrefFor, onClose, pages }: { slug: string; hrefFor: (id: string, title: string) => string; onClose: () => void; pages: NavItem[] }) {
   const search = useSiteSearch();
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<{ _id: string; title: string; icon: string | null; excerpt: string }[]>([]);
+  const [found, setFound] = useState<{ _id: string; title: string; icon: string | null; excerpt: string }[]>([]);
+  const [at, setAt] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
   useEffect(() => {
-    if (q.trim().length < 2) return setResults([]);
+    setAt(0);
+    if (q.trim().length < 2) return setFound([]);
     let live = true;
-    const t = setTimeout(() => void search(slug, q).then((r) => live && setResults(r.results)).catch(() => undefined), 160);
+    const t = setTimeout(() => void search(slug, q.trim()).then((r) => live && setFound(r.results)).catch(() => undefined), 140);
     return () => {
       live = false;
       clearTimeout(t);
     };
   }, [q, slug, search]);
+  const typing = q.trim().length >= 2;
+  const results = typing ? found : pages.slice(0, 30).map((p) => ({ _id: p._id, title: p.title, icon: p.icon, excerpt: "" }));
+  const open = (r: { _id: string; title: string }) => (router.push(hrefFor(r._id, r.title)), onClose());
   return (
-    <div className="fixed inset-0 z-50 grid place-items-start bg-[var(--scrim)] px-4 pt-[12vh]" onClick={onClose} role="presentation">
-      <div role="dialog" aria-modal aria-label="Search this site" className="mx-auto w-full max-w-xl overflow-hidden rounded-2xl bg-overlay shadow-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()}>
-        <label className="flex items-center gap-2 border-b border-line px-4">
-          <Search className="size-4 text-fg-3" aria-hidden />
-          <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search pages…" aria-label="Search this site" className="h-12 min-w-0 flex-1 bg-transparent text-[15px] outline-none" />
+    <div className="site-search-scrim" onClick={onClose} role="presentation">
+      <div
+        role="dialog"
+        aria-modal
+        aria-label="Search this site"
+        className="site-search"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+          if (e.key === "ArrowDown") (e.preventDefault(), setAt((i) => Math.min(i + 1, results.length - 1)));
+          if (e.key === "ArrowUp") (e.preventDefault(), setAt((i) => Math.max(i - 1, 0)));
+          if (e.key === "Enter" && results[at]) (e.preventDefault(), open(results[at]));
+        }}
+      >
+        <label className="flex items-center gap-2.5 border-b border-line px-4">
+          <Search className="size-[18px] shrink-0 text-fg-3" aria-hidden />
+          <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search this site" aria-label="Search this site" enterKeyHint="go" className="h-14 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-fg-3" />
+          <button type="button" onClick={onClose} className="shrink-0 rounded-full px-2 py-1 text-[13px] text-fg-2 hover:bg-hover sm:hidden">
+            Cancel
+          </button>
         </label>
-        <ul className="max-h-[50vh] overflow-y-auto p-2">
-          {results.map((r) => (
-            <li key={r._id}>
-              <button type="button" className="grid w-full gap-0.5 rounded-lg px-3 py-2 text-start hover:bg-hover" onClick={() => (router.push(hrefFor(r._id, r.title)), onClose())}>
-                <span className="flex items-center gap-2 text-[14px] font-medium"><PageIcon icon={r.icon} kind="page" size={15} />{pageTitle(r.title)}</span>
-                {r.excerpt && <span className="line-clamp-2 text-[12.5px] text-fg-3">{r.excerpt}</span>}
+        <p className="px-4 pb-1 pt-3 text-[11.5px] font-medium tracking-wide text-fg-3 uppercase">{typing ? (found.length ? `${found.length} result${found.length === 1 ? "" : "s"}` : "") : "Pages"}</p>
+        <ul className="site-search-list" role="listbox" aria-label="Results">
+          {results.map((r, i) => (
+            <li key={r._id} role="option" aria-selected={i === at}>
+              <button type="button" className={cn("site-search-item", i === at && "is-active")} onMouseEnter={() => setAt(i)} onClick={() => open(r)}>
+                <PageIcon icon={r.icon} kind="page" size={16} />
+                <span className="grid min-w-0 gap-0.5">
+                  <span className="truncate text-[14.5px] font-medium text-fg"><Mark text={pageTitle(r.title)} q={q.trim()} /></span>
+                  {r.excerpt && <span className="line-clamp-2 text-[12.5px] text-fg-3"><Mark text={r.excerpt} q={q.trim()} /></span>}
+                </span>
               </button>
             </li>
           ))}
-          {q.trim().length >= 2 && !results.length && <li className="px-3 py-6 text-center text-[13px] text-fg-3">No pages match “{q}”.</li>}
+          {typing && !found.length && <li className="px-3 py-8 text-center text-[13.5px] text-fg-3">Nothing matches “{q.trim()}”.</li>}
         </ul>
       </div>
     </div>

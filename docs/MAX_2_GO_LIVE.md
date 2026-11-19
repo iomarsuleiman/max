@@ -32,6 +32,14 @@ Share → Publish on any page publishes it with everything inside it at `max.cha
 
 The workspace menu (top of the sidebar) creates extra private workspaces, each with its own pages, databases, files, sidebar and colors. They're stored on the account's settings row and in their own data namespace, so `npx convex deploy` is all they need. Suspending or banning an account covers all of its workspaces.
 
+## Usernames and invite links
+
+Everyone gets a username from their name at sign-in (omar, then omar2…), changeable in Settings → My account. `max.chaos.fail/<username>` is their invitation: their card, "Omar invited you", and a preview image naming them. Shared page links preview as the page (title and who shared it). Nothing to configure; `npx convex deploy` adds the `usernames` table.
+
+## Assistants (MCP and WebMCP)
+
+One token reaches all of a person's workspaces: tools take an optional `workspace` (id or name), and `workspaces_list` lists them. In browsers that support WebMCP (`navigator.modelContext`), Max also offers its tools to the browser's agent while the app is open: search, open, read, create pages, switch workspaces, and run any operation, as the signed-in person.
+
 ## The note on the back of membership cards
 
 New members who weren't invited get a handwritten note from Max's maker. Write it in your own words, and sign it, in `lib/welcomeNote.ts`.

@@ -71,7 +71,7 @@ export function SettingsDialog() {
         >
           <D.Title className="sr-only">Settings</D.Title>
           <D.Close asChild><IconButton label="Close settings" size="md" className="absolute end-2 top-2 z-10 bg-overlay md:hidden"><X className="size-5" /></IconButton></D.Close>
-          <nav aria-label="Settings sections" className="max-space flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto px-2 py-3 max-md:w-full max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-line max-md:py-2 max-md:pe-14">
+          <nav aria-label="Settings sections" className="max-space flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto px-2 py-3 max-md:w-[calc(100%-3.25rem)] max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:py-2">
             <SettingsSearch value={query} onChange={setQuery} />
             {(["Account", "Workspace"] as const).map((g) => (
               <div key={g} className="contents">
@@ -91,7 +91,7 @@ export function SettingsDialog() {
               </div>
             ))}
           </nav>
-          <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto px-12 py-9 max-md:px-5 max-md:py-6">
+          <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto px-12 py-9 max-md:border-t max-md:border-line max-md:px-5 max-md:py-6">
             <D.Close asChild>
               <IconButton label="Close settings" size="md" className="absolute end-3 top-3 max-md:hidden">
                 <X className="size-4" />
@@ -198,6 +198,7 @@ function AccountSection() {
           <Avatar name={s?.displayName || id.name} url={id.imageUrl} size={56} />
           <span className="text-sm font-medium">{s?.displayName || s?.profileCard?.name || id.name}</span>
         </div>
+        <UsernameRow />
         {id.email && (
           <SettingRow title="Email" description={id.email}>
             {id.manageAccount && <Button size="sm" onClick={id.manageAccount}>Manage account</Button>}
@@ -453,8 +454,8 @@ interface AuditEvent { _id: string; op: string; ok: boolean; code: string | null
 function Copyable({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="flex items-center gap-2">
-      <code className="min-w-0 flex-1 truncate rounded-md bg-surface-2 px-3 py-2 font-mono text-[12.5px]" dir="ltr">{value}</code>
+    <div className="flex w-full min-w-0 items-center gap-2">
+      <code className="min-w-0 flex-1 truncate rounded-md bg-surface-2 px-3 py-2 font-mono text-[12.5px]" dir="ltr" title={value}>{value.replace(/^https?:\/\//, "")}</code>
       <Button
         size="sm"
         icon={copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
@@ -833,9 +834,48 @@ function NameField() {
 }
 
 /** Your note for the people you invite, and the link that invites them. */
+/** Your username: max.chaos.fail/<username> is your invite link. */
+function UsernameRow() {
+  const ws = useWorkspace();
+  const q = useOp<{ username: string | null }>("account.username", {});
+  const current = q.data?.username ?? "";
+  const [value, setValue] = useState(current);
+  useEffect(() => setValue(current), [current]);
+  const host = (typeof window === "undefined" ? APP_URL : window.location.origin).replace(/^https?:\/\//, "");
+  const save = async () => {
+    const next = value.trim().toLowerCase();
+    if (!next || next === current) return setValue(current);
+    try {
+      await ws.call("account.setUsername", { username: next });
+      toast.success(`You're ${host}/${next}`, { duration: 2000 });
+    } catch (err) {
+      notifyError(err, "Couldn't change your username.");
+      setValue(current);
+    }
+  };
+  return (
+    <SettingRow title="Username" description="Your invite link. Letters, numbers, dots and underscores.">
+      <label className="flex h-8 items-center rounded-md bg-overlay ps-2.5 text-[13px] shadow-[0_0_0_1px_var(--line)] focus-within:shadow-[0_0_0_1px_var(--accent)]" dir="ltr">
+        <span className="text-fg-3">{host}/</span>
+        <input
+          aria-label="Username"
+          value={value}
+          maxLength={20}
+          spellCheck={false}
+          autoCapitalize="none"
+          onChange={(e) => setValue(e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ""))}
+          onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
+          onBlur={() => void save()}
+          className="h-full w-32 bg-transparent pe-2.5 text-fg outline-none"
+        />
+      </label>
+    </SettingRow>
+  );
+}
+
 function InviteFriends() {
   const { s, ws } = useSettings();
-  const info = useOp<{ memberNumber: number | null }>("profileCard.get", {});
+  const info = useOp<{ memberNumber: number | null; username: string | null }>("profileCard.get", {});
   const current = s?.inviteNote ?? "";
   const [note, setNote] = useState(current);
   useEffect(() => setNote(current), [current]);
@@ -866,10 +906,10 @@ function InviteFriends() {
         />
         <p className="text-[12.5px] text-fg-3">It&apos;s handwritten on the back of their card when they join through your link. Start with {"{name}"} to greet them by name. Leave it empty to send Max&apos;s note, signed by you.</p>
       </div>
-      {info.data?.memberNumber && (
-        <div className="grid gap-1.5 py-3">
+      {(info.data?.username || info.data?.memberNumber) && (
+        <div className="grid min-w-0 gap-1.5 py-3">
           <p className="text-[13.5px] font-medium text-fg">Your invite link</p>
-          <Copyable value={`${origin}/join?from=${info.data.memberNumber}`} label="invite link" />
+          <Copyable value={info.data.username ? `${origin}/${info.data.username}` : `${origin}/join?from=${info.data.memberNumber}`} label="invite link" />
         </div>
       )}
     </>

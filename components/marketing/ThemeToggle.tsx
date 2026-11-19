@@ -3,7 +3,10 @@ import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 const subscribe = () => () => {};
-/** Public pages share the persisted theme and follow the OS initially. */
+/**
+ * Light / dark for public pages and sites: a small pill with a knob that slides between a sun
+ * and a moon. Shares the saved theme and follows the device at first.
+ */
 export function ThemeToggle() {
   const mounted = useSyncExternalStore(
     subscribe,
@@ -14,14 +17,10 @@ export function ThemeToggle() {
   const dark = mounted && resolvedTheme === "dark";
   const label = dark ? "Switch to light mode" : "Switch to dark mode";
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={() => setTheme(dark ? "light" : "dark")}
-      className="joy-press text-fg-2 hover:bg-hover hover:text-fg focus-visible:outline-accent grid size-9 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
-    >
-      {dark ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
+    <button type="button" aria-label={label} title={label} aria-pressed={dark} onClick={() => setTheme(dark ? "light" : "dark")} className="theme-switch" data-dark={dark || undefined}>
+      <Sun className="theme-switch-icon theme-switch-sun" aria-hidden />
+      <Moon className="theme-switch-icon theme-switch-moon" aria-hidden />
+      <span className="theme-switch-knob" aria-hidden />
     </button>
   );
 }

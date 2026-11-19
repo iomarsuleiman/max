@@ -8,15 +8,15 @@ import { sha256 } from "@/lib/domain/ops/helpers";
 import { localModeAllowed, resolveLocalToken, runLocal } from "./local";
 
 /** Runs an operation for an already-authenticated account from server code (the MCP endpoint). */
-export async function runForOwner(ownerId: string, op: string, args: unknown): Promise<unknown> {
+export async function runForOwner(ownerId: string, op: string, args: unknown, workspace?: string | null): Promise<unknown> {
   const def = registry.get(op);
   if (!def) throw new MaxError("NOT_FOUND", `Unknown operation "${op}".`);
   if (!CLOUD) {
     if (!localModeAllowed()) throw new MaxError("INTERNAL", "Max isn't configured on this server yet.");
-    return runLocal(op, args, "mcp", ownerId);
+    return runLocal(op, args, "mcp", ownerId, undefined, workspace ?? undefined);
   }
   const client = new ConvexHttpClient(CONVEX_URL);
-  const payload = { secret: serverSecret(), ownerId, op, args: args ?? {} };
+  const payload = { secret: serverSecret(), ownerId, op, args: args ?? {}, ...(workspace ? { ws: workspace } : {}) };
   try {
     return def.kind === "query" ? await client.query(anyApi.ops.serverQuery, payload) : await client.mutation(anyApi.ops.serverMutation, payload);
   } catch (err) {

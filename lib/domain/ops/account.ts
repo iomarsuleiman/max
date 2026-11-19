@@ -29,6 +29,7 @@ import {
 } from "./helpers";
 import { insertDocument } from "./pages";
 import { accountOf, ownerFor, workspaceOf } from "../workspaces";
+import { ensureUsername, setUsername, usernameOf } from "../usernames";
 import { recordsCreate } from "./databases";
 import { defaultView, shortId, TITLE_PROPERTY_ID } from "./databaseDefaults";
 
@@ -165,6 +166,7 @@ export const accountInit = defineOp({
     // Remember the sign-in email (once) so admins can recognise accounts.
     if (existing?.onboarded) {
       if (email && !existing.email) await upsertSettings(ctx, { email });
+      await ensureUsername(ctx.db, ctx.ownerId, { name: existing.displayName ?? displayName, email: existing.email ?? email }, ctx.now);
       return { created: false };
     }
     // Joined through someone's invite link (their member number): remember who, for the card's note.
@@ -177,7 +179,30 @@ export const accountInit = defineOp({
       await insertDocument(ctx, welcomeId, markdownToBlocks(WELCOME));
     }
     await upsertSettings(ctx, { onboarded: true, ...(email ? { email } : {}), ...(displayName && !existing?.displayName ? { displayName } : {}), ...(inviter && inviter !== accountOf(ctx.ownerId) && !existing?.invitedBy ? { invitedBy: inviter } : {}) });
+    await ensureUsername(ctx.db, ctx.ownerId, { name: displayName, email }, ctx.now);
     return { created: true, welcomeId };
+  },
+});
+
+export const accountUsername = defineOp({
+  name: "account.username",
+  kind: "query",
+  title: "My username",
+  description: "Returns your username. Your invite link is max.chaos.fail/<username>.",
+  input: z.object({}),
+  async run(ctx) {
+    return { username: await usernameOf(ctx.db, ctx.ownerId) };
+  },
+});
+
+export const accountSetUsername = defineOp({
+  name: "account.setUsername",
+  kind: "mutation",
+  title: "Change my username",
+  description: "Changes your username (3–20 lowercase letters, numbers, dots or underscores). Your invite link becomes max.chaos.fail/<username>; the old one stops working.",
+  input: z.object({ username: z.string().trim().min(3).max(21) }),
+  async run(ctx, { username }) {
+    return { username: await setUsername(ctx.db, ctx.ownerId, username, ctx.now) };
   },
 });
 
@@ -232,7 +257,7 @@ export const accountDeleteAllData = defineOp({
       const row = (await ctx.db.list("settings", ctx.ownerId))[0];
       for (const w of row?.workspaces ?? []) removed += (await accountDeleteAllData.run({ ...ctx, ownerId: ownerFor(ctx.ownerId, w.id) }, { confirm: true })).removed;
     }
-    for (const table of ["documents", "versions", "comments", "shares", "shareLinks", "presence", "collabUpdates", "collabAwareness", "collabRooms", "sites", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
+    for (const table of ["documents", "versions", "comments", "shares", "shareLinks", "presence", "collabUpdates", "collabAwareness", "collabRooms", "sites", "pages", "settings", "tokens", "audit", "idempotency", "usernames"] as const) {
       for (const row of await ctx.db.list(table, ctx.ownerId)) {
         await ctx.db.delete(table, row._id);
         removed++;
@@ -257,7 +282,8 @@ export const tokensList = defineOp({
   description: "Personal access tokens for connecting assistants. The secret itself is never shown again.",
   input: z.object({}),
   async run(ctx) {
-    const rows = await ctx.db.list("tokens", ctx.ownerId);
+    // Tokens belong to the account (they reach every workspace), wherever they were made.
+    const rows = await ctx.db.list("tokens", accountOf(ctx.ownerId));
     return { tokens: rows.filter((t) => !t.revokedAt).sort((a, b) => b.createdAt - a.createdAt).map(({ hash: _hash, ...t }) => t) };
   },
 });
@@ -270,10 +296,10 @@ export const tokensCreate = defineOp({
   description: "Creates a personal access token. The secret is returned once.",
   input: z.object({ name: z.string().min(1).max(60) }),
   async run(ctx, { name }) {
-    const live = (await ctx.db.list("tokens", ctx.ownerId)).filter((t) => !t.revokedAt);
+    const live = (await ctx.db.list("tokens", accountOf(ctx.ownerId))).filter((t) => !t.revokedAt);
     if (live.length >= LIMITS.tokens) throw new MaxError("LIMIT", `You can have up to ${LIMITS.tokens} tokens. Revoke one you no longer use.`);
     const secret = `max_${await randomToken(32)}`;
-    const row = { ownerId: ctx.ownerId, name: name.trim(), hash: await sha256(secret), prefix: secret.slice(0, 8), createdAt: ctx.now, lastUsedAt: null, revokedAt: null };
+    const row = { ownerId: accountOf(ctx.ownerId), name: name.trim(), hash: await sha256(secret), prefix: secret.slice(0, 8), createdAt: ctx.now, lastUsedAt: null, revokedAt: null };
     const tokenId = await ctx.db.insert("tokens", row);
     return { token: { _id: tokenId, name: row.name, prefix: row.prefix, createdAt: row.createdAt }, secret };
   },
@@ -288,7 +314,7 @@ export const tokensRevoke = defineOp({
   input: z.object({ id }),
   async run(ctx, { id: tokenId }) {
     const row = await ctx.db.get("tokens", tokenId);
-    if (!row || row.ownerId !== ctx.ownerId) throw new MaxError("NOT_FOUND", "That token doesn't exist.");
+    if (!row || row.ownerId !== accountOf(ctx.ownerId)) throw new MaxError("NOT_FOUND", "That token doesn't exist.");
     await ctx.db.patch("tokens", tokenId, { revokedAt: ctx.now });
     return { revoked: true };
   },

@@ -308,14 +308,16 @@ export async function present(db: Db, callerId: string, pageId: string, now: num
  * top-level page, like Notion's "Duplicate" on shared and published pages. Links between the copied
  * pages point at the copies; files stay where they are and are referenced, never deleted by you.
  */
-export async function duplicateShared(db: Db, actor: Actor, pageId: string, now: number, linkToken?: string | null) {
+/** Copies a shared page (and its sub-pages) into `target`: the workspace the person has open (default: their main one). */
+export async function duplicateShared(db: Db, actor: Actor, pageId: string, now: number, linkToken?: string | null, target: string = actor.id) {
+  if (accountOf(target) !== actor.id) throw new MaxError("FORBIDDEN", "You can only copy into your own workspaces.");
   if (actor.id === ANONYMOUS) throw new MaxError("UNAUTHENTICATED", "Sign in to Max to duplicate this page into your workspace.");
   const access = await resolveAccess(db, actor.id, pageId, linkToken);
   if (access.level === "owner") throw new MaxError("VALIDATION", "This page is already yours. Use Duplicate in its ⋯ menu.");
   const source = access.page;
   const ownerPages = await db.list("pages", access.ownerId);
   const subtree = descendants(ownerPages, pageId).filter((p) => !p.archivedAt);
-  const mine = await db.list("pages", actor.id);
+  const mine = await db.list("pages", target);
   if (mine.length + subtree.length + 1 > LIMITS.pagesPerAccount) throw new MaxError("LIMIT", "Duplicating this would go past your page limit.");
   const lastTop = mine.filter((p) => !p.parentId && !p.databaseId && !p.archivedAt && !p.isTemplate).sort((a, b) => compareRank(a.rank, b.rank)).at(-1);
   const idMap = new Map<string, string>();
@@ -324,7 +326,7 @@ export async function duplicateShared(db: Db, actor: Actor, pageId: string, now:
     const { _id, ...rest } = from;
     const to = await db.insert("pages", {
       ...rest,
-      ownerId: actor.id,
+      ownerId: target,
       favoriteRank: null,
       lastOpenedAt: null,
       archivedAt: null,
@@ -360,7 +362,7 @@ export async function duplicateShared(db: Db, actor: Actor, pageId: string, now:
         const asset = await db.get("assets", assetId);
         if (!asset || asset.ownerId !== access.ownerId) continue;
         const { _id, ...rest } = asset;
-        next = await db.insert("assets", { ...rest, ownerId: actor.id, pageId: rest.pageId ? (idMap.get(rest.pageId) ?? null) : null, borrowed: true, createdAt: now });
+        next = await db.insert("assets", { ...rest, ownerId: target, pageId: rest.pageId ? (idMap.get(rest.pageId) ?? null) : null, borrowed: true, createdAt: now });
         borrowed.set(assetId, next);
       }
       out = out.split(m).join(`max-asset://${next}`);
@@ -371,7 +373,7 @@ export async function duplicateShared(db: Db, actor: Actor, pageId: string, now:
     const doc = (await db.list("documents", access.ownerId, { field: "pageId", value: from._id }))[0];
     if (doc) {
       const { _id, ...rest } = doc;
-      await db.insert("documents", { ...rest, ownerId: actor.id, pageId: to, content: await borrow(remap(rest.content)), revision: 1, updatedAt: now });
+      await db.insert("documents", { ...rest, ownerId: target, pageId: to, content: await borrow(remap(rest.content)), revision: 1, updatedAt: now });
     }
     const patch: Partial<PageRow> = {};
     if (from.values) patch.values = JSON.parse(remap(JSON.stringify(from.values)));
@@ -389,4 +391,20 @@ export async function leaveShare(db: Db, actor: Actor, pageId: string) {
   if (!mine.length) throw new MaxError("NOT_FOUND", "You aren't a member of this page.");
   for (const s of mine) await db.delete("shares", s._id);
   return { left: true };
+}
+
+/**
+ * What a shared link shows in a link preview (chat apps, social sites): the page's title and
+ * icon and who shared it. Only for a valid link that covers the page; nothing else is revealed.
+ */
+export async function linkPreview(db: Db, token: string, pageId: string): Promise<{ title: string; icon: string | null; from: string | null; public: boolean; teamspace: boolean } | null> {
+  if (!/^[a-f0-9]{16,64}$/.test(token) || !pageId) return null;
+  const link = (await db.findBy("shareLinks", "token", token))[0];
+  if (!link) return null;
+  const page = await db.get("pages", pageId).catch(() => null);
+  if (!page || page.archivedAt || page.ownerId !== link.ownerId) return null;
+  if (!(await chain(db, page)).some((p) => p._id === link.pageId)) return null;
+  if ((await db.list("moderation", accountOf(link.ownerId))).some((m) => m.status === "banned")) return null;
+  const owner = (await db.list("settings", accountOf(link.ownerId)))[0];
+  return { title: page.title?.trim() || "Untitled", icon: page.icon ?? null, from: owner?.displayName?.trim() || null, public: !!link.public, teamspace: !!page.teamspace };
 }
