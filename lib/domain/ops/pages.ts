@@ -20,6 +20,7 @@ import {
   templateMembers,
   treeChildren,
   upsertSettings,
+  getSettingsRow,
 } from "./helpers";
 import type { OpContext } from "./define";
 import { clearRoom, findRoom } from "../collabRoom";
@@ -156,7 +157,7 @@ export const pagesCreate = defineOp({
       if (depthOf(pages, parentId) >= LIMITS.depth) throw new MaxError("LIMIT", `Pages can be nested up to ${LIMITS.depth} levels deep.`);
     }
     const siblings = treeChildren(pages, parentId);
-    const settings = (await ctx.db.list("settings", ctx.ownerId))[0];
+    const settings = await getSettingsRow(ctx);
     const row = newPageRow(ctx, {
       parentId,
       kind: input.kind ?? "page",

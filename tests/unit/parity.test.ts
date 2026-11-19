@@ -31,7 +31,8 @@ describe("UI ↔ MCP parity", () => {
 
   it("every UI operation is exposed to MCP clients, except credential and account management", () => {
     const uiOnly = [...used].filter((op) => registry.get(op)?.uiOnly).sort();
-    expect(uiOnly).toEqual(["account.deleteAllData", "audit.list", "tokens.create", "tokens.list", "tokens.revoke"]);
+    // Workspace management stays in the app: an assistant works inside the workspace its token belongs to.
+    expect(uiOnly).toEqual(["account.deleteAllData", "audit.list", "tokens.create", "tokens.list", "tokens.revoke", "workspaces.create", "workspaces.delete", "workspaces.list", "workspaces.update"]);
   });
 
   it("every operation has a description and input schema; destructive ones require confirm", () => {

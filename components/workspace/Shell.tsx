@@ -13,6 +13,7 @@ import { cardPalette } from "@/lib/domain/profileCard";
 import { setDatePrefs } from "@/lib/client/datePrefs";
 import { applySpace, clearSpace } from "@/lib/client/space";
 import { BannedScreen, SuspendedBanner, useStanding } from "@/components/admin/Standing";
+import { SpacePanel } from "@/components/settings/SpacePanel";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
@@ -214,7 +215,7 @@ function Frame({ children }: { children: ReactNode }) {
           </D.Content>
         </D.Portal>
       </D.Root>
-      <main id="main" className="max-panel relative flex min-w-0 flex-1 flex-col" data-alone={!ws.sidebarOpen || undefined}>
+      <main id="main" className="max-panel relative flex min-w-0 flex-1 flex-col" data-alone={!ws.sidebarOpen || undefined} data-frame={ws.settings?.frame === "full" ? "full" : undefined}>
         <OfflineNotice />
         {standing?.status === "suspended" && <SuspendedBanner standing={standing} />}
         {children}
@@ -222,6 +223,7 @@ function Frame({ children }: { children: ReactNode }) {
       {!preview && <SearchDialog />}
       {!preview && <ProfileCardInvitation />}
       {!preview && <LazyDialogs />}
+      {!preview && <SpacePanel />}
     </div>
   );
 }

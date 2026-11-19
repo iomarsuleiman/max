@@ -151,14 +151,19 @@ export function profileCardBackSvg(input: ProfileCard, note: { text: string; fro
   const palette = palettes[card.theme];
   const id = prefix.replace(/[^a-zA-Z0-9_-]/g, "");
   const date = card.createdAt === undefined ? "" : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(card.createdAt);
+  // The front's own artwork, washed out behind the note, so both sides belong to the same card.
+  const { defs: artDefs, art } = artwork(card.shape, card.pattern === "plain", palette, `${id}-w`);
   const lines = noteLines(note.text);
   const first = lines[0] ?? "";
   const rest = lines.slice(1);
   const signY = 118 + rest.length * 27 + 22;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}" role="img" aria-labelledby="${id}-back-title">
     <title id="${id}-back-title">A handwritten note from ${escapeXml(note.from)}: ${escapeXml(note.text.replace(/\n/g, " "))}</title>
+    <defs>${artDefs}<clipPath id="${id}-wash"><rect x=".5" y=".5" width="${CARD_WIDTH - 1}" height="${CARD_HEIGHT - 1}" rx="18"/></clipPath></defs>
     <g>
-      <rect x=".5" y=".5" width="${CARD_WIDTH - 1}" height="${CARD_HEIGHT - 1}" rx="18" fill="${PAPER}" stroke="${palette.ink}" stroke-opacity=".18"/>
+      <rect x=".5" y=".5" width="${CARD_WIDTH - 1}" height="${CARD_HEIGHT - 1}" rx="18" fill="${PAPER}"/>
+      <g clip-path="url(#${id}-wash)" opacity=".26"><g transform="scale(${CARD_WIDTH / 312} ${CARD_HEIGHT / 274}) translate(-24 -24)">${art}</g></g>
+      <rect x=".5" y=".5" width="${CARD_WIDTH - 1}" height="${CARD_HEIGHT - 1}" rx="18" fill="none" stroke="${palette.ink}" stroke-opacity=".18"/>
       <path d="${MARK_PATH}" transform="translate(26 332) scale(.26)" fill="${palette.ink}" opacity=".5"/>
       <g ${HAND} fill="${NOTE_INK}">
         ${date ? `<text class="card-hand" x="262" y="52" text-anchor="end" font-size="17">${escapeXml(date)}</text>` : ""}

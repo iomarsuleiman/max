@@ -14,9 +14,11 @@ import * as graph from "./graph";
 import * as profileCard from "./profileCard";
 import * as shares from "./shares";
 import * as sites from "./sites";
+import * as workspaces from "./workspaces";
+import { accountOf } from "../workspaces";
 
 const all: OpDef[] = [];
-for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares, sites]) {
+for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares, sites, workspaces]) {
   for (const value of Object.values(mod)) {
     if (value && typeof value === "object" && "name" in value && "run" in value && "input" in value) all.push(value as OpDef);
   }
@@ -78,12 +80,13 @@ function targetOf(args: unknown): string | null {
  * Applies to whoever is acting (and to the owner of the workspace being acted on).
  */
 async function assertInGoodStanding(ctx: OpContext, kind: "query" | "mutation") {
-  const ids = new Set([ctx.ownerId, ctx.actor?.id].filter((x): x is string => !!x && x !== "anon"));
+  // Moderation is per account, so it covers every one of its workspaces.
+  const ids = new Set([ctx.ownerId, ctx.actor?.id].filter((x): x is string => !!x && x !== "anon").map(accountOf));
   for (const id of ids) {
     const m = (await ctx.db.list("moderation", id))[0];
     if (!m) continue;
-    if (m.status === "banned") throw new MaxError("FORBIDDEN", id === (ctx.actor?.id ?? ctx.ownerId) ? "This account has been banned from Max." : "This workspace is no longer available.");
-    if (kind === "mutation") throw new MaxError("FORBIDDEN", id === (ctx.actor?.id ?? ctx.ownerId) ? "This account is suspended: you can read your pages but not change them. Contact support if you think this is a mistake." : "This workspace is read-only right now.");
+    if (m.status === "banned") throw new MaxError("FORBIDDEN", id === accountOf(ctx.actor?.id ?? ctx.ownerId) ? "This account has been banned from Max." : "This workspace is no longer available.");
+    if (kind === "mutation") throw new MaxError("FORBIDDEN", id === accountOf(ctx.actor?.id ?? ctx.ownerId) ? "This account is suspended: you can read your pages but not change them. Contact support if you think this is a mistake." : "This workspace is read-only right now.");
   }
 }
 

@@ -15,8 +15,10 @@ test("the membership card lives in About: number, note on the back, artwork as i
   await expect(preview).toContainText("عمر Omar");
   await expect(preview).toContainText(/NO\. \d{6}/);
   await expect(settings.getByText(/^No\. \d/)).toBeVisible();
-  // No hints or labels around the card: it explains itself.
+  // No hints around the card, just who welcomed you, and Download / Share.
   await expect(settings.getByText(/Hover the card|Read the note/)).toHaveCount(0);
+  await expect(settings.getByText(/^from The Max team/)).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Share", exact: true })).toBeVisible();
 
   // Hovering turns it over to the handwritten note (no QR, no invitation text).
   await preview.hover();
@@ -42,7 +44,7 @@ test("the membership card lives in About: number, note on the back, artwork as i
   await expect(settings.getByText(/\/join\?from=\d+/)).toBeVisible();
 
   const download = page.waitForEvent("download");
-  await settings.getByRole("button", { name: "Download PNG", exact: true }).click();
+  await settings.getByRole("button", { name: "Download", exact: true }).click();
   const file = await download;
   expect(file.suggestedFilename()).toBe("max-workspace-card.png");
   const { readFile } = await import("node:fs/promises");

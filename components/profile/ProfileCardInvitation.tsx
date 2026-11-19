@@ -35,7 +35,7 @@ export function ProfileCardInvitation() {
       className="border-line-strong bg-overlay shadow-dialog fixed end-4 bottom-4 z-40 w-[min(340px,calc(100vw-32px))] rounded-2xl border p-5"
     >
       <p className="text-sm font-semibold">A little card. All you.</p>
-      <p className="text-fg-2 mt-1 text-[13px] leading-relaxed">Give your card a name, change its artwork, and keep a copy for yourself.</p>
+      <p className="text-fg-2 mt-1 text-[13px] leading-relaxed">Your own membership card, with a note on the back. Keep a copy or share it.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button size="sm" variant="primary" onClick={() => ws.openSettings("about")}>
           Create my card

@@ -24,13 +24,13 @@ Separate several with commas. In local mode, whoever runs the server is the admi
 
 ## Websites from pages
 
-"Publish as a site…" in a page's ⋯ menu publishes the page and everything inside it at `/site/<address>`. For `<address>.max.chaos.fail` too, add the wildcard domain `*.max.chaos.fail` to the Vercel project (Settings → Domains, with the DNS record Vercel shows), then set:
+Share → Publish on any page publishes it with everything inside it at `max.chaos.fail/site/<address>`. Nothing to set up.
 
-```bash
-npx vercel env add SITES_DOMAIN production
-```
+(Optional, later: for `<address>.max.chaos.fail`, add the wildcard domain `*.max.chaos.fail` in Vercel and set `SITES_DOMAIN=max.chaos.fail`.)
 
-Enter `max.chaos.fail` when prompted, then redeploy.
+## Personal workspaces
+
+The workspace menu (top of the sidebar) creates extra private workspaces, each with its own pages, databases, files, sidebar and colors. They're stored on the account's settings row and in their own data namespace, so `npx convex deploy` is all they need. Suspending or banning an account covers all of its workspaces.
 
 ## The note on the back of membership cards
 

@@ -5,17 +5,15 @@ const heroFont = Fraunces({ subsets: ["latin"], display: "swap", weight: ["600"]
 import { CLOUD } from "@/lib/config";
 import { PlayfulLogo } from "@/components/brand/PlayfulLogo";
 import { MadeForYourMind } from "./MadeForYourMind";
-import { SiteHeader } from "./SiteHeader";
 import { Anywhere } from "./Anywhere";
 import { Together } from "./Together";
 
-/** The landing follows the OS palette independently of saved workspace preferences. */
+/** The landing follows the OS palette independently of saved workspace preferences. No navbar here: the hero is the way in. */
 export function LandingContent() {
   return (
     <div className={`${heroFont.variable} landing-system paper-grain bg-canvas text-fg`}>
-      <SiteHeader />
       <main>
-        <section className="mx-auto flex min-h-[calc(100svh-64px)] max-w-5xl flex-col items-center justify-center px-6 py-20 text-center">
+        <section className="mx-auto flex min-h-svh max-w-5xl flex-col items-center justify-center px-6 py-20 text-center">
           <PlayfulLogo />
           <h1 className="landing-headline mt-4 max-w-5xl text-[64px] leading-[1.05] font-semibold tracking-[-.035em] sm:text-8xl lg:text-[104px]">
             Think together.

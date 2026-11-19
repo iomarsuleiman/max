@@ -48,7 +48,7 @@ export function Segmented<T extends string>({ value, onChange, options, label, s
   );
 }
 
-export function SettingRow({ title, description, children, htmlFor }: { title: string; description?: ReactNode; children: ReactNode; htmlFor?: string }) {
+export function SettingRow({ title, description, children, htmlFor }: { title: ReactNode; description?: ReactNode; children: ReactNode; htmlFor?: string }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3">
       <div className="min-w-0 flex-1 basis-60">

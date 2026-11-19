@@ -1,4 +1,5 @@
 import { MaxError, notFound } from "../errors";
+import { accountOf, workspaceOf, WORKSPACE_FIELDS } from "../workspaces";
 import { compareRank, rankBetween } from "../rank";
 import type { PageRow, SettingsRow, SidebarSectionId } from "../types";
 import type { OpContext } from "./define";
@@ -199,21 +200,41 @@ export function defaultSettings(ownerId: string, now: number): Omit<SettingsRow,
   };
 }
 
+/**
+ * Your settings. In an extra workspace, the account's settings come with that workspace's own
+ * sidebar and space settings on top (see lib/domain/workspaces.ts).
+ */
 export async function getSettingsRow(ctx: OpContext): Promise<SettingsRow | null> {
-  const rows = await ctx.db.list("settings", ctx.ownerId);
-  return rows[0] ?? null;
+  const row = (await ctx.db.list("settings", accountOf(ctx.ownerId)))[0] ?? null;
+  const ws = workspaceOf(ctx.ownerId);
+  if (!ws || !row) return row;
+  const defaults = defaultSettings(ctx.ownerId, ctx.now) as Partial<SettingsRow>;
+  const base = Object.fromEntries(WORKSPACE_FIELDS.map((f) => [f, defaults[f] ?? null]));
+  const prefs = row.workspaces?.find((w) => w.id === ws)?.prefs ?? {};
+  return { ...row, ...base, ...prefs };
 }
 
 export async function upsertSettings(ctx: OpContext, patch: Partial<Omit<SettingsRow, "_id" | "ownerId">>): Promise<SettingsRow> {
-  const existing = await getSettingsRow(ctx);
-  if (existing) {
-    patch = { ...patch, joinedAt: existing.joinedAt };
-    await ctx.db.patch("settings", existing._id, { ...patch, updatedAt: ctx.now });
-    return { ...existing, ...patch, updatedAt: ctx.now };
+  const account = accountOf(ctx.ownerId);
+  const ws = workspaceOf(ctx.ownerId);
+  let existing = (await ctx.db.list("settings", account))[0] ?? null;
+  if (!existing) {
+    const row = { ...defaultSettings(account, ctx.now), ...(ws ? {} : patch) };
+    const _id = await ctx.db.insert("settings", row);
+    existing = { _id, ...row } as SettingsRow;
+    if (!ws) return existing;
   }
-  const row = { ...defaultSettings(ctx.ownerId, ctx.now), ...patch };
-  const _id = await ctx.db.insert("settings", row);
-  return { _id, ...row };
+  if (ws) {
+    // Workspace fields go to this workspace; the rest to the account.
+    const own = Object.fromEntries(Object.entries(patch).filter(([k]) => (WORKSPACE_FIELDS as readonly string[]).includes(k)));
+    const shared = Object.fromEntries(Object.entries(patch).filter(([k]) => !(WORKSPACE_FIELDS as readonly string[]).includes(k)));
+    const workspaces = (existing.workspaces ?? []).map((w) => (w.id === ws ? { ...w, prefs: { ...w.prefs, ...own } } : w));
+    await ctx.db.patch("settings", existing._id, { ...shared, workspaces, joinedAt: existing.joinedAt, updatedAt: ctx.now });
+    return (await getSettingsRow(ctx))!;
+  }
+  patch = { ...patch, joinedAt: existing.joinedAt };
+  await ctx.db.patch("settings", existing._id, { ...patch, updatedAt: ctx.now });
+  return { ...existing, ...patch, updatedAt: ctx.now };
 }
 
 export function cleanTitle(value: string | undefined): string {

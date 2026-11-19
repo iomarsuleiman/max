@@ -1,4 +1,5 @@
 import { MaxError, notFound } from "./errors";
+import { accountOf } from "./workspaces";
 import type { Db, Storage } from "./db";
 import { execute } from "./ops";
 import type { PageRow, SiteRow } from "./types";
@@ -16,7 +17,7 @@ export async function siteBySlug(db: Db, slug: string): Promise<SiteRow> {
   const site = (await db.findBy("sites", "slug", slug.toLowerCase()))[0];
   if (!site) throw notFound("site");
   // Sites of banned accounts go offline.
-  if ((await db.list("moderation", site.ownerId)).some((m) => m.status === "banned")) throw notFound("site");
+  if ((await db.list("moderation", accountOf(site.ownerId))).some((m) => m.status === "banned")) throw notFound("site");
   return site;
 }
 

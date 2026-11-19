@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useConvex, useQueries } from "convex/react";
 import { anyApi } from "convex/server";
+import { wsArgs } from "./workspace";
 import { CLOUD } from "@/lib/config";
 import { OpError, toOpError } from "./errors";
 
@@ -59,7 +60,7 @@ async function post(op: string, args: Args, kind: "query" | "mutation", scope?: 
     ? await fetch("/api/local/sharing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fn: "public", token: scope.linkToken, scopePageId: scope.pageId, op, args }) })
     : scope
     ? await fetch("/api/local/sharing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fn: kind, scopePageId: scope.pageId, linkToken: scope.linkToken, op, args }) })
-    : await fetch("/api/local/ops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op, args, kind }) });
+    : await fetch("/api/local/ops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op, args, kind, ...wsArgs() }) });
   let body: { result?: unknown; error?: { code: string; message: string } };
   try {
     body = await res.json();
@@ -192,7 +193,7 @@ function useOpCloud<T>(op: string, args: Args | "skip"): QueryState<T> {
   const queries = useMemo(() => {
     if (argKey === "skip") return {};
     const parsed = JSON.parse(argKey);
-    if (!scopeKey) return { q: { query: anyApi.ops.query, args: { op, args: parsed } } };
+    if (!scopeKey) return { q: { query: anyApi.ops.query, args: { op, args: parsed, ...wsArgs() } } };
     const [mode, scopePageId, linkToken] = scopeKey.split(":");
     if (mode === "site") return { q: { query: anyApi.sites.read, args: { slug: scopePageId, op, args: parsed } } };
     if (mode === "web") return { q: { query: anyApi.sharing.publicQuery, args: { token: linkToken, scopePageId, op, args: parsed } } };
@@ -215,7 +216,7 @@ function useCallCloud() {
     async <T,>(op: string, args: Args = {}): Promise<T> => {
       try {
         if (scope) return (await convex.mutation(anyApi.sharing.mutation, { scopePageId: scope.pageId, linkToken: scope.linkToken, op, args })) as T;
-        return (await convex.mutation(anyApi.ops.mutation, { op, args })) as T;
+        return (await convex.mutation(anyApi.ops.mutation, { op, args, ...wsArgs() })) as T;
       } catch (err) {
         throw toOpError(err);
       }
@@ -233,7 +234,7 @@ function useReadCloud() {
         if (scope?.site) return (await convex.query(anyApi.sites.read, { slug: scope.site, op, args })) as T;
         if (scope?.anonymous) return (await convex.query(anyApi.sharing.publicQuery, { token: scope.linkToken, scopePageId: scope.pageId, op, args })) as T;
         if (scope) return (await convex.query(anyApi.sharing.query, { scopePageId: scope.pageId, linkToken: scope.linkToken, op, args })) as T;
-        return (await convex.query(anyApi.ops.query, { op, args })) as T;
+        return (await convex.query(anyApi.ops.query, { op, args, ...wsArgs() })) as T;
       } catch (err) {
         throw toOpError(err);
       }

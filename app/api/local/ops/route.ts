@@ -9,14 +9,14 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   if (CLOUD || !localModeAllowed()) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Not available." } }, { status: 404 });
   if (request.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Cross-site requests are not allowed." } }, { status: 403 });
-  let body: { op?: string; args?: unknown; kind?: "query" | "mutation" };
+  let body: { op?: string; args?: unknown; kind?: "query" | "mutation"; ws?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
   }
   try {
-    const result = await runLocal(String(body.op), body.args ?? {}, "ui", localActor(request).id, body.kind);
+    const result = await runLocal(String(body.op), body.args ?? {}, "ui", localActor(request).id, body.kind, body.ws);
     return NextResponse.json({ result: result ?? null });
   } catch (err) {
     const error = serializeError(err);

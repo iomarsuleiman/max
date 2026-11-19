@@ -6,7 +6,7 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { zipSync, strToU8 } from "fflate";
-import { ArrowDown, ArrowUp, Bot, Check, Copy, Database, Download, Globe, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Search as SearchIcon, Settings2, Trash2, Upload, User, Users, UsersRound, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, Building2, Plus, Check, Copy, Database, Download, Globe, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Search as SearchIcon, Settings2, Trash2, Upload, User, Users, UsersRound, X } from "lucide-react";
 import { DOODLE, Doodle } from "@/components/icons/Doodle";
 import { toast } from "sonner";
 import { Button, Field, IconButton, Input, Kbd, Notice, Segmented, Select, SettingRow, Skeleton, Switch, cn, confirmAction } from "@/components/ui";
@@ -25,14 +25,18 @@ import { SHORTCUTS } from "@/lib/client/shortcuts";
 import { NotionConnection } from "./NotionConnection";
 import { ProfileCardEditor } from "@/components/profile/ProfileCardEditor";
 import { INVITE_NOTE, MAX_NOTE_CHARS, writeNote } from "@/lib/welcomeNote";
-import { SpaceEditor } from "./SpaceEditor";
+import { openSpaceEditor } from "./SpacePanel";
 import { ReportDialog } from "@/components/admin/ReportDialog";
+import { NewWorkspaceDialog, WorkspaceIcon, useWorkspaces } from "@/components/workspace/Workspaces";
+import { switchWorkspace } from "@/lib/client/workspace";
+import { IconPicker } from "@/components/page/IconPicker";
 
 const NAV: { id: SettingsSection; label: string; icon: ReactNode; group: "Account" | "Workspace"; keywords: string }[] = [
   { id: "account", label: "My account", icon: <Doodle icon={User} color={DOODLE.pink} size={15} />, group: "Account", keywords: "name email sign out delete account profile" },
   { id: "preferences", label: "Preferences", icon: <Doodle icon={Settings2} color={DOODLE.amber} size={15} />, group: "Account", keywords: "theme dark light accent color space font density motion date time week clock full width" },
   { id: "editor", label: "Editor", icon: <Doodle icon={PenLine} color={DOODLE.teal} size={15} />, group: "Account", keywords: "text direction spellcheck markdown shortcuts writing rtl arabic" },
   { id: "sidebar", label: "Sidebar", icon: <Doodle icon={PanelLeft} color={DOODLE.violet} size={15} />, group: "Account", keywords: "sections order recents favorites" },
+  { id: "workspace", label: "Workspace", icon: <Doodle icon={Building2} color={DOODLE.sage} size={15} />, group: "Workspace", keywords: "workspace name icon personal new delete switch" },
   ...(SHARING_ENABLED
     ? [
         { id: "teamspaces" as const, label: "Teamspaces", icon: <Doodle icon={UsersRound} color={DOODLE.mint} size={15} />, group: "Workspace" as const, keywords: "workspace team members leave join" },
@@ -93,6 +97,7 @@ export function SettingsDialog() {
                 <X className="size-4" />
               </IconButton>
             </D.Close>
+            {section === "workspace" && <WorkspaceSection />}
             {section === "account" && <AccountSection />}
             {section === "preferences" && <PreferencesSection />}
             {section === "editor" && <EditorSection />}
@@ -268,11 +273,22 @@ function PreferencesSection() {
   return (
     <>
       <Heading title="Preferences" description="Saved to your account and applied on every device." />
-      <Group title="Your space">
-        <div className="grid gap-2 py-4">
-          <p className="text-[12.5px] text-fg-3">Drag the dots to color your sidebar, pick a preset, and tune the grain and how strong the color is. It matches your membership card until you change it.</p>
-          <SpaceEditor />
-        </div>
+      <Group>
+        <SettingRow title="Your space" description="Colors, grain and light or dark, edited over the app so you can see it change.">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              ws.closeSettings();
+              openSpaceEditor();
+            }}
+          >
+            Edit space
+          </Button>
+        </SettingRow>
+        <SettingRow title="Window" description="Floating keeps pages on a rounded card with a little room around it. Edge to edge fills the window.">
+          <Segmented label="Window" value={s.frame ?? "floating"} onChange={(v) => set("frame", v, "Saved")} options={[{ value: "floating", label: "Floating" }, { value: "full", label: "Edge to edge" }]} />
+        </SettingRow>
       </Group>
       <Group title="Appearance">
         <SettingRow title="Theme" description="Follow your device, or always use light or dark.">
@@ -583,7 +599,7 @@ function SharingSection() {
       </Group>
       <Group title="Published to the web">
         {published.length === 0 ? (
-          <p className="py-3 text-[13px] text-fg-3">Nothing is published. In a page&apos;s Share menu, set General access to “Anyone on the web with the link”.</p>
+          <p className="py-3 text-[13px] text-fg-3">Nothing is published. Open a page’s Share menu and choose Publish.</p>
         ) : (
           published.map((p) => (
             <div key={p._id} className={row}>
@@ -868,6 +884,90 @@ function ReportButton() {
         Report
       </Button>
       {open && <ReportDialog open={open} onOpenChange={setOpen} />}
+    </>
+  );
+}
+
+/** The workspace that's open: its name and icon, other workspaces, and deleting an extra one. */
+function WorkspaceSection() {
+  const ws = useWorkspace();
+  const spaces = useWorkspaces();
+  const here = spaces.current;
+  const [name, setName] = useState(here?.name ?? "");
+  const [creating, setCreating] = useState(false);
+  useEffect(() => setName(here?.name ?? ""), [here?.name]);
+  if (spaces.loading || !here) return <Skeleton className="h-40" />;
+  const save = (patch: { name?: string; icon?: string | null }, message = "Saved") =>
+    ws.call("workspaces.update", { id: here.id, ...patch }).then(() => toast.success(message, { duration: 1500 }), (err) => notifyError(err));
+  return (
+    <>
+      <Heading title="Workspace" description="Each workspace is private and separate: its own pages, databases, files, sidebar and colors. Your name, card and preferences go with you." />
+      <Group>
+        <SettingRow title="Icon" description="Shown in the sidebar and the workspace menu.">
+          <IconPicker
+            pageId={null}
+            onPick={(icon) => void save({ icon }, "Icon saved")}
+            onRemove={() => void save({ icon: null }, "Icon removed")}
+            trigger={
+              <button type="button" aria-label="Workspace icon" className="grid size-9 place-items-center rounded-lg bg-surface-2 shadow-[inset_0_0_0_1px_var(--line)] hover:bg-hover">
+                <WorkspaceIcon workspace={here} size={20} />
+              </button>
+            }
+          />
+        </SettingRow>
+        <SettingRow title="Name" description="Press Enter to save.">
+          <Input
+            aria-label="Workspace name"
+            className="w-56"
+            value={name}
+            maxLength={60}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && name.trim() && name.trim() !== here.name && void save({ name: name.trim() }, "Workspace renamed")}
+            onBlur={() => name.trim() && name.trim() !== here.name && void save({ name: name.trim() }, "Workspace renamed")}
+          />
+        </SettingRow>
+      </Group>
+      <Group title="Your workspaces">
+        {spaces.list.map((w) => (
+          <SettingRow key={w.id ?? "main"} title={<span className="flex items-center gap-2"><WorkspaceIcon workspace={w} size={16} />{w.name}</span>} description={w.id === null ? "Main workspace" : undefined}>
+            {w.id === here.id ? (
+              <span className="text-[12.5px] text-fg-3">Open</span>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => switchWorkspace(w.id)}>
+                Open
+              </Button>
+            )}
+          </SettingRow>
+        ))}
+        <div className="py-3">
+          <Button size="sm" icon={<Plus className="size-3.5" />} onClick={() => setCreating(true)}>
+            New workspace
+          </Button>
+        </div>
+      </Group>
+      {here.id !== null && (
+        <Group title="Danger zone">
+          <SettingRow title="Delete this workspace" description="Deletes every page, database and file in it, for good.">
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={async () => {
+                const ok = await confirmAction({ title: `Delete ${here.name}?`, body: <p>Everything in this workspace is deleted permanently. Your other workspaces aren&apos;t affected.</p>, confirmLabel: "Delete workspace", tone: "danger", typeToConfirm: here.name });
+                if (!ok) return;
+                try {
+                  await ws.call("workspaces.delete", { id: here.id, confirm: true });
+                  switchWorkspace(null);
+                } catch (err) {
+                  notifyError(err, "Couldn't delete the workspace.");
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </SettingRow>
+        </Group>
+      )}
+      {creating && <NewWorkspaceDialog open={creating} onOpenChange={setCreating} />}
     </>
   );
 }

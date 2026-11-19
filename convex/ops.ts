@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { execute } from "../lib/domain/ops";
 import { MaxError, serializeError } from "../lib/domain/errors";
 import { convexDb, convexStorage } from "./convexDb";
+import { resolveOwner } from "../lib/domain/workspaces";
 import { purgeNotionAccount } from "./notionCleanup";
 
 /**
@@ -45,14 +46,24 @@ async function run(
   }
 }
 
+/** The signed-in account, in the workspace the browser has open (`ws`; the main one when absent). */
+async function ownerOf(ctx: { auth: { getUserIdentity(): Promise<{ subject: string } | null> }; db: unknown }, ws: string | undefined) {
+  const account = await ownerFromAuth(ctx);
+  try {
+    return await resolveOwner(convexDb(ctx.db as never), account, ws);
+  } catch (err) {
+    throw new ConvexError(serializeError(err) as never);
+  }
+}
+
 export const query = queryGeneric({
-  args: { op: v.string(), args: v.any() },
-  handler: async (ctx, { op, args }) => run(ctx as never, op, args, await ownerFromAuth(ctx), "ui", "query"),
+  args: { op: v.string(), args: v.any(), ws: v.optional(v.string()) },
+  handler: async (ctx, { op, args, ws }) => run(ctx as never, op, args, await ownerOf(ctx, ws), "ui", "query"),
 });
 
 export const mutation = mutationGeneric({
-  args: { op: v.string(), args: v.any() },
-  handler: async (ctx, { op, args }) => run(ctx as never, op, args, await ownerFromAuth(ctx), "ui", "mutation"),
+  args: { op: v.string(), args: v.any(), ws: v.optional(v.string()) },
+  handler: async (ctx, { op, args, ws }) => run(ctx as never, op, args, await ownerOf(ctx, ws), "ui", "mutation"),
 });
 
 export const serverQuery = queryGeneric({

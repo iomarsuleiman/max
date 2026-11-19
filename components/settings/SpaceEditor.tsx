@@ -74,14 +74,15 @@ export function SpaceEditor() {
 
   return (
     <div className="space-editor">
+      <div className="space-modes" role="radiogroup" aria-label="Appearance">
+        {([["system", Sparkles, "Auto", "Match my device"], ["light", Sun, "Light", "Use light mode"], ["dark", Moon, "Dark", "Use dark mode"]] as const).map(([v, Icon, text, label]) => (
+          <button key={v} type="button" role="radio" aria-checked={(theme ?? "system") === v} aria-label={label} onClick={() => { setTheme(v); void ws.call("settings.update", { theme: v }).catch(() => undefined); }} className={cn("space-mode", (theme ?? "system") === v && "is-on")}>
+            <Icon className="size-4" aria-hidden />
+            <span>{text}</span>
+          </button>
+        ))}
+      </div>
       <div className="space-field-wrap">
-        <div className="space-modes" role="radiogroup" aria-label="Appearance">
-          {([["system", Sparkles, "Match my device"], ["light", Sun, "Use light mode"], ["dark", Moon, "Use dark mode"]] as const).map(([v, Icon, label]) => (
-            <button key={v} type="button" role="radio" aria-checked={(theme ?? "system") === v} aria-label={label} title={label} onClick={() => { setTheme(v); void ws.call("settings.update", { theme: v }).catch(() => undefined); }} className={cn("space-mode", (theme ?? "system") === v && "is-on")}>
-              <Icon className="size-4" />
-            </button>
-          ))}
-        </div>
         <div ref={field} className="space-field" role="group" aria-label="Space colors: drag a dot to change its color">
           {dots.map((d, i) => (
             <button

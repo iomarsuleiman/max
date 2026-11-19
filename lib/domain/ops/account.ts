@@ -28,6 +28,7 @@ import {
   upsertSettings,
 } from "./helpers";
 import { insertDocument } from "./pages";
+import { accountOf, ownerFor, workspaceOf } from "../workspaces";
 import { recordsCreate } from "./databases";
 import { defaultView, shortId, TITLE_PROPERTY_ID } from "./databaseDefaults";
 
@@ -60,6 +61,7 @@ const settingsPatch = z.object({
   dateFormat: z.enum(["medium", "us", "eu", "iso"]).optional(),
   timeFormat: z.enum(["12h", "24h"]).optional(),
   weekStart: z.enum(["monday", "sunday"]).optional(),
+  frame: z.enum(["floating", "full"]).optional(),
 });
 
 export const settingsGet = defineOp({
@@ -174,7 +176,7 @@ export const accountInit = defineOp({
       welcomeId = await ctx.db.insert("pages", row);
       await insertDocument(ctx, welcomeId, markdownToBlocks(WELCOME));
     }
-    await upsertSettings(ctx, { onboarded: true, ...(email ? { email } : {}), ...(displayName && !existing?.displayName ? { displayName } : {}), ...(inviter && inviter !== ctx.ownerId && !existing?.invitedBy ? { invitedBy: inviter } : {}) });
+    await upsertSettings(ctx, { onboarded: true, ...(email ? { email } : {}), ...(displayName && !existing?.displayName ? { displayName } : {}), ...(inviter && inviter !== accountOf(ctx.ownerId) && !existing?.invitedBy ? { invitedBy: inviter } : {}) });
     return { created: true, welcomeId };
   },
 });
@@ -225,6 +227,11 @@ export const accountDeleteAllData = defineOp({
   input: z.object({ confirm }),
   async run(ctx) {
     let removed = 0;
+    // Deleting the account (from its main workspace) deletes its extra workspaces too.
+    if (!workspaceOf(ctx.ownerId)) {
+      const row = (await ctx.db.list("settings", ctx.ownerId))[0];
+      for (const w of row?.workspaces ?? []) removed += (await accountDeleteAllData.run({ ...ctx, ownerId: ownerFor(ctx.ownerId, w.id) }, { confirm: true })).removed;
+    }
     for (const table of ["documents", "versions", "comments", "shares", "shareLinks", "presence", "collabUpdates", "collabAwareness", "collabRooms", "sites", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
       for (const row of await ctx.db.list(table, ctx.ownerId)) {
         await ctx.db.delete(table, row._id);
@@ -713,7 +720,7 @@ export const accountStanding = defineOp({
   description: "Whether an admin has suspended (read-only) or banned this account, and the reason they gave.",
   input: z.object({}),
   async run(ctx) {
-    const m = (await ctx.db.list("moderation", ctx.ownerId))[0];
+    const m = (await ctx.db.list("moderation", accountOf(ctx.ownerId)))[0];
     return m ? { status: m.status, reason: m.reason || null, since: m.updatedAt } : { status: "active" as const, reason: null, since: null };
   },
 });

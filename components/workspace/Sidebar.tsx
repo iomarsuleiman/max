@@ -43,6 +43,8 @@ import { pageTitle } from "@/lib/client/format";
 import type { PageSummary, SettingsRow } from "@/lib/client/types";
 import { CLOUD, SHARING_ENABLED } from "@/lib/config";
 import { notifyError, useWorkspace } from "./context";
+import { NewWorkspaceDialog, WorkspaceIcon, useWorkspaces } from "./Workspaces";
+import { switchWorkspace } from "@/lib/client/workspace";
 import { PageIcon } from "./PageIcon";
 import { PageMenu } from "./PageMenu";
 import { PageTree } from "./PageTree";
@@ -105,7 +107,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
         <NavButton icon={<Doodle icon={Download} color={DOODLE.mint} size={15} />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
         <AdminLink />
       </nav>
-      <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto overflow-x-hidden ps-4 pe-2 pb-4">
+      <div className="scroll-none min-h-0 flex-1 overflow-y-auto overflow-x-hidden ps-4 pe-2 pb-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
           <SortableContext items={shown} strategy={verticalListSortingStrategy}>
             {shown.map((id, i) => (
@@ -265,16 +267,18 @@ function ResizeHandle({ width, setWidth, onCommit, onClose }: { width: number; s
 function SidebarHeader({ mobile }: { mobile?: boolean }) {
   const ws = useWorkspace();
   const name = ws.settings?.displayName || ws.identity.name;
-  const workspaceName = "Max";
+  const spaces = useWorkspaces();
+  const [creating, setCreating] = useState(false);
   return (
     <div className="flex items-center gap-1 ps-4 pe-2 pb-1 pt-2">
+      {creating && <NewWorkspaceDialog open={creating} onOpenChange={setCreating} />}
       <Menu>
         <MenuTrigger asChild>
-          <button type="button" className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 text-start hover:bg-hover data-[state=open]:bg-hover">
+          <button type="button" aria-label={`${spaces.current?.name ?? "Max"} workspace menu`} className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 text-start hover:bg-hover data-[state=open]:bg-hover">
             <span className="grid size-6 shrink-0 place-items-center text-fg">
-              <LogoMark className="size-[22px]" />
+              <WorkspaceIcon workspace={spaces.current} size={20} />
             </span>
-            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-fg">{workspaceName}</span>
+            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-fg">{spaces.current?.name ?? "Max"}</span>
             <ChevronDown className="size-3.5 text-fg-3" />
           </button>
         </MenuTrigger>
@@ -286,6 +290,19 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
               <p className="truncate text-xs text-fg-3">{ws.identity.email ?? (CLOUD ? "" : "Private workspace on this device")}</p>
             </div>
           </div>
+          <MenuSeparator />
+          <MenuLabel>Workspaces</MenuLabel>
+          {spaces.list.map((w) => {
+            const here = w.id === (spaces.current?.id ?? null);
+            return (
+              <MenuItem key={w.id ?? "main"} icon={<WorkspaceIcon workspace={w} size={16} />} hint={here ? "✓" : undefined} onSelect={() => !here && switchWorkspace(w.id)}>
+                {w.name}
+              </MenuItem>
+            );
+          })}
+          <MenuItem icon={<Plus />} onSelect={() => setCreating(true)}>
+            New workspace
+          </MenuItem>
           <MenuSeparator />
           <MenuItem icon={<Settings />} onSelect={() => ws.openSettings("account")} shortcut="⌘,">
             Settings

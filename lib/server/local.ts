@@ -81,9 +81,10 @@ export async function readLocalFile(id: string): Promise<{ body: Buffer; type: s
 }
 
 /** Runs an operation against the local store. Writes are serialized and atomic. */
-export async function runLocal(op: string, args: unknown, source: Source, ownerId = LOCAL_OWNER, kind?: "query" | "mutation") {
+export async function runLocal(op: string, args: unknown, source: Source, account = LOCAL_OWNER, kind?: "query" | "mutation", workspace?: string) {
   const s = state();
   await s.db.load();
+  const ownerId = await (await import("@/lib/domain/workspaces")).resolveOwner(s.db, account, workspace);
   const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source };
   const { registry } = await import("@/lib/domain/ops");
   const def = registry.get(op);
