@@ -33,8 +33,7 @@ export const workspacesList = defineOp({
   name: "workspaces.list",
   kind: "query",
   title: "List workspaces",
-  uiOnly: true,
-  description: "Your personal workspaces: the main one and any extra ones, and which one this request is in.",
+  description: "Lists the user's personal workspaces (the main one has id null) and which one this call ran in. Every other tool takes an optional `workspace` (id or name) to work in that workspace; without it, tools use the main workspace.",
   input: z.object({}),
   async run(ctx) {
     const row = (await ctx.db.list("settings", accountOf(ctx.ownerId)))[0];

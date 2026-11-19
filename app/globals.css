@@ -581,3 +581,8 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .space-panel { position: fixed; z-index: 60; left: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; scrollbar-width: none; border-radius: 20px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line), 0 24px 60px -20px rgb(0 0 0 / .35); animation: max-panel-arrive 200ms ease-out; }
 .space-panel .space-editor { max-width: none; background: none; box-shadow: none; }
 .workspace-initial { display: inline-grid; place-items: center; flex: none; border-radius: 6px; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--tint-1, #7b8cff), var(--tint-2, #c27bff)); }
+/* Invitation: the inviter's own card, tilted a little, floating on the paper. */
+.invite-card { width: min(300px, 72vw); flex: none; transform: rotate(-4deg); filter: drop-shadow(0 30px 40px rgb(0 0 0 / .22)) drop-shadow(0 4px 10px rgb(0 0 0 / .08)); transition: transform 400ms cubic-bezier(.2,.8,.2,1); }
+.invite-card:hover { transform: rotate(-1deg) translateY(-4px); }
+.invite-card > svg { display: block; width: 100%; height: auto; }
+@media (prefers-reduced-motion: reduce) { .invite-card { transition: none; } }

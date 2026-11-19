@@ -1,4 +1,5 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { accountOf } from "@/lib/domain/workspaces";
 import { APP_URL, CLOUD } from "@/lib/config";
 import { createMcpServer } from "@/lib/server/mcp";
 import { ownerForToken } from "@/lib/server/executor";
@@ -45,7 +46,9 @@ async function handle(request: Request) {
   if (!CLOUD && !localModeAllowed()) return new Response("Not found", { status: 404 });
   let ownerId: string | null = null;
   try {
-    ownerId = await authenticate(request);
+    const who = await authenticate(request);
+    // Always the account: assistants reach every workspace and choose one per call.
+    ownerId = who ? accountOf(who) : null;
   } catch {
     ownerId = null;
   }

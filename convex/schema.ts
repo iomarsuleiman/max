@@ -432,6 +432,13 @@ export default defineSchema({
     createdAt: v.number(),
     resolvedAt: v.union(v.number(), v.null()),
   }).index("by_owner", ["ownerId"]),
+  usernames: defineTable({
+    ownerId: v.string(),
+    username: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_username", ["username"]),
   moderation: defineTable({
     ownerId: v.string(),
     status: v.union(v.literal("suspended"), v.literal("banned")),

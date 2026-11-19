@@ -16,6 +16,7 @@ interface CardInfo {
   memberNumber: number | null;
   joinedAt: number | null;
   note: CardNote & { invited: boolean };
+  username: string | null;
 }
 
 /**
@@ -67,7 +68,7 @@ export function ProfileCardEditor() {
             variant="secondary"
             icon={<Share className="size-3.5" />}
             onClick={async () => {
-              const url = inviteUrl(memberNumber);
+              const url = info.data?.username ? `${window.location.origin}/${info.data.username}` : inviteUrl(memberNumber);
               try {
                 if (await shareProfileCard(shown, note, url)) return;
                 await navigator.clipboard.writeText(url);

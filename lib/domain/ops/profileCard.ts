@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { accountOf } from "../workspaces";
+import { usernameOf } from "../usernames";
 import { defineOp } from "./define";
 import { getSettingsRow } from "./helpers";
 import { settingsUpdate } from "./account";
@@ -31,6 +32,7 @@ export const profileCardGet = defineOp({
       card: saved.success ? { ...saved.data, createdAt: settings?.joinedAt ?? saved.data.createdAt, name: settings?.displayName?.trim() || saved.data.name, memberNumber } : null,
       memberNumber: memberNumber ?? null,
       joinedAt: settings?.joinedAt ?? null,
+      username: await usernameOf(ctx.db, ctx.ownerId),
     };
   },
 });

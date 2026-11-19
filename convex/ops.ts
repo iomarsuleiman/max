@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { execute } from "../lib/domain/ops";
 import { MaxError, serializeError } from "../lib/domain/errors";
 import { convexDb, convexStorage } from "./convexDb";
-import { resolveOwner } from "../lib/domain/workspaces";
+import { accountOf, resolveOwner } from "../lib/domain/workspaces";
 import { purgeNotionAccount } from "./notionCleanup";
 
 /**
@@ -66,19 +66,28 @@ export const mutation = mutationGeneric({
   handler: async (ctx, { op, args, ws }) => run(ctx as never, op, args, await ownerOf(ctx, ws), "ui", "mutation"),
 });
 
+/** An assistant's account, in the workspace it asked for (`ws`; the main one when absent). */
+async function serverOwner(ctx: { db: unknown }, ownerId: string, ws: string | undefined) {
+  try {
+    return await resolveOwner(convexDb(ctx.db as never), accountOf(ownerId), ws);
+  } catch (err) {
+    throw new ConvexError(serializeError(err) as never);
+  }
+}
+
 export const serverQuery = queryGeneric({
-  args: { secret: v.string(), ownerId: v.string(), op: v.string(), args: v.any() },
-  handler: async (ctx, { secret, ownerId, op, args }) => {
+  args: { secret: v.string(), ownerId: v.string(), op: v.string(), args: v.any(), ws: v.optional(v.string()) },
+  handler: async (ctx, { secret, ownerId, op, args, ws }) => {
     checkSecret(secret);
-    return run(ctx as never, op, args, ownerId, "mcp", "query");
+    return run(ctx as never, op, args, await serverOwner(ctx, ownerId, ws), "mcp", "query");
   },
 });
 
 export const serverMutation = mutationGeneric({
-  args: { secret: v.string(), ownerId: v.string(), op: v.string(), args: v.any() },
-  handler: async (ctx, { secret, ownerId, op, args }) => {
+  args: { secret: v.string(), ownerId: v.string(), op: v.string(), args: v.any(), ws: v.optional(v.string()) },
+  handler: async (ctx, { secret, ownerId, op, args, ws }) => {
     checkSecret(secret);
-    return run(ctx as never, op, args, ownerId, "mcp", "mutation");
+    return run(ctx as never, op, args, await serverOwner(ctx, ownerId, ws), "mcp", "mutation");
   },
 });
 
@@ -90,7 +99,8 @@ export const resolveToken = mutationGeneric({
     const row = await convexDb(ctx.db).findTokenByHash(hash);
     if (!row || row.revokedAt) return null;
     await convexDb(ctx.db).patch("tokens", row._id, { lastUsedAt: Date.now() });
-    return row.ownerId;
+    // Tokens belong to the account; the assistant picks a workspace per call.
+    return accountOf(row.ownerId);
   },
 });
 

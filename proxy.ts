@@ -7,7 +7,10 @@ const PREVIEW_ROUTE = /^\/w(?:\/|$)/;
 
 const clerk = clerkMiddleware(async (auth, req) => {
   // Workspace pages need a session. Every data call is also checked by Convex itself.
-  if (WORKSPACE.test(req.nextUrl.pathname)) await auth.protect();
+  // A shared link (/p/…?share=…) loads without one so chat apps can read its preview; people
+  // who aren't signed in are still sent to sign in by the app, and come back to the page.
+  const sharedLink = req.nextUrl.pathname.startsWith("/p/") && req.nextUrl.searchParams.has("share");
+  if (WORKSPACE.test(req.nextUrl.pathname) && !sharedLink) await auth.protect();
 });
 
 /**

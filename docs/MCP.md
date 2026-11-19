@@ -31,7 +31,9 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | --- | --- | --- | --- |
 | `—` | Delete all my data | UI only | Permanently deletes every page, database, file, token, setting and log in this account. This cannot be undone. |
 | `account_init` | Set up workspace | Write | Prepares a new workspace on first sign-in (preferences and a welcome page). Safe to call again; does nothing once set up. |
+| `account_setUsername` | Change my username | Write | Changes your username (3–20 lowercase letters, numbers, dots or underscores). Your invite link becomes max.chaos.fail/<username>; the old one stops working. |
 | `account_standing` | My account's standing | Read | Whether an admin has suspended (read-only) or banned this account, and the reason they gave. |
+| `account_username` | My username | Read | Returns your username. Your invite link is max.chaos.fail/<username>. |
 | `assets_createUploadUrl` | Start an upload | Write | Returns a short-lived URL. POST the file body to it (with its Content-Type), then call assets.register with the returned storageId. |
 | `assets_getUrl` | Get file URL | Read | Resolves a max-asset:// id to a URL the owner can load. |
 | `assets_list` | List files | Read | Uploaded files, optionally for one page, with total storage used. |
@@ -127,6 +129,10 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `views_move` | Reorder view | Write | Moves a view tab to a new position. |
 | `views_update` | Update view | Write | Changes a view's name, layout, filters, sorts, hidden or ordered properties, column widths or board grouping. |
 | `workspace_overview` | Workspace overview | Read | Counts, recently visited, recently edited, favorites and 14-day editing activity as a workspace summary. |
+| `—` | Create a workspace | UI only | Creates a new, empty personal workspace. Its pages, databases and files are separate from your other workspaces. |
+| `—` | Delete a workspace | UI only | Permanently deletes an extra workspace and everything in it. Your main workspace can't be deleted this way. |
+| `workspaces_list` | List workspaces | Read | Lists the user's personal workspaces (the main one has id null) and which one this call ran in. Every other tool takes an optional `workspace` (id or name) to work in that workspace; without it, tools use the main workspace. |
+| `—` | Rename a workspace | UI only | Changes a workspace's name or icon. `id: null` is your main workspace. |
 | `assets_upload` | Upload an image | Write | Stores an image from a public https URL (private networks refused) or base64 data and returns a max-asset:// URL. |
 | `import_html` | Import HTML as a page | Write | Converts HTML (passed in or fetched from a public page) into a new page. |
 | `max_capabilities` | What Max can do | Read | Lists tools, limits, resources and error codes. |

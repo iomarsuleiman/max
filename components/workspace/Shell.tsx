@@ -14,6 +14,7 @@ import { setDatePrefs } from "@/lib/client/datePrefs";
 import { applySpace, clearSpace } from "@/lib/client/space";
 import { BannedScreen, SuspendedBanner, useStanding } from "@/components/admin/Standing";
 import { SpacePanel } from "@/components/settings/SpacePanel";
+import { WebMcp } from "./WebMcp";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
@@ -53,7 +54,8 @@ function CloudGate({ children }: { children: (identity: Identity) => ReactNode }
   const clerk = useClerk();
   const router = useRouter();
   useEffect(() => {
-    if (isLoaded && !isSignedIn) router.replace("/sign-in");
+    // Come back here after signing in (a shared link, for one).
+    if (isLoaded && !isSignedIn) router.replace(`/sign-in?redirect_url=${encodeURIComponent(window.location.href)}`);
   }, [isLoaded, isSignedIn, router]);
   if (!isLoaded || isLoading) return <Splash />;
   if (!isSignedIn) return <Splash message="Taking you to sign in…" />;
@@ -224,6 +226,7 @@ function Frame({ children }: { children: ReactNode }) {
       {!preview && <ProfileCardInvitation />}
       {!preview && <LazyDialogs />}
       {!preview && <SpacePanel />}
+      {!preview && <WebMcp />}
     </div>
   );
 }

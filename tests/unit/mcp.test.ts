@@ -129,4 +129,18 @@ describe("MCP server", () => {
     const ssrf = await call("assets_upload", { url: "https://127.0.0.1/secret.png" });
     expect(ssrf.body.error.message).toMatch(/private network/);
   });
+  it("reaches every workspace: lists them and works in one by name or id", async () => {
+    const { runLocal } = await import("@/lib/server/local");
+    const { workspace } = (await runLocal("workspaces.create", { name: "Garden" }, "ui", "mcp-test-owner", "mutation")) as { workspace: { id: string } };
+    const listed = await call("workspaces_list");
+    expect(listed.body.workspaces.map((w: { name: string }) => w.name)).toContain("Garden");
+    const made = await call("pages_create", { title: "Tomatoes", workspace: "garden" });
+    expect(made.isError).toBe(false);
+    const inGarden = await call("pages_tree", { workspace: workspace.id });
+    expect(inGarden.body.pages.map((p: { title: string }) => p.title)).toEqual(["Tomatoes"]);
+    const inMain = await call("pages_tree");
+    expect(inMain.body.pages.map((p: { title: string }) => p.title)).not.toContain("Tomatoes");
+    const missing = await call("pages_tree", { workspace: "Nope" });
+    expect(missing.isError).toBe(true);
+  });
 });

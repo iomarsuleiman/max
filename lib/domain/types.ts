@@ -353,6 +353,14 @@ export interface ReportRow {
 }
 
 /** An admin's decision about an account: suspended (read-only) or banned (no access). */
+/** A person's username: max.chaos.fail/<username> is their invite link. One per account, unique. */
+export interface UsernameRow {
+  _id: string;
+  ownerId: string;
+  username: string;
+  createdAt: number;
+}
+
 export interface ModerationRow {
   _id: string;
   ownerId: string;
@@ -442,6 +450,7 @@ export interface Tables {
   sites: SiteRow;
   reports: ReportRow;
   moderation: ModerationRow;
+  usernames: UsernameRow;
   collabRooms: CollabRoomRow;
   collabUpdates: CollabUpdateRow;
   collabAwareness: CollabAwarenessRow;

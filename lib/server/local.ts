@@ -50,6 +50,13 @@ function state() {
 
 export const localEvents = () => state().events;
 
+/** The local database, loaded, for read-only public lookups (invite pages, link previews). */
+export async function localDb() {
+  const s = state();
+  await s.db.load();
+  return s.db;
+}
+
 const SAFE_ID = /^[a-z0-9]{8,40}$/;
 export const localStorageAdapter: Storage = {
   async createUploadUrl() {
@@ -130,7 +137,7 @@ type SharingCall =
   | { fn: "ping"; pageId: string; linkToken?: string | null }
   | { fn: "here"; pageId: string; linkToken?: string | null; at: number }
   | { fn: "public"; token: string; scopePageId: string; op: string; args?: unknown }
-  | { fn: "duplicate"; pageId: string; linkToken?: string | null }
+  | { fn: "duplicate"; pageId: string; linkToken?: string | null; ws?: string }
   | { fn: "join"; pageId: string; linkToken?: string | null }
   | { fn: "leave"; pageId: string }
   | { fn: "collab"; call: "join" | "pull" | "push" | "awareness" | "commit" | "leave"; args: Record<string, unknown>; linkToken?: string | null };
@@ -159,7 +166,7 @@ export async function runLocalSharing(call: SharingCall, actor: { id: string; na
     return run;
   };
   if (call.fn === "ping") return write(() => sharing.heartbeat(s.db, actor, call.pageId, now, call.linkToken));
-  if (call.fn === "duplicate") return write(() => sharing.duplicateShared(s.db, actor, call.pageId, now, call.linkToken));
+  if (call.fn === "duplicate") return write(async () => sharing.duplicateShared(s.db, actor, call.pageId, now, call.linkToken, await (await import("@/lib/domain/workspaces")).resolveOwner(s.db, actor.id, call.ws)));
   if (call.fn === "join") return write(() => sharing.joinByLink(s.db, actor, call.pageId, now, call.linkToken));
   if (call.fn === "leave") return write(() => sharing.leaveShare(s.db, actor, call.pageId));
   if (call.fn === "collab") {
@@ -187,7 +194,8 @@ export async function resolveLocalToken(hash: string) {
   if (!row || row.revokedAt) return null;
   await s.db.patch("tokens", row._id, { lastUsedAt: Date.now() });
   await s.db.persist();
-  return row.ownerId;
+  // Tokens belong to the account; the assistant picks a workspace per call.
+  return (await import("@/lib/domain/workspaces")).accountOf(row.ownerId);
 }
 
 export function localModeAllowed(): boolean {

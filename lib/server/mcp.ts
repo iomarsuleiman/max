@@ -2,7 +2,7 @@ import "server-only";
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { APP_URL, VERSION } from "@/lib/config";
-import { serializeError } from "@/lib/domain/errors";
+import { MaxError, serializeError } from "@/lib/domain/errors";
 import { listOps } from "@/lib/domain/ops";
 import { LIMITS } from "@/lib/domain/ops/helpers";
 import { runForOwner } from "./executor";
@@ -22,7 +22,24 @@ const INSTRUCTIONS = `Max is the user's private notes workspace: nested pages, r
 - Databases: databases_get for properties and views, databases_query for rows, records_* to change rows. Values are keyed by property name or id.
 - Templates: templates_list / templates_apply; gallery_list / gallery_install for built-in templates.
 - Tools marked destructive need confirm: true, only after the user has agreed. Trashing (pages_archive) is reversible with pages_restore.
-- Use batch for several writes that must all succeed together.`;
+- Use batch for several writes that must all succeed together.
+- The user may have several personal workspaces. workspaces_list shows them; pass \`workspace\` (its id or name) to any tool to work there. Without it, tools use the main workspace.`;
+
+const WORKSPACE = z
+  .string()
+  .max(80)
+  .optional()
+  .describe("Which of the user's workspaces to work in: its id or name from workspaces_list. Leave out for the main workspace.");
+
+/** Turns a workspace id or name into its id (null: the main workspace). */
+async function workspaceId(ownerId: string, wanted: string | undefined): Promise<string | null> {
+  if (!wanted?.trim()) return null;
+  const { workspaces } = (await runForOwner(ownerId, "workspaces.list", {})) as { workspaces: { id: string | null; name: string }[] };
+  const key = wanted.trim().toLowerCase();
+  const hit = workspaces.find((w) => w.id === wanted.trim()) ?? workspaces.find((w) => w.name.trim().toLowerCase() === key);
+  if (!hit) throw new MaxError("NOT_FOUND", `There's no workspace called "${wanted}". Use workspaces_list to see them.`);
+  return hit.id;
+}
 
 const IDEMPOTENCY = z
   .string()
@@ -121,7 +138,7 @@ export function createMcpServer(ownerId: string) {
         title: op.title,
         description: op.description,
         // Writes accept an idempotency key so a retried call isn't applied twice.
-        inputSchema: op.kind === "mutation" ? (op.input as z.ZodObject).extend({ idempotencyKey: IDEMPOTENCY }) : (op.input as z.ZodObject),
+        inputSchema: op.name === "workspaces.list" ? (op.input as z.ZodObject) : (op.input as z.ZodObject).extend({ workspace: WORKSPACE, ...(op.kind === "mutation" ? { idempotencyKey: IDEMPOTENCY } : {}) }),
         annotations: {
           title: op.title,
           readOnlyHint: op.kind === "query",
@@ -132,7 +149,8 @@ export function createMcpServer(ownerId: string) {
       },
       (async (args: unknown) => {
         try {
-          return toolResult(await runForOwner(ownerId, op.name, args));
+          const { workspace, ...rest } = (args ?? {}) as { workspace?: string };
+          return toolResult(await runForOwner(ownerId, op.name, rest, await workspaceId(ownerId, workspace)));
         } catch (err) {
           return toolError(err);
         }
