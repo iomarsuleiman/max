@@ -33,14 +33,16 @@ export interface Db {
   memberByNumber(n: number): Promise<string | null>;
 }
 
-export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness";
+export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites";
 export type CrossField<T extends CrossTable> = T extends "shares"
   ? "granteeId" | "pageId"
   : T extends "shareLinks"
     ? "token" | "pageId"
     : T extends "collabUpdates"
       ? "roomId"
-      : "pageId";
+      : T extends "sites"
+        ? "slug" | "pageId"
+        : "pageId";
 
 export type IndexedField<T extends TableName> = T extends "pages"
   ? "parentId" | "databaseId"
@@ -54,7 +56,7 @@ export type IndexedField<T extends TableName> = T extends "pages"
           ? "pageId"
           : T extends "comments"
             ? "pageId"
-            : T extends "shares" | "shareLinks" | "presence" | "collabRooms" | "collabAwareness"
+            : T extends "shares" | "shareLinks" | "presence" | "collabRooms" | "collabAwareness" | "sites"
               ? "pageId"
               : never;
 

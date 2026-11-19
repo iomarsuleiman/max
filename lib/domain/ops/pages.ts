@@ -465,6 +465,7 @@ async function removePageCompletely(ctx: OpContext, page: PageRow) {
   for (const s of await ctx.db.list("shares", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("shares", s._id);
   for (const l of await ctx.db.list("shareLinks", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("shareLinks", l._id);
   for (const p of await ctx.db.list("presence", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("presence", p._id);
+  for (const site of await ctx.db.list("sites", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("sites", site._id);
   const room = await findRoom(ctx.db, ctx.ownerId, page._id);
   if (room) {
     await clearRoom(ctx.db, room);

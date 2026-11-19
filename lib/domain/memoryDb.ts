@@ -19,6 +19,7 @@ const emptyState = (): State => ({
   collabRooms: new Map(),
   collabUpdates: new Map(),
   collabAwareness: new Map(),
+  sites: new Map(),
 });
 
 let counter = 0;

@@ -113,7 +113,7 @@ function PublicPageBody({ token, pageId }: { token: string; pageId: string }) {
   );
 }
 
-function PublicDatabase({ token, databaseId }: { token: string; databaseId: string }) {
+export function PublicDatabase({ token, databaseId, hrefFor }: { token: string; databaseId: string; hrefFor?: (id: string, title: string) => string }) {
   const meta = useOp<{ properties: PropertyDef[] }>("databases.get", { databaseId });
   const rows = useOp<{ records: RecordView[]; total: number }>("databases.query", { databaseId, limit: 200 });
   if (!meta.data || !rows.data) return <Skeleton className="h-40" />;
@@ -134,7 +134,7 @@ function PublicDatabase({ token, databaseId }: { token: string; databaseId: stri
           {rows.data.records.map((r) => (
             <tr key={r._id} className="hover:bg-hover">
               <td className="border-b border-line px-3 py-2">
-                <Link href={publicHref(token, r._id, r.title)} className="flex items-center gap-1.5 font-medium text-fg">
+                <Link href={hrefFor ? hrefFor(r._id, r.title) : publicHref(token, r._id, r.title)} className="flex items-center gap-1.5 font-medium text-fg">
                   <PageIcon icon={r.icon} kind="page" size={15} />
                   {pageTitle(r.title)}
                 </Link>

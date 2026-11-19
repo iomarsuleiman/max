@@ -418,6 +418,21 @@ export default defineSchema({
     .index("by_owner_pageId", ["ownerId", "pageId"])
     .index("by_token", ["token"])
     .index("by_pageId", ["pageId"]),
+  sites: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    slug: v.string(),
+    name: v.string(),
+    icon: v.union(v.string(), v.null()),
+    description: v.string(),
+    search: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_slug", ["slug"])
+    .index("by_pageId", ["pageId"]),
   presence: defineTable({
     ownerId: v.string(),
     pageId: v.string(),

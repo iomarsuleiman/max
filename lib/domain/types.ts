@@ -325,6 +325,20 @@ export interface ShareLinkRow {
 }
 
 /** Who has a page open right now (heartbeat, expires after ~45 s). */
+/** A page (and everything inside it) published as a website, at /site/<slug> or <slug>.<domain>. */
+export interface SiteRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  slug: string;
+  name: string;
+  icon: string | null;
+  description: string;
+  search: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface PresenceRow {
   _id: string;
   ownerId: string;
@@ -388,6 +402,7 @@ export interface Tables {
   shares: ShareRow;
   shareLinks: ShareLinkRow;
   presence: PresenceRow;
+  sites: SiteRow;
   collabRooms: CollabRoomRow;
   collabUpdates: CollabUpdateRow;
   collabAwareness: CollabAwarenessRow;

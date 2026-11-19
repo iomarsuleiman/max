@@ -192,3 +192,13 @@ export async function resolveLocalToken(hash: string) {
 export function localModeAllowed(): boolean {
   return process.env.NODE_ENV !== "production" || process.env.MAX_LOCAL_MODE === "true";
 }
+
+/** Local mode's published websites: read by anyone, no account (the twin of convex/sites.ts). */
+export async function runLocalSites(call: { fn: "nav" | "read" | "search"; slug: string; op?: string; args?: unknown; q?: string }) {
+  const s = state();
+  await s.db.load();
+  const sites = await import("@/lib/domain/sites");
+  if (call.fn === "nav") return sites.siteNav(s.db, call.slug);
+  if (call.fn === "search") return sites.siteSearch(s.db, call.slug, call.q ?? "");
+  return sites.siteRead(s.db, localStorageAdapter, call.slug, String(call.op), call.args, Date.now());
+}
