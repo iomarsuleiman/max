@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Dialog as D } from "radix-ui";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -23,6 +23,7 @@ import { download } from "@/components/page/PageOptions";
 import { SHORTCUTS } from "@/lib/client/shortcuts";
 import { NotionConnection } from "./NotionConnection";
 import { ProfileCardEditor } from "@/components/profile/ProfileCardEditor";
+import { INVITE_NOTE, MAX_NOTE_CHARS, writeNote } from "@/lib/welcomeNote";
 
 const NAV: { id: SettingsSection; label: string; icon: ReactNode; group: "Account" | "Workspace" }[] = [
   { id: "account", label: "My account", icon: <User />, group: "Account" },
@@ -182,8 +183,8 @@ function AccountSection() {
           </SettingRow>
         )}
       </Group>
-      <Group title="Your profile card">
-        {s ? <ProfileCardEditor /> : <Skeleton className="h-64" />}
+      <Group title="Your name">
+        <NameField />
       </Group>
       <Group title="Danger zone">
         <SettingRow title="Delete all my data" description="Permanently removes every page, database, file, token and preference. Your sign-in stays.">
@@ -627,10 +628,85 @@ function ShortcutsSection() {
   );
 }
 
-function AboutSection() {
+/** Your name, used on your card, in shared pages and throughout Max. Saves when you leave the field. */
+function NameField() {
+  const { s, ws } = useSettings();
+  const current = s?.displayName || ws.identity.name || "";
+  const [value, setValue] = useState(current);
+  useEffect(() => setValue(current), [current]);
+  const save = async () => {
+    const name = value.trim();
+    if (!name || name === current) return setValue(current);
+    try {
+      await ws.call("settings.update", { displayName: name });
+      toast.success("Name saved", { duration: 1500 });
+    } catch (err) {
+      notifyError(err, "Couldn't save your name.");
+    }
+  };
+  return (
+    <div className="grid gap-1.5 py-3">
+      <Input aria-label="Name" value={value} maxLength={80} dir="auto" onChange={(e) => setValue(e.target.value)} onBlur={() => void save()} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} />
+      <p className="text-[12.5px] text-fg-3">Shown on your card, in pages you share and throughout Max.</p>
+    </div>
+  );
+}
+
+/** Your note for the people you invite, and the link that invites them. */
+function InviteFriends() {
+  const { s, ws } = useSettings();
+  const info = useOp<{ memberNumber: number | null }>("profileCard.get", {});
+  const current = s?.inviteNote ?? "";
+  const [note, setNote] = useState(current);
+  useEffect(() => setNote(current), [current]);
+  const save = async () => {
+    if (note.trim() === current.trim()) return;
+    try {
+      await ws.call("settings.update", { inviteNote: note.trim() || null });
+      toast.success("Note saved", { duration: 1500 });
+    } catch (err) {
+      notifyError(err, "Couldn't save your note.");
+    }
+  };
+  const origin = typeof window === "undefined" ? APP_URL : window.location.origin;
   return (
     <>
-      <Heading title="About Max" />
+      <div className="grid gap-1.5 py-3">
+        <label htmlFor="invite-note" className="text-[13.5px] font-medium text-fg">Your note for people you invite</label>
+        <textarea
+          id="invite-note"
+          value={note}
+          maxLength={MAX_NOTE_CHARS}
+          rows={4}
+          dir="auto"
+          placeholder={writeNote(INVITE_NOTE, "{name}").replace("{name}", "Sam")}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={() => void save()}
+          className="card-hand min-h-[96px] w-full resize-y rounded-md bg-overlay px-3 py-2 text-[20px] leading-snug text-[#26407a] shadow-[0_0_0_1px_var(--line)] outline-none focus:shadow-[0_0_0_1px_var(--accent)] dark:text-[#a9bdf0]"
+        />
+        <p className="text-[12.5px] text-fg-3">It&apos;s handwritten on the back of their card when they join through your link. Start with {"{name}"} to greet them by name. Leave it empty to send Max&apos;s note, signed by you.</p>
+      </div>
+      {info.data?.memberNumber && (
+        <div className="grid gap-1.5 py-3">
+          <p className="text-[13.5px] font-medium text-fg">Your invite link</p>
+          <Copyable value={`${origin}/join?from=${info.data.memberNumber}`} label="invite link" />
+        </div>
+      )}
+    </>
+  );
+}
+
+function AboutSection() {
+  const { s } = useSettings();
+  return (
+    <>
+      <Heading title="About Max" description="A calm, private home for your notes, pages and databases." />
+      <Group title="Your membership card">
+        <div className="py-3">{s ? <ProfileCardEditor /> : <Skeleton className="h-64" />}</div>
+      </Group>
+      <Group title="Invite friends">
+        <InviteFriends />
+      </Group>
       <Group>
         <SettingRow title="Version" description={VERSION}><span /></SettingRow>
         <SettingRow title="Mode" description={CLOUD ? "Cloud: accounts and sync" : "Local: private workspace on this server"}><span /></SettingRow>

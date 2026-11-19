@@ -13,13 +13,12 @@ test("mobile navigation drawer opens and navigates", async ({ page }) => {
 
 test("mobile card stays compact and settings remain reachable", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto("/home?settings=account");
+  await page.goto("/home?settings=about");
   const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
   const card = dialog.getByRole("article", { name: "Your profile card preview" });
   await expect(card).toBeVisible();
   expect((await card.boundingBox())!.width).toBeLessThanOrEqual(248);
-  await dialog.getByLabel("Name", { exact: true }).fill("A very long name with lots of words for a small card");
-  await dialog.getByRole("button", { name: "Change" }).click();
+  await dialog.getByRole("button", { name: "Change artwork" }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/max-mobile-card.png" });
   await dialog.getByRole("button", { name: "Close settings", exact: true }).click();
@@ -43,8 +42,8 @@ test("mobile keyboard toolbar formats, inserts blocks and saves without losing f
   await page.goto("/home");
   await page.waitForURL(/\/p\//);
   const original = page.url();
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("dialog", { name: "Navigation" }).getByRole("button", { name: "New page", exact: true }).last().click();
+  // A new page is one tap away in the top bar.
+  await page.locator(".max-topbar").getByRole("button", { name: "New page", exact: true }).click();
   await page.waitForURL((url) => url.href !== original && url.pathname.startsWith("/p/"));
   const editor = page.locator(".bn-editor");
   await expect(editor).toBeVisible();
@@ -68,12 +67,11 @@ test("mobile keyboard toolbar formats, inserts blocks and saves without losing f
   await page.getByRole("option", { name: /^Heading 2/ }).click();
   await page.keyboard.insertText("Phone heading");
   await expect(editor.getByRole("heading", { name: "Phone heading", exact: true }).last()).toBeVisible();
-  await toolbar.getByRole("button", { name: "More formatting", exact: true }).click();
+  // Undo and redo sit in the main row above the keyboard.
   await toolbar.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(editor.getByRole("heading", { name: "Phone heading", exact: true })).toHaveCount(0);
   await toolbar.getByRole("button", { name: "Redo", exact: true }).click();
   await expect(editor.getByRole("heading", { name: "Phone heading", exact: true })).toBeVisible();
-  await toolbar.getByRole("button", { name: "More formatting", exact: true }).click();
   await toolbar.getByRole("button", { name: "Insert block", exact: true }).click();
   await page.getByRole("option", { name: /^Code/ }).click();
   await page.keyboard.insertText("const message = '" + "A_long_unbroken_code_line_".repeat(30) + "';");
@@ -88,6 +86,12 @@ test("mobile keyboard toolbar formats, inserts blocks and saves without losing f
   await expect(editor.locator('[data-content-type="codeBlock"]')).toHaveCount(2);
   await toolbar.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(editor.locator('[data-content-type="codeBlock"]')).toHaveCount(1);
+  // The line being typed stays above the keyboard and the formatting row.
+  await editor.press("Control+End");
+  await page.keyboard.insertText(" tail");
+  await page.waitForTimeout(150);
+  const caretBottom = await page.evaluate(() => window.getSelection()!.getRangeAt(0).getBoundingClientRect().bottom);
+  expect(caretBottom).toBeLessThanOrEqual(470 - 56);
   await page.screenshot({ path: "test-results/max-mobile-editor.png" });
   await toolbar.getByRole("button", { name: "Done editing", exact: true }).click();
   await expect(toolbar).not.toBeVisible();

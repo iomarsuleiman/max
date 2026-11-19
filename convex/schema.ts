@@ -329,6 +329,7 @@ export default defineSchema({
     smallText: v.boolean(),
     locked: v.boolean(),
     isTemplate: v.boolean(),
+    teamspace: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
     properties: v.optional(v.any()),

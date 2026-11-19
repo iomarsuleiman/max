@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, FileText, Search, Star } from "lucide-react";
+import { ChevronRight, FileText, LayoutTemplate, Search, Table2, Waypoints } from "lucide-react";
 import { LogoMark } from "@/components/brand/Logo";
 import { CLOUD } from "@/lib/config";
 
 const features = [
   { id: "write", title: "Write freely", body: "A page for whatever comes next. Headings, checklists, tables, code and images, all with the same few keys.", label: "Your pages" },
-  { id: "connect", title: "Connect the dots", body: "Link pages as you write. Backlinks and the graph show you the threads between your ideas.", label: "Linked pages" },
-  { id: "yours", title: "Make it yours", body: "Icons, covers and colors for every page, so your space looks the way it feels.", label: "Icons & favorites" },
-  { id: "close", title: "Keep it close", body: "Favorites and recent pages sit right where you left them, a click away.", label: "Favorites & recents" },
+  { id: "connect", title: "Connect the dots", body: "Link pages as you write. The graph view shows the threads between your ideas.", label: "Graph view" },
+  { id: "organize", title: "Organize anything", body: "Turn a list into a database, with tables, boards and views for every way you look at it.", label: "Databases" },
+  { id: "together", title: "Work together", body: "Share a page or a whole teamspace. Type at the same time and see each other's cursors.", label: "Teamspaces" },
+  { id: "close", title: "Keep it close", body: "Favorites and recent pages sit right where you left them, a click away.", label: "Favorites" },
 ] as const;
 
 type FeatureId = (typeof features)[number]["id"];
@@ -60,6 +61,7 @@ export function MadeForYourMind() {
     <section className="landing-showcase mind" aria-labelledby="mind-title">
       <div className="mind-grid">
         <div className="mind-copy">
+          <p className="mind-eyebrow">What Max does</p>
           <h2 id="mind-title" className="showcase-title">
             Made for
             <br />
@@ -108,29 +110,29 @@ function MaxWindow({ active, label }: { active: FeatureId; label: string }) {
       <aside className="mind-sidebar">
         <div className="mind-top">
           <span className="mind-dots"><i /><i /><i /></span>
-          <span className="mind-space"><LogoMark className="size-3.5" /> Personal</span>
+          <span className="mind-space"><LogoMark className="size-3.5" /> Max</span>
         </div>
-        <div className={`mind-favs${on("yours")}`}>
-          {["🧳", "📚", "🌱", "🍳", "🎧", "📓"].map((e) => (
-            <span key={e} className="mind-fav">{e}</span>
-          ))}
+        <div className="mind-nav">
+          <p className="mind-navrow"><Search className="size-3.5" /> Search</p>
+          <p className="mind-navrow"><LayoutTemplate className="size-3.5" /> Templates</p>
+          <p className={`mind-navrow${on("connect")}`}><Waypoints className="size-3.5" /> Graph view</p>
         </div>
-        <div className="mind-row mind-search"><Search className="size-3.5" /> Search</div>
-        <div className={`mind-group mind-recent${on("close")}`}>
-          <p className="mind-group-title"><Star className="size-3" /> Favorites</p>
+        <div className={`mind-group${on("close")}`}>
+          <p className="mind-group-title">Favorites</p>
           <p className="mind-page">🧳 Lisbon trip</p>
-          <p className="mind-page">📚 Reading list</p>
+          <p className="mind-page">📓 Journal</p>
         </div>
-        <div className={`mind-group mind-violet${on("connect")}`}>
-          <p className="mind-group-title">🗺️ Trip ideas</p>
-          <p className="mind-page">🏛️ Things to see</p>
-          <p className="mind-page">🍽️ Where to eat</p>
-          <p className="mind-page">🚋 Getting around</p>
+        <div className={`mind-group${on("together")}`}>
+          <p className="mind-group-title">Teamspaces</p>
+          <p className="mind-page"><span className="mind-team">🏡</span> Family <span className="mind-faces"><i /><i /><i /></span></p>
+          <p className="mind-page"><span className="mind-team">🚀</span> Side project <span className="mind-faces"><i /><i /></span></p>
         </div>
-        <div className="mind-group mind-peach">
-          <p className="mind-group-title">📖 Reading list</p>
-          <p className="mind-page">The Third Self</p>
-          <p className="mind-page">Something Rich and Strange</p>
+        <div className="mind-group">
+          <p className="mind-group-title">Private</p>
+          <p className="mind-page">🧳 Lisbon trip</p>
+          <p className={`mind-page${on("organize")}`}><Table2 className="mind-db size-3.5" /> Reading list</p>
+          <p className="mind-page">🌱 Garden</p>
+          <p className="mind-page">🍳 Recipes</p>
         </div>
       </aside>
       <div className={`mind-page-view${on("write")}`}>

@@ -161,6 +161,7 @@ export function summary(p: PageRow) {
     lastOpenedAt: p.lastOpenedAt,
     updatedAt: p.updatedAt,
     createdAt: p.createdAt,
+    ...(p.teamspace ? { teamspace: true } : {}),
   };
 }
 export type PageSummary = ReturnType<typeof summary>;

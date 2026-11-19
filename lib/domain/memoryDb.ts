@@ -79,6 +79,11 @@ export class MemoryDb implements Db {
     return at < 0 ? null : at + 1;
   }
 
+  async memberByNumber(n: number) {
+    const rows = [...this.state.settings.values()].sort((a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0));
+    return rows[n - 1]?.ownerId ?? null;
+  }
+
   async updatesAfter(roomId: string, afterSeq: number, limit: number) {
     const out: Tables["collabUpdates"][] = [];
     for (const row of this.state.collabUpdates.values()) if (row.roomId === roomId && row.seq > afterSeq) out.push(clone(row));

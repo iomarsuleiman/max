@@ -76,6 +76,51 @@ function useDarkMode() {
   return dark;
 }
 
+/**
+ * Phones: tracks the on-screen keyboard (via the visual viewport) and keeps the line you're typing
+ * on visible above the keyboard and the formatting row, instead of hidden behind them.
+ */
+function useKeyboardAwareCaret(editor: MaxEditorType, editable: boolean) {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv || !editable) return;
+    const root = document.documentElement;
+    let frame = 0;
+    const keyboardHeight = () => Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    const reveal = () => {
+      frame = 0;
+      const open = keyboardHeight() > 120;
+      root.style.setProperty("--keyboard", `${open ? keyboardHeight() : 0}px`);
+      if (open) root.dataset.keyboard = "open";
+      else delete root.dataset.keyboard;
+      if (!open || !editor.isFocused()) return;
+      const sel = window.getSelection();
+      if (!sel?.rangeCount) return;
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      if (!rect.height && !rect.top) return;
+      // Room for the formatting row (about 56px) above the keyboard.
+      const limit = vv.offsetTop + vv.height - 72;
+      const scroller = (editor.prosemirrorView?.dom as HTMLElement | undefined)?.closest("#page-scroll, .overflow-y-auto") as HTMLElement | null;
+      if (rect.bottom > limit) (scroller ?? document.scrollingElement)?.scrollBy({ top: rect.bottom - limit + 12 });
+      else if (rect.top < vv.offsetTop + 56) (scroller ?? document.scrollingElement)?.scrollBy({ top: rect.top - vv.offsetTop - 56 });
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(reveal);
+    };
+    vv.addEventListener("resize", schedule);
+    vv.addEventListener("scroll", schedule);
+    document.addEventListener("selectionchange", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      vv.removeEventListener("resize", schedule);
+      vv.removeEventListener("scroll", schedule);
+      document.removeEventListener("selectionchange", schedule);
+      root.style.removeProperty("--keyboard");
+      delete root.dataset.keyboard;
+    };
+  }, [editor, editable]);
+}
+
 export default function MaxEditor(props: MaxEditorProps) {
   const dark = useDarkMode();
   const propsRef = useRef(props);
@@ -146,6 +191,7 @@ export default function MaxEditor(props: MaxEditorProps) {
   useEffect(() => {
     props.onReady?.(editor);
   }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
+  useKeyboardAwareCaret(editor, props.editable);
 
   const bridge = useMemo<EditorBridgeValue>(
     () => ({
@@ -290,13 +336,12 @@ function MaxFormattingToolbar() {
   }, []);
   const items = getFormattingToolbarItems();
   if (mode !== "mobile" && !narrow) return <FormattingToolbar>{items}</FormattingToolbar>;
-  const primary = new Set(["blockTypeSelect", "boldStyleButton", "italicStyleButton"]);
+  // The row above the keyboard: insert, block type, bold, undo, redo; the rest is one tap away in More.
+  const primary = new Set(["blockTypeSelect", "boldStyleButton"]);
   return (
     <div className="max-touch-formatting" data-expanded={more || undefined}>
       {more && <div className="max-touch-secondary" role="group" aria-label="More formatting">
         {items.filter((item) => !primary.has(String(item.key)))}
-        <Components.FormattingToolbar.Button className="bn-button" label="Undo" mainTooltip="Undo" icon={<Undo2 size={18} />} onClick={() => editor.undo()} />
-        <Components.FormattingToolbar.Button className="bn-button" label="Redo" mainTooltip="Redo" icon={<Redo2 size={18} />} onClick={() => editor.redo()} />
         {([
           { action: "duplicate", label: "Duplicate block", icon: <Copy size={18} /> },
           { action: "up", label: "Move block up", icon: <ArrowUp size={18} /> },
@@ -311,6 +356,8 @@ function MaxFormattingToolbar() {
       <FormattingToolbar>
         <MobileInsertButton />
         {items.filter((item) => primary.has(String(item.key)))}
+        <Components.FormattingToolbar.Button className="bn-button" label="Undo" mainTooltip="Undo" icon={<Undo2 size={18} />} onClick={() => editor.undo()} />
+        <Components.FormattingToolbar.Button className="bn-button" label="Redo" mainTooltip="Redo" icon={<Redo2 size={18} />} onClick={() => editor.redo()} />
         <Components.FormattingToolbar.Button className="bn-button" label="More formatting" mainTooltip="More formatting" icon={<Ellipsis size={20} />} isSelected={more} onClick={() => setMore(!more)} />
         <Components.FormattingToolbar.Button className="bn-button" label="Done editing" mainTooltip="Done editing" icon={<Check size={20} />} onClick={() => { setMore(false); editor.blur(); }} />
       </FormattingToolbar>

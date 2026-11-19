@@ -1,71 +1,63 @@
 import { expect, test } from "@playwright/test";
-import jsQR from "jsqr";
 import { PNG } from "pngjs";
 
-test("profile card previews, saves and persists across reload", async ({ page }) => {
+test("the membership card lives in About: number, note on the back, artwork that saves, download", async ({ page }) => {
   await page.goto("/home?settings=account");
   const settings = page.getByRole("dialog", { name: "Settings", exact: true });
-  await expect(settings.getByRole("heading", { name: "Welcome to Max." })).toBeVisible();
+  // Your name is set in My account and carried to the card.
   await settings.getByLabel("Name", { exact: true }).fill("عمر Omar");
-  await expect(settings.getByLabel("Preferred name", { exact: true })).toHaveCount(0);
-  await expect(settings.getByLabel("About you", { exact: true })).toHaveCount(0);
-  await expect(settings.getByLabel("Card name", { exact: true })).toHaveCount(0);
+  await settings.getByLabel("Name", { exact: true }).press("Enter");
+  await expect(page.getByText("Name saved", { exact: true })).toBeVisible();
+
+  await page.goto("/home?settings=about");
   const preview = settings.getByRole("article", { name: "Your profile card preview" });
-  await expect(preview).toContainText(/NO\. \d{6}/);
-  const before = await preview.innerHTML();
-  await settings.getByRole("button", { name: "Change" }).click();
-  expect(await preview.innerHTML()).not.toBe(before);
-  const savedDesign = await preview
-    .locator("svg")
-    .first()
-    .evaluate((svg) => Array.from(svg.querySelectorAll("path, stop")).map((element) => [element.getAttribute("d"), element.getAttribute("stop-color")]));
+  await expect(preview).toBeVisible();
   await expect(preview).toContainText("عمر Omar");
-  await settings.getByRole("button", { name: "Save my card", exact: true }).click();
-  await expect(page.getByText("Profile card saved", { exact: true })).toBeVisible();
-  const stored = await page.request.post("/api/local/ops", { data: { op: "settings.get", args: {} } });
-  const data = (await stored.json()).result.settings;
-  expect(data.displayName).toBe("عمر Omar");
-  expect(data.profileCard.createdAt).toBeGreaterThan(0);
-  const issued = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(data.profileCard.createdAt);
-  await expect(preview).toContainText(issued);
-  await expect(preview).not.toContainText("YOUR WORKSPACE CARD");
-  // The card flips to a handwritten member number and join date, with just the code.
   await expect(preview).toContainText(/NO\. \d{6}/);
-  await preview.getByRole("button", { name: "Show the back of the card" }).click();
+  await expect(settings.getByText(/^No\. \d/)).toBeVisible();
+  await expect(settings.getByText(/^from The Max team/)).toBeVisible();
+
+  // Hovering turns it over to the handwritten note (no QR, no invitation text).
+  await preview.hover();
   await expect(preview.getByRole("button", { name: "Show the front of the card" })).toHaveAttribute("aria-pressed", "true");
-  await expect(preview).toContainText(/#\d+/);
-  await expect(preview).not.toContainText("invited");
+  await expect(preview).toContainText("thank you for joining");
+  await expect(preview).toContainText("The Max team");
+  await page.mouse.move(5, 5);
+  await expect(preview.getByRole("button", { name: "Show the back of the card" })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Enable phone tilt" })).toHaveCount(0);
-  await settings.getByRole("button", { name: "Show front" }).click();
+
+  // Changing the artwork saves it.
+  const art = () => preview.locator("svg").first().evaluate((svg) => Array.from(svg.querySelectorAll("path, stop, circle")).map((e) => [e.getAttribute("d"), e.getAttribute("stop-color"), e.getAttribute("r")]));
+  const before = await art();
+  await settings.getByRole("button", { name: "Change artwork" }).click();
+  await expect.poll(art).not.toEqual(before);
+  const saved = await art();
+  await expect.poll(async () => (await (await page.request.post("/api/local/ops", { data: { op: "settings.get", args: {} } })).json()).result.settings.profileCard?.theme).toBeTruthy();
   await page.reload();
-  await expect(settings.getByLabel("Name", { exact: true })).toHaveValue("عمر Omar");
   await expect(preview).toContainText(/NO\. \d{6}/);
-  expect(
-    await preview
-      .locator("svg")
-      .first()
-      .evaluate((svg) => Array.from(svg.querySelectorAll("path, stop")).map((element) => [element.getAttribute("d"), element.getAttribute("stop-color")])),
-  ).toEqual(savedDesign);
-  await settings.getByLabel("Name", { exact: true }).fill("");
-  await expect(settings.getByRole("article", { name: "Your profile card preview" })).toBeVisible();
-  await settings.getByLabel("Name", { exact: true }).fill("Omar Suleiman");
+  await expect.poll(art).toEqual(saved);
+
+  // Your note for people you invite, and the invite link.
+  await settings.getByLabel("Your note for people you invite").fill("{name},\nso glad you're here.");
+  await settings.getByLabel("Your note for people you invite").blur();
+  await expect(page.getByText("Note saved", { exact: true })).toBeVisible();
+  await expect(settings.getByText(/\/join\?from=\d+/)).toBeVisible();
+
   const download = page.waitForEvent("download");
   await settings.getByRole("button", { name: "Download PNG", exact: true }).click();
   const file = await download;
   expect(file.suggestedFilename()).toBe("max-workspace-card.png");
-  const path = await file.path();
   const { readFile } = await import("node:fs/promises");
-  expect((await readFile(path!)).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
-  const png = PNG.sync.read(await readFile(path!));
-  const scanned = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
-  // The QR is an invite to Max that names the member only by number.
-  expect(scanned?.data).toMatch(/^https:\/\/max\.chaos\.fail\/join\?from=\d+$/);
+  const png = PNG.sync.read(await readFile((await file.path())!));
+  // Both sides, side by side.
+  expect(png.width).toBeGreaterThan(png.height * 1.5);
   await file.saveAs("test-results/max-workspace-card.png");
 });
 
-test("the card's QR opens an invitation to Max", async ({ page }) => {
+test("the invite page remembers who sent you", async ({ page }) => {
   await page.goto("/join?from=42");
   await expect(page.getByText("You're invited")).toBeVisible();
   await expect(page.getByText("#42")).toBeVisible();
   await expect(page.getByRole("link", { name: "Join Max" })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("max:invited-by"))).toBe("42");
 });

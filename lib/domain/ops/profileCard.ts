@@ -5,19 +5,28 @@ import { settingsUpdate } from "./account";
 import { profileCardSchema } from "../profileCard";
 import { profileCardSvg } from "../profileCardImage";
 import { MaxError } from "../errors";
+import { FOUNDER_NAME, FOUNDER_NOTE, INVITE_NOTE, writeNote } from "../../welcomeNote";
 
 export const profileCardGet = defineOp({
   name: "profileCard.get",
   kind: "query",
   title: "Read my workspace card",
   description:
-    "Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern, plus your member number (your place among everyone who joined Max). Other accounts' cards are inaccessible.",
+    "Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern, plus your member number (your place among everyone who joined Max) and the handwritten note on its back. Other accounts' cards are inaccessible.",
   input: z.object({}),
   async run(ctx) {
     const settings = await getSettingsRow(ctx);
     const saved = profileCardSchema.safeParse(settings?.profileCard);
     const memberNumber = (await ctx.db.memberNumber(ctx.ownerId)) ?? undefined;
+    // The note on the back: from whoever invited you (their note, or the default one signed by them),
+    // otherwise from Max's maker. Only the inviter's name and note are shared, nothing else.
+    const memberName = settings?.displayName?.trim() || (saved.success ? saved.data.name : "") || "friend";
+    const inviter = settings?.invitedBy ? (await ctx.db.list("settings", settings.invitedBy))[0] ?? null : null;
+    const note = inviter
+      ? { from: inviter.displayName?.trim() || "A friend", text: writeNote(inviter.inviteNote?.trim() || INVITE_NOTE, memberName), invited: true }
+      : { from: FOUNDER_NAME, text: writeNote(FOUNDER_NOTE, memberName), invited: false };
     return {
+      note,
       card: saved.success ? { ...saved.data, createdAt: settings?.joinedAt ?? saved.data.createdAt, name: settings?.displayName?.trim() || saved.data.name, memberNumber } : null,
       memberNumber: memberNumber ?? null,
       joinedAt: settings?.joinedAt ?? null,

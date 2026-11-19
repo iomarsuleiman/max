@@ -14,7 +14,8 @@ import { pageTitle, timeAgo } from "@/lib/client/format";
 import { useAssetResolver, useUploader } from "@/lib/client/upload";
 import type { DocumentGetResult, PageGetResult, PageSummary } from "@/lib/client/types";
 import { ScopedWorkspace, confirmPermanentDelete, notifyError, useWorkspace } from "@/components/workspace/context";
-import { PageAccessProvider, can, useLinkToken, usePageAccess } from "@/components/share/access";
+import { PageAccessProvider, can, useLinkToken, usePageAccess, type PageAccess } from "@/components/share/access";
+import { JoinBanner } from "@/components/share/JoinBanner";
 import { ShareMenu } from "@/components/share/ShareMenu";
 import { DuplicateShared } from "@/components/share/DuplicateShared";
 import { PresenceStack } from "@/components/share/Presence";
@@ -61,6 +62,7 @@ interface AccessInfo {
   ownerId: string;
   ownerName: string | null;
   rootId: string | null;
+  invite: PageAccess["invite"];
 }
 
 /**
@@ -76,7 +78,7 @@ export function PageView(props: { pageId: string; renderHeader?: (data: PageGetR
   return (
     <ShareScope value={scope}>
       <ScopedWorkspace>
-        <PageAccessProvider value={{ level: level as ShareLevel, shared: true, you: access.data?.you, ownerName: access.data?.ownerName ?? null }}>
+        <PageAccessProvider value={{ level: level as ShareLevel, shared: true, you: access.data?.you, ownerName: access.data?.ownerName ?? null, invite: access.data?.invite ?? null }}>
           <PageViewInner {...props} />
         </PageAccessProvider>
       </ScopedWorkspace>
@@ -203,6 +205,7 @@ function PageViewInner({ pageId, renderHeader, accessPending }: { pageId: string
       <div className="flex min-h-0 min-w-0 flex-1">
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" id={embedded ? undefined : "page-scroll"}>
         {page.archivedAt && <TrashBanner data={data} />}
+        {access.invite && !embedded && <JoinBanner invite={access.invite} />}
         {page.isTemplate && (
           <div className="bg-accent-soft px-4 py-2 text-center text-[13px] text-fg">
             You&apos;re editing a template. New {page.databaseId ? "rows" : "pages"} made from it copy this content. Use {"{{today}}"} to insert the date.

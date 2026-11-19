@@ -29,6 +29,8 @@ export interface Db {
   updatesAfter(roomId: string, afterSeq: number, limit: number): Promise<Tables["collabUpdates"][]>;
   /** Your place in line among everyone who joined Max (1 = first), or null before you've joined. */
   memberNumber(ownerId: string): Promise<number | null>;
+  /** The account with this member number, or null. */
+  memberByNumber(n: number): Promise<string | null>;
 }
 
 export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness";

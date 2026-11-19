@@ -21,6 +21,8 @@ import {
   MoveHorizontal,
   Unlock, Printer, Waypoints } from "lucide-react";
 import { toast } from "sonner";
+import { UsersRound } from "lucide-react";
+import { SHARING_ENABLED } from "@/lib/config";
 import { IconButton, Menu, MenuCheckItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Switch } from "@/components/ui";
 import { useRead } from "@/lib/client/data";
 import { dateTime } from "@/lib/client/format";
@@ -115,6 +117,11 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
           {!page.isTemplate && (
             <MenuItem icon={fav ? <StarOff /> : <Star />} onSelect={() => ws.toggleFavorite(page._id, !fav)}>
               {fav ? "Remove from Favorites" : "Add to Favorites"}
+            </MenuItem>
+          )}
+          {SHARING_ENABLED && !page.parentId && !page.databaseId && page.kind === "page" && !page.isTemplate && (
+            <MenuItem icon={<UsersRound />} onSelect={() => update({ teamspace: !page.teamspace }, page.teamspace ? "Turned back into a private page" : "Turned into a teamspace. Add people from Share.")}>
+              {page.teamspace ? "Turn into a private page" : "Turn into a teamspace"}
             </MenuItem>
           )}
           <MenuItem icon={<Link2 />} onSelect={() => ws.copyLink(page._id)}>

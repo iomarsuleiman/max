@@ -3,10 +3,10 @@ import { profileCardBackSvg, profileCardSvg } from "@/lib/domain/profileCardImag
 export { profileCardBackSvg, profileCardSvg };
 
 /** Rasterize locally. Card text never leaves the browser. */
-export async function downloadProfileCardPng(card: ProfileCard): Promise<void> {
-  // Both sides, side by side: the artwork and, on the back, the handwritten number and the code.
+export async function downloadProfileCardPng(card: ProfileCard, note: { text: string; from: string }): Promise<void> {
+  // Both sides, side by side: the artwork and the handwritten note on the back.
   const front = profileCardSvg(card, "png-front");
-  const back = profileCardBackSvg(card, "png-back", front.height);
+  const back = profileCardBackSvg(card, note, "png-back");
   const gap = 32;
   const width = front.width * 2 + gap;
   const height = front.height;

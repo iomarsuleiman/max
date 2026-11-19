@@ -50,6 +50,7 @@ const settingsPatch = z.object({
   displayName: z.string().max(80).nullable().optional(),
   profileCard: profileCardSchema.nullable().optional(),
   profileCardOnboarded: z.boolean().optional(),
+  inviteNote: z.string().trim().max(240).nullable().optional(),
 });
 
 export const settingsGet = defineOp({
@@ -147,10 +148,12 @@ export const accountInit = defineOp({
   kind: "mutation",
   title: "Set up workspace",
   description: "Prepares a new workspace on first sign-in (preferences and a welcome page). Safe to call again; does nothing once set up.",
-  input: z.object({ displayName: z.string().max(80).nullable().optional() }),
-  async run(ctx, { displayName }) {
+  input: z.object({ displayName: z.string().max(80).nullable().optional(), invitedBy: z.number().int().positive().max(1_000_000_000).nullable().optional() }),
+  async run(ctx, { displayName, invitedBy }) {
     const existing = await getSettingsRow(ctx);
     if (existing?.onboarded) return { created: false };
+    // Joined through someone's invite link (their member number): remember who, for the card's note.
+    const inviter = invitedBy ? await ctx.db.memberByNumber(invitedBy) : null;
     const pages = await allPages(ctx);
     let welcomeId: string | null = null;
     if (!pages.length) {
@@ -158,7 +161,7 @@ export const accountInit = defineOp({
       welcomeId = await ctx.db.insert("pages", row);
       await insertDocument(ctx, welcomeId, markdownToBlocks(WELCOME));
     }
-    await upsertSettings(ctx, { onboarded: true, ...(displayName && !existing?.displayName ? { displayName } : {}) });
+    await upsertSettings(ctx, { onboarded: true, ...(displayName && !existing?.displayName ? { displayName } : {}), ...(inviter && inviter !== ctx.ownerId && !existing?.invitedBy ? { invitedBy: inviter } : {}) });
     return { created: true, welcomeId };
   },
 });

@@ -33,6 +33,8 @@ import { toast } from "sonner";
 import { IconButton, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Popover, Skeleton, cn } from "@/components/ui";
 import { LogoMark } from "@/components/brand/Logo";
 import { SharedSection } from "@/components/share/SharedSection";
+import { TeamspacesSection } from "@/components/share/Teamspaces";
+import { withoutTeamspaces } from "@/lib/client/teamspaces";
 import { useOp, prefetchOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";
 import type { PageSummary, SettingsRow } from "@/lib/client/types";
@@ -104,6 +106,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
           <SortableContext items={shown} strategy={verticalListSortingStrategy}>
             {shown.map((id, i) => (
               <Fragment key={id}>
+              {id === "pages" && SHARING_ENABLED && <TeamspacesSection />}
               {id === "pages" && SHARING_ENABLED && <SharedSection />}
               <SidebarSection
                 key={id}
@@ -430,9 +433,11 @@ function PagesSection() {
       </div>
     );
   }
+  // Teamspaces (and everything in them) are listed in their own section.
+  const pages = withoutTeamspaces(ws.tree);
   return (
     <PageTree
-      pages={ws.tree}
+      pages={pages}
       emptyHint={
         <button type="button" onClick={() => ws.createPage()} className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-[13px] text-fg-3 hover:bg-hover hover:text-fg-2">
           <Plus className="size-3.5" /> Add your first page

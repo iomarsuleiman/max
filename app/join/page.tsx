@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LogoMark } from "@/components/brand/Logo";
 import { CLOUD } from "@/lib/config";
+import { RememberInviter } from "@/components/share/RememberInviter";
 
 export const metadata: Metadata = {
   title: "You're invited to Max",
@@ -14,6 +15,7 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ f
   const member = from && /^\d{1,9}$/.test(from) ? Number(from) : null;
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 py-12 text-fg">
+      {member && <RememberInviter member={member} />}
       <div className="w-full max-w-[400px] rounded-[20px] bg-[#fffdf0] p-7 text-[#2b2620] shadow-[0_24px_60px_-20px_rgb(0_0_0/.35),0_0_0_1px_rgb(0_0_0/.06)]">
         <div className="flex items-center justify-between font-mono text-[10.5px] font-bold tracking-[.16em]">
           <span>INVITATION</span>

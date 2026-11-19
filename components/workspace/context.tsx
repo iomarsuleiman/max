@@ -91,6 +91,16 @@ export function ScopedWorkspace({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+/** The member number of whoever invited this person (set by /join), read once at account setup. */
+function readInviter(): number | null {
+  try {
+    const n = Number(localStorage.getItem("max:invited-by"));
+    return Number.isInteger(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 export function WorkspaceProvider({ identity, children }: { identity: Identity; children: ReactNode }) {
   useLocalLiveUpdates();
   const router = useRouter();
@@ -108,7 +118,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   useEffect(() => {
     if (initRan.current || !settingsQ.data || settingsQ.data.settings.onboarded) return;
     initRan.current = true;
-    call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null })
+    call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null, invitedBy: readInviter() })
       .then((r) => {
         if (r.welcomeId && (pathname === "/home" || pathname === "/")) {
           const query = params.toString();

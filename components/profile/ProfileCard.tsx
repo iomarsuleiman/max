@@ -24,10 +24,15 @@ function applyTilt(element: HTMLElement, x: number, y: number) {
 }
 
 /**
- * The membership card: artwork on the front, a handwritten member number, join date and an
- * invite QR on the back. Tilts toward the pointer (or the phone), flips on click.
+ * The membership card: artwork on the front and a handwritten note on the back. Tilts toward the
+ * pointer (or the phone); hovering turns it over to show the note, and a click or tap flips it.
  */
-export function ProfileCard({ card }: { card: Card }) {
+export interface CardNote {
+  text: string;
+  from: string;
+}
+
+export function ProfileCard({ card, note }: { card: Card; note: CardNote }) {
   const id = useId();
   const tilt = useRef<HTMLElement>(null);
   const permissionRequired = useSyncExternalStore(subscribe, needsPermission, () => false);
@@ -35,7 +40,7 @@ export function ProfileCard({ card }: { card: Card }) {
   const [flipped, setFlipped] = useState(false);
   const named = { ...card, name: card.name.trim() || "Your name" };
   const front = profileCardSvg(named, id);
-  const back = profileCardBackSvg(named, `${id}-b`, front.height);
+  const back = profileCardBackSvg(named, note, `${id}-b`);
   useEffect(() => {
     let baseline: { beta: number; gamma: number } | null = null;
     const orient = (event: DeviceOrientationEvent) => {
@@ -66,7 +71,11 @@ export function ProfileCard({ card }: { card: Card }) {
           const box = event.currentTarget.getBoundingClientRect();
           applyTilt(event.currentTarget, ((event.clientX - box.left) / box.width) * 2 - 1, ((event.clientY - box.top) / box.height) * 2 - 1);
         }}
-        onPointerLeave={reset}
+        onPointerEnter={(event) => event.pointerType === "mouse" && setFlipped(true)}
+        onPointerLeave={(event) => {
+          reset();
+          if (event.pointerType === "mouse") setFlipped(false);
+        }}
         onPointerCancel={reset}
       >
         <div className="profile-card-flip" data-flipped={flipped || undefined}>
@@ -86,13 +95,13 @@ export function ProfileCard({ card }: { card: Card }) {
         />
         <p className="sr-only" aria-live="polite">
           {flipped
-            ? `Back: member ${card.memberNumber ? `number ${card.memberNumber}` : "number pending"}, joined Max${card.createdAt ? ` on ${new Date(card.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}` : ""}, with a QR code that invites people to Max.`
+            ? `Back: a handwritten note from ${note.from}: ${note.text.replace(/\n/g, " ")}`
             : `Front: ${named.name}${card.subtitle ? `, ${card.subtitle}` : ""}.`}
         </p>
       </article>
       <div className="flex w-full flex-wrap justify-center gap-2 pt-1">
         <Button size="sm" variant="ghost" icon={<RotateCw className="size-3.5" />} onClick={() => setFlipped((f) => !f)}>
-          {flipped ? "Show front" : "Flip card"}
+          {flipped ? "Show front" : "Read the note"}
         </Button>
         {permissionRequired && !permissionGranted && (
           <Button

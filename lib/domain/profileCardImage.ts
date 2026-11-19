@@ -1,4 +1,3 @@
-import qrcode from "qrcode-generator";
 import { cardPalettes as palettes, profileCardSchema, type ProfileCard } from "./profileCard";
 import { MARK_PATH } from "../brand";
 
@@ -15,16 +14,6 @@ export function inviteUrl(memberNumber?: number) {
 
 export const formatMemberNumber = (n?: number | null) => (n ? `NO. ${String(n).padStart(6, "0")}` : "NO. ——————");
 
-function qrPathFor(data: string) {
-  const qr = qrcode(0, "M");
-  qr.addData(data);
-  qr.make();
-  const modules = qr.getModuleCount();
-  const path = Array.from({ length: modules }, (_, row) =>
-    Array.from({ length: modules }, (_, col) => (qr.isDark(row, col) ? `M${col + 4} ${row + 4}h1v1h-1z` : "")).join(""),
-  ).join("");
-  return { modules, path };
-}
 
 /** Bounded wrapping keeps long names and unbroken words inside the paper. */
 function wrap(text: string, limit: number): string[] {
@@ -44,15 +33,6 @@ function wrap(text: string, limit: number): string[] {
   return lines;
 }
 
-function textLines(lines: string[], y: number, size: number, color: string, weight: number, gap: number, spacing = 0): string {
-  return lines
-    .map((line, index) => {
-      const rtl = /^[^\p{L}]*\p{Script=Arabic}/u.test(line);
-      const tracking = spacing && !rtl ? ` letter-spacing="${spacing}"` : "";
-      return `<text x="${rtl ? 336 : 24}" y="${y + index * gap}" font-size="${size}" font-weight="${weight}"${tracking} fill="${color}" direction="${rtl ? "rtl" : "ltr"}" unicode-bidi="plaintext">${escapeXml(line)}</text>`;
-    })
-    .join("");
-}
 
 /** Preview and download share this self-contained SVG, with no external URLs. */
 type Palette = (typeof palettes)[keyof typeof palettes];
@@ -105,82 +85,87 @@ function artwork(shape: ProfileCard["shape"], plain: boolean, p: Palette, id: st
   };
 }
 
+export const CARD_WIDTH = 300;
+export const CARD_HEIGHT = 380;
+
+const PAPER = "#fffdf0";
+const NOTE_INK = "#26407a";
+const HAND = `font-family="'Caveat', 'Segoe Script', 'Bradley Hand', cursive"`;
+
+/**
+ * The front of the membership card: Max's rounded cream card with the artwork, your member number,
+ * your name and the date you joined. Self-contained SVG (no external URLs or filters); the preview
+ * and downloads share it.
+ */
 export function profileCardSvg(input: ProfileCard, prefix = "card"): { svg: string; width: number; height: number } {
   const card = profileCardSchema.parse(input);
   const palette = palettes[card.theme];
-  const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, "");
-  const clipId = `${safePrefix}-clip`;
-  const titleId = `${safePrefix}-title`;
-  const nameSize = card.name.length > 32 ? 23 : 28;
-  const names = wrap(card.name, nameSize === 28 ? 18 : 23);
-  const subtitles = wrap(card.subtitle, 30).map((line) => line.toLocaleUpperCase("en"));
-  const nameY = 362;
-  const subtitleY = nameY + names.length * (nameSize + 4) + 2;
-  const footerY = Math.max(510, subtitleY + subtitles.length * 17 + 64);
-  const height = footerY + 54;
-  const { defs: artDefs, art } = artwork(card.shape, card.pattern === "plain", palette, safePrefix);
+  const id = prefix.replace(/[^a-zA-Z0-9_-]/g, "");
+  const { defs: artDefs, art } = artwork(card.shape, card.pattern === "plain", palette, id);
+  const name = wrap(card.name.trim() || "Your name", 20)[0] ?? "";
+  const subtitle = (wrap(card.subtitle, 30)[0] ?? "").toLocaleUpperCase("en");
   const date = card.createdAt === undefined ? "NEW CARD" : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(card.createdAt);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="${height}" viewBox="0 0 360 ${height}" role="img" aria-labelledby="${titleId}" style="font-family:Arial,sans-serif">
-    <title id="${titleId}">${escapeXml(card.name)}'s Max workspace card</title>
+  const rtl = /^[^\p{L}]*\p{Script=Arabic}/u.test(name);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}" role="img" aria-labelledby="${id}-title" style="font-family:Arial,sans-serif">
+    <title id="${id}-title">${escapeXml(card.name)}'s Max membership card</title>
     <desc>Membership card artwork. No private workspace information is published.</desc>
     <defs>
       ${artDefs}
-      <pattern id="${safePrefix}-hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V3" stroke="${palette.ink}" stroke-width="1"/></pattern>
-      <linearGradient class="card-light-gradient" id="${safePrefix}-art-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".36" stop-color="#fff" stop-opacity=".04"/><stop offset=".55" stop-color="#fff" stop-opacity=".24"/><stop offset=".76" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".06"/></linearGradient>
-      <clipPath id="${clipId}"><rect x="24" y="24" width="312" height="274" rx="12"/></clipPath>
+      <clipPath id="${id}-art"><rect x="18" y="18" width="264" height="206" rx="10"/></clipPath>
+      <pattern id="${id}-hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V3" stroke="${palette.ink}" stroke-width="1"/></pattern>
+      <linearGradient class="card-light-gradient" id="${id}-art-light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#fff" stop-opacity=".05"/><stop offset=".6" stop-color="#fff" stop-opacity=".22"/><stop offset=".78" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".06"/></linearGradient>
     </defs>
-    <rect width="360" height="${height}" rx="20" fill="#fffdf0" stroke="${palette.ink}" stroke-opacity=".18" stroke-width="1"/>
-    <g clip-path="url(#${clipId})">
-      ${art}
-      <rect class="card-art-light" x="24" y="24" width="312" height="274" fill="url(#${safePrefix}-art-light)"/>
+    <rect x=".5" y=".5" width="${CARD_WIDTH - 1}" height="${CARD_HEIGHT - 1}" rx="18" fill="${PAPER}" stroke="${palette.ink}" stroke-opacity=".18"/>
+    <g clip-path="url(#${id}-art)">
+      <g transform="translate(18 18) scale(${264 / 312} ${206 / 274}) translate(-24 -24)">${art}</g>
+      <rect class="card-art-light" x="18" y="18" width="264" height="206" fill="url(#${id}-art-light)"/>
     </g>
-    <g font-family="monospace" font-size="10.5" font-weight="700" letter-spacing="1.6" fill="${palette.ink}">
-      <text x="24" y="${nameY - 40}">MAX MEMBER</text>
-      <text x="336" y="${nameY - 40}" text-anchor="end">${escapeXml(formatMemberNumber(card.memberNumber))}</text>
+    <g font-family="monospace" font-size="8.5" font-weight="700" letter-spacing="1.4" fill="${palette.ink}">
+      <text x="18" y="246">MAX MEMBER</text>
+      <text x="282" y="246" text-anchor="end">${escapeXml(formatMemberNumber(card.memberNumber))}</text>
     </g>
-    <path d="M24 ${nameY - 31}H336" stroke="${palette.ink}" stroke-opacity=".22" stroke-dasharray="2 3"/>
-    ${textLines(names, nameY, nameSize, palette.ink, 700, nameSize + 4, -.5)}
-    <g font-family="monospace">${textLines(subtitles, subtitleY, 12, palette.ink, 600, 17, 1.7)}</g>
-    <rect x="24" y="${footerY - 14}" width="${Math.round(77 + date.length * 7.4)}" height="28" rx="2" fill="none" stroke="${palette.ink}" stroke-width="1.4"/>
-    <path d="M66 ${footerY - 14}v28M80 ${footerY - 14}v28" stroke="${palette.ink}" stroke-width="1"/>
-    <rect x="66" y="${footerY - 14}" width="14" height="28" fill="url(#${safePrefix}-hatch)"/>
-    <text x="35" y="${footerY + 5}" fill="${palette.ink}" font-size="11" font-weight="700" letter-spacing=".4">MAX</text>
-    <text x="91" y="${footerY + 5}" fill="${palette.ink}" font-size="13.5" font-weight="700">${date}</text>
-    <path d="${MARK_PATH}" transform="translate(300 ${footerY - 18}) scale(.36)" fill="${palette.ink}" opacity=".85"/>
+    <path d="M18 253H282" stroke="${palette.ink}" stroke-opacity=".22" stroke-dasharray="2 3"/>
+    <text x="${rtl ? 282 : 18}" y="282" font-size="23" font-weight="700" letter-spacing="-.4" fill="${palette.ink}" direction="${rtl ? "rtl" : "ltr"}" unicode-bidi="plaintext">${escapeXml(name)}</text>
+    ${subtitle ? `<text x="18" y="301" font-family="monospace" font-size="9.5" font-weight="600" letter-spacing="1.4" fill="${palette.ink}">${escapeXml(subtitle)}</text>` : ""}
+    <rect x="18" y="331" width="${Math.round(64 + date.length * 6.2)}" height="24" rx="2" fill="none" stroke="${palette.ink}" stroke-width="1.2"/>
+    <path d="M54 331v24M66 331v24" stroke="${palette.ink}" stroke-width="1"/>
+    <rect x="54" y="331" width="12" height="24" fill="url(#${id}-hatch)"/>
+    <text x="27" y="347" fill="${palette.ink}" font-size="9.5" font-weight="700" letter-spacing=".4">MAX</text>
+    <text x="74" y="347" fill="${palette.ink}" font-size="11.5" font-weight="700">${escapeXml(date)}</text>
+    <path d="${MARK_PATH}" transform="translate(252 327) scale(.3)" fill="${palette.ink}" opacity=".85"/>
   </svg>`;
-  return { svg, width: 360, height };
+  return { svg, width: CARD_WIDTH, height: CARD_HEIGHT };
+}
+
+/** Breaks a note into short handwritten lines, keeping its own line breaks. */
+function noteLines(text: string, limit = 28): string[] {
+  return text.split("\n").flatMap((line) => (line.trim() ? wrap(line, limit) : [""])).slice(0, 9);
 }
 
 /**
- * The back of the card: a handwritten member number and join date, a signature, and the invite QR.
+ * The back of the card: a handwritten note, from whoever invited you or from Max's maker, with the
+ * date you joined, sealed with the butterfly.
  */
-export function profileCardBackSvg(input: ProfileCard, prefix = "card", height = 564): string {
+export function profileCardBackSvg(input: ProfileCard, note: { text: string; from: string }, prefix = "card"): string {
   const card = profileCardSchema.parse(input);
   const palette = palettes[card.theme];
   const id = prefix.replace(/[^a-zA-Z0-9_-]/g, "");
-  const { modules, path } = qrPathFor(inviteUrl(card.memberNumber));
-  const date = card.createdAt === undefined ? "today" : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(card.createdAt);
-  const number = card.memberNumber ? `#${card.memberNumber.toLocaleString("en-US")}` : "#—";
-  const first = (Array.from(card.name.trim().split(/\s+/u)[0] ?? "").slice(0, 18).join("")) || "Me";
-  const qrSize = 150;
-  const qrY = height - qrSize - 36;
-  // In the app, the .card-hand class supplies the handwriting font; standalone files use these.
-  const handFont = `font-family="'Caveat', 'Segoe Script', 'Bradley Hand', cursive"`;
-  // Just the handwriting and the code: nothing printed, like the back of a real membership card.
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="${height}" viewBox="0 0 360 ${height}" role="img" aria-labelledby="${id}-back-title">
-    <title id="${id}-back-title">Back of the card: member ${escapeXml(number)} of Max, joined ${escapeXml(date)}</title>
-    <defs><pattern id="${id}-lines" width="360" height="30" patternUnits="userSpaceOnUse"><path d="M0 29.5H360" stroke="${palette.ink}" stroke-opacity=".08"/></pattern></defs>
-    <rect width="360" height="${height}" rx="20" fill="#fffdf0" stroke="${palette.ink}" stroke-opacity=".18"/>
-    <rect x="0" y="0" width="360" height="8" fill="${palette.first}"/><rect x="0" y="8" width="360" height="4" fill="${palette.second}"/>
-    <rect x="24" y="64" width="312" height="210" fill="url(#${id}-lines)"/>
-    <g ${handFont} fill="${palette.ink}">
-      <text class="card-hand" x="24" y="150" font-size="84" transform="rotate(-4 24 150)">${escapeXml(number)}</text>
-      <text class="card-hand" x="28" y="214" font-size="24" transform="rotate(-2 28 214)">${escapeXml(date)}</text>
-      <text class="card-hand" x="32" y="254" font-size="26" transform="rotate(-1.5 32 254)">— ${escapeXml(first)}</text>
-    </g>
-    <g transform="translate(${(360 - qrSize) / 2} ${qrY})">
-      <rect width="${qrSize}" height="${qrSize}" rx="10" fill="#fff" stroke="${palette.ink}" stroke-opacity=".12"/>
-      <svg x="5" y="5" width="${qrSize - 10}" height="${qrSize - 10}" viewBox="0 0 ${modules + 8} ${modules + 8}"><path d="${path}" fill="${palette.ink}" shape-rendering="crispEdges"/></svg>
+  const date = card.createdAt === undefined ? "" : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(card.createdAt);
+  const lines = noteLines(note.text);
+  const first = lines[0] ?? "";
+  const rest = lines.slice(1);
+  const signY = 118 + rest.length * 27 + 22;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}" role="img" aria-labelledby="${id}-back-title">
+    <title id="${id}-back-title">A handwritten note from ${escapeXml(note.from)}: ${escapeXml(note.text.replace(/\n/g, " "))}</title>
+    <g>
+      <rect x=".5" y=".5" width="${CARD_WIDTH - 1}" height="${CARD_HEIGHT - 1}" rx="18" fill="${PAPER}" stroke="${palette.ink}" stroke-opacity=".18"/>
+      <path d="${MARK_PATH}" transform="translate(26 332) scale(.26)" fill="${palette.ink}" opacity=".5"/>
+      <g ${HAND} fill="${NOTE_INK}">
+        ${date ? `<text class="card-hand" x="262" y="52" text-anchor="end" font-size="17">${escapeXml(date)}</text>` : ""}
+        <text class="card-hand" x="34" y="94" font-size="27" transform="rotate(-2 34 94)">${escapeXml(first)}</text>
+        ${rest.map((l, i) => `<text class="card-hand" x="34" y="${126 + i * 27}" font-size="22" transform="rotate(-1.5 34 ${126 + i * 27})">${escapeXml(l)}</text>`).join("")}
+        <text class="card-hand" x="262" y="${Math.min(signY + 12, 340)}" text-anchor="end" font-size="27" transform="rotate(-3 262 ${Math.min(signY + 12, 340)})">${escapeXml(note.from)}</text>
+      </g>
     </g>
   </svg>`;
 }

@@ -133,7 +133,7 @@ export const pagesCreate = defineOp({
   kind: "mutation",
   title: "Create page",
   description:
-    "Creates a page at the root or inside a parent page. Optional `index` places it among siblings (default: last). Optional `markdown` sets initial content.",
+    "Creates a page at the root or inside a parent page. Optional `index` places it among siblings (default: last). Optional `markdown` sets initial content. `teamspace: true` (top level only) makes it a teamspace: share it with people (shares_inviteByEmail) and it's listed under Teamspaces for everyone in it.",
   input: z.object({
     parentId: id.nullable().optional(),
     title: title.optional(),
@@ -141,9 +141,11 @@ export const pagesCreate = defineOp({
     index: z.number().int().min(0).optional(),
     markdown: z.string().max(400_000).optional(),
     kind: z.enum(["page", "database"]).optional(),
+    teamspace: z.boolean().optional(),
   }),
   async run(ctx, input) {
     const pages = await allPages(ctx);
+    if (input.teamspace && (input.parentId || input.kind === "database")) throw new MaxError("VALIDATION", "A teamspace is a page at the top level.");
     if (pages.length >= LIMITS.pagesPerAccount) {
       throw new MaxError("LIMIT", `You've reached the limit of ${LIMITS.pagesPerAccount.toLocaleString("en")} pages. Empty the trash or delete pages you no longer need.`);
     }
@@ -163,6 +165,7 @@ export const pagesCreate = defineOp({
       rank: rankAt(siblings, input.index),
       fullWidth: input.kind === "database" ? true : (settings?.defaultFullWidth ?? false),
       ...(input.kind === "database" ? defaultDatabaseFields() : {}),
+      ...(input.teamspace ? { teamspace: true } : {}),
     });
     const pageId = await ctx.db.insert("pages", row);
     let blocks: unknown[] = [];
@@ -201,9 +204,13 @@ export const pagesUpdate = defineOp({
     fullWidth: z.boolean().optional(),
     smallText: z.boolean().optional(),
     locked: z.boolean().optional(),
+    teamspace: z.boolean().optional().describe("Turns a top-level page into a teamspace (true) or back into a private page (false)."),
   }),
   async run(ctx, { id: pageId, ...patch }) {
     const page = await requirePage(ctx, pageId);
+    if (patch.teamspace && (page.parentId || page.databaseId || page.kind === "database" || page.isTemplate)) {
+      throw new MaxError("VALIDATION", "Only a page at the top level can become a teamspace. Move it to the top first.");
+    }
     if (page.locked && patch.locked !== false && (patch.title !== undefined || patch.icon !== undefined || patch.cover !== undefined || patch.coverPosition !== undefined)) assertWritable(page);
     if (patch.cover && !/^(https:\/\/|max-asset:\/\/|gradient:\d+$|color:[a-z]+$|cover:[a-z0-9-]+$)/.test(patch.cover)) {
       throw new MaxError("VALIDATION", "Covers must be an https image link, an uploaded image, or a built-in gradient.");
@@ -236,8 +243,10 @@ export const pagesMove = defineOp({
     }
     const siblings = treeChildren(pages, parentId).filter((p) => p._id !== pageId);
     const rank = rankAt(siblings, index);
-    await ctx.db.patch("pages", pageId, { parentId, rank, updatedAt: ctx.now });
-    return { page: { ...page, parentId, rank } };
+    // A teamspace moved inside another page becomes an ordinary page there.
+    const teamspace = parentId && page.teamspace ? { teamspace: false } : {};
+    await ctx.db.patch("pages", pageId, { parentId, rank, updatedAt: ctx.now, ...teamspace });
+    return { page: { ...page, parentId, rank, ...teamspace } };
   },
 });
 

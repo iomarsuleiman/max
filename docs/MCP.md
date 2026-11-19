@@ -68,7 +68,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `pages_archive` | Move page to trash | Write | Moves a page, its subpages and (for databases) its rows to the trash. Reversible with pages.restore until the trash is emptied. |
 | `pages_backlinks` | List backlinks | Read | Lists live pages whose content links to or mentions this page. |
 | `pages_children` | List child pages | Read | Lists the direct child pages of a page (or root pages when parentId is null), in sidebar order. |
-| `pages_create` | Create page | Write | Creates a page at the root or inside a parent page. Optional `index` places it among siblings (default: last). Optional `markdown` sets initial content. |
+| `pages_create` | Create page | Write | Creates a page at the root or inside a parent page. Optional `index` places it among siblings (default: last). Optional `markdown` sets initial content. `teamspace: true` (top level only) makes it a teamspace: share it with people (shares_inviteByEmail) and it's listed under Teamspaces for everyone in it. |
 | `pages_deletePermanently` | Delete page permanently | Write · needs `confirm: true` | Permanently deletes a page that is already in the trash, with everything trashed with it and its uploaded files. This cannot be undone. |
 | `pages_duplicate` | Duplicate page | Write | Copies a page with its content, placed right after the original. Subpages (and database rows) are copied too unless includeChildren is false. |
 | `pages_favorites` | List favorites | Read | Favorite pages in their saved order. |
@@ -83,7 +83,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `pages_tree` | List page tree | Read | Lists every live page and database in the sidebar hierarchy (lightweight metadata only, no content). Use parentId to rebuild nesting; siblings sort by rank. |
 | `pages_update` | Update page | Write | Renames a page or changes its icon, cover, width, text size or lock. Only the fields you pass change. |
 | `profileCard_export` | Export my workspace card | Read | Returns a self-contained SVG of your saved card using Max's native card renderer. No private information is uploaded or published. Use profileCard_exportPng for a PNG image. |
-| `profileCard_get` | Read my workspace card | Read | Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern, plus your member number (your place among everyone who joined Max). Other accounts' cards are inaccessible. |
+| `profileCard_get` | Read my workspace card | Read | Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern, plus your member number (your place among everyone who joined Max) and the handwritten note on its back. Other accounts' cards are inaccessible. |
 | `profileCard_update` | Customize my workspace card | Write | Saves your private workspace card with the same validation as Max's card editor. This does not change your sign-in identity or publish a public profile. |
 | `properties_add` | Add property | Write | Adds a property (column) to a database. Types: text, number, select, multi_select, status, checkbox, date, url, email, relation (needs relationDatabaseId), created_time, updated_time. |
 | `properties_delete` | Delete property | Write · needs `confirm: true` | Deletes a property and its values from every row. The Name property can't be deleted. This can't be undone. |
