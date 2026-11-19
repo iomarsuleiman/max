@@ -212,13 +212,13 @@
 }
 
 /* Static tiles keep texture off the animation path. Dark grain avoids bright speckles. */
-:root { --paper-texture: url("/textures/paper.png"); }
-.dark { --paper-texture: url("/textures/paper-dark.png"); }
+:root { --paper-texture: url("/textures/grain.svg"); }
+.dark { --paper-texture: url("/textures/grain-dark.svg"); }
 .paper-grain { background-image: var(--paper-texture); background-repeat: repeat; }
-.landing-system { --paper-texture: url("/textures/paper.png"); color-scheme: light; --canvas: oklch(0.985 0.003 85); --fg: oklch(0.24 0.01 260); --fg-2: oklch(0.42 0.008 260); --line: oklch(0.905 0.005 85); --overlay: oklch(0.995 0.002 85); --surface-2: oklch(0.94 0.005 85); --hover: oklch(0.24 0.01 260 / .055); --shadow-pop: 0 0 0 1px oklch(0 0 0 / .04), 0 8px 28px oklch(0 0 0 / .08); }
+.landing-system { --paper-texture: url("/textures/grain.svg"); color-scheme: light; --canvas: oklch(0.985 0.003 85); --fg: oklch(0.24 0.01 260); --fg-2: oklch(0.42 0.008 260); --line: oklch(0.905 0.005 85); --overlay: oklch(0.995 0.002 85); --surface-2: oklch(0.94 0.005 85); --hover: oklch(0.24 0.01 260 / .055); --shadow-pop: 0 0 0 1px oklch(0 0 0 / .04), 0 8px 28px oklch(0 0 0 / .08); }
 .landing-action { background-color: var(--fg); color: var(--canvas); }
 .landing-action:hover { opacity: .88; }
-@media (prefers-color-scheme: dark) { .landing-system { --paper-texture: url("/textures/paper-dark.png"); color-scheme: dark; --canvas: #191919; --fg: oklch(0.94 0.004 260); --fg-2: oklch(0.76 0.007 260); --line: #303030; --overlay: #252525; --surface-2: #2c2c2c; --hover: oklch(0.94 0.004 260 / .065); --shadow-pop: 0 0 0 1px oklch(1 0 0 / .08), 0 8px 28px oklch(0 0 0 / .3); } }
+@media (prefers-color-scheme: dark) { .landing-system { --paper-texture: url("/textures/grain-dark.svg"); color-scheme: dark; --canvas: #191919; --fg: oklch(0.94 0.004 260); --fg-2: oklch(0.76 0.007 260); --line: #303030; --overlay: #252525; --surface-2: #2c2c2c; --hover: oklch(0.94 0.004 260 / .065); --shadow-pop: 0 0 0 1px oklch(1 0 0 / .08), 0 8px 28px oklch(0 0 0 / .3); } }
 .recovery-heading { background-image: linear-gradient(115deg, var(--fg), var(--accent-text)); background-clip: text; -webkit-background-clip: text; color: transparent; }
 @media (forced-colors: active) { .paper-grain { background-image: none; } .recovery-heading { background-image: none; color: CanvasText; } }
 
@@ -291,24 +291,41 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 }
 
 /* Membership cards stay a keepsake size, even on narrow screens. */
-.profile-card { width: 100%; max-width: 248px; margin: auto; overflow: hidden; border-radius: 8px; box-shadow: 0 10px 28px #0002; transition: transform 220ms ease-out; transform-origin: center; }
+.profile-card { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 30%; position: relative; width: 100%; max-width: 268px; margin: auto; perspective: 900px; }
+.profile-card-flip { position: relative; display: block; width: 100%; border-radius: 16px; transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform 500ms cubic-bezier(.2,.8,.2,1); outline-offset: 4px; }
+.profile-card[data-active] .profile-card-flip { transition: transform 120ms ease-out; }
+.profile-card-inner { display: grid; transform-style: preserve-3d; transition: transform 700ms cubic-bezier(.3,1.3,.5,1); }
+.profile-card-flip[data-flipped] .profile-card-inner { transform: rotateY(180deg); }
+.profile-card-hit { position: absolute; inset: 0; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 16px; }
+.profile-card-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.profile-card-face { grid-area: 1 / 1; display: block; overflow: hidden; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 22px 40px -12px rgb(0 0 0 / .28), 0 4px 10px rgb(0 0 0 / .08); }
+.card-hand { font-family: var(--font-hand), "Segoe Script", "Bradley Hand", cursive; }
+.profile-card-face > svg { display: block; width: 100%; height: auto; }
+.profile-card-back { transform: rotateY(180deg); }
+/* Light that follows the pointer, with a faint foil rainbow, like a laminated member card. */
+.profile-card-glare { grid-area: 1 / 1; pointer-events: none; border-radius: 16px; opacity: 0; transition: opacity 300ms; background:
+  radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / .55), rgb(255 255 255 / 0) 45%),
+  linear-gradient(115deg, transparent 30%, rgb(255 120 180 / .14) 42%, rgb(120 200 255 / .16) 50%, rgb(160 255 170 / .14) 58%, transparent 70%);
+  background-size: 100% 100%, 220% 220%; background-position: 0 0, var(--mx) var(--my); mix-blend-mode: soft-light; }
+.profile-card[data-active] .profile-card-glare { opacity: 1; }
+.profile-card-flip[data-flipped] .profile-card-glare { transform: rotateY(180deg); }
 .card-studio { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; padding-block: 12px; }
 .card-studio-intro { grid-column: 2; grid-row: 1; align-self: end; }
 .card-studio-intro h3 { font-size: 26px; letter-spacing: -.04em; }
 .card-studio-preview { grid-row: 1 / span 2; display: grid; justify-items: center; gap: 16px; min-width: 0; perspective: 800px; }
-.card-outline { position: relative; width: 100%; max-width: 276px; padding: 16px 13px 13px; border: 1px dashed var(--line-strong); }
+.card-outline { position: relative; width: 100%; max-width: 296px; padding: 16px 13px 13px; border: 1px dashed var(--line-strong); }
 .card-outline-label { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 0 7px; color: var(--fg-3); background: var(--overlay); font: 9px/12px var(--font-mono); letter-spacing: .06em; }
 .card-studio-controls { display: grid; gap: 16px; min-width: 0; align-self: start; }
 @media(max-width: 600px) {
  .card-studio { grid-template-columns: minmax(0,1fr); gap: 24px; }
  .card-studio-intro { grid-column: 1; grid-row: 1; }
  .card-studio-preview { grid-row: 2; }
- .profile-card { max-width: 210px; }
- .card-outline { max-width: 238px; }
+ .profile-card { max-width: 230px; }
+ .card-outline { max-width: 258px; }
  .card-studio-controls input, .card-studio-controls textarea { font-size: 16px; }
 }
-@media(prefers-reduced-motion: reduce) { .profile-card { transform: none !important; transition: none; } }
-[data-reduce-motion="on"] .profile-card { transform: none !important; }
+@media(prefers-reduced-motion: reduce) { .profile-card-flip, .profile-card-inner { transition: none; } .profile-card-glare { display: none; } }
+[data-reduce-motion="on"] .profile-card-flip, [data-reduce-motion="on"] .profile-card-inner { transition: none; }
 
 /* A scalloped edge and oversized real captures clipped at the viewport side. */
 .landing-system { --landing-section: #fff; }
@@ -325,8 +342,9 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .showcase-tabs button[aria-selected="true"]::before { background: var(--fg); }
 .showcase-feature-title { display: block; font-size: 20px; font-weight: 500; }
 .showcase-feature-body { display: block; font-size: 16px; line-height: 1.65; margin-top: 12px; color: var(--fg-2); }
-.product-viewer { position: sticky; top: 64px; margin: 0; min-width: 0; outline-offset: 8px; }
-.product-shot { display: block; width: 1180px; max-width: none; height: auto; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 48px #0002; }
+/* The whole screenshot, framed like a window on a tinted backdrop, never cut off at the edge. */
+.product-viewer { position: sticky; top: 64px; margin: 0; min-width: 0; outline-offset: 8px; padding: 14px; border-radius: 26px; background: linear-gradient(150deg, color-mix(in oklch, #ffb52d 22%, var(--canvas)), color-mix(in oklch, #ff7e94 20%, var(--canvas))); box-shadow: 0 0 0 1px var(--line); }
+.product-shot { display: block; width: 100%; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 16px 40px -14px #0004; }
 @media(prefers-color-scheme:dark) { .landing-system { --landing-section: #202020; } }
 @media(max-width:1023px) {
  .landing-showcase { padding: 64px 0 72px; }
@@ -355,3 +373,26 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 @keyframes butterfly-wing-right { 0%, 100% { transform: rotateY(0); } 22% { transform: rotateY(-64deg); } 45% { transform: rotateY(-6deg); } 68% { transform: rotateY(-46deg); } 86% { transform: rotateY(-2deg); } }
 @keyframes butterfly-lift { 0%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } 70% { transform: translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .butterfly-body[data-flapping], .butterfly-body[data-flapping] .butterfly-wing { animation: none; } }
+
+/*
+ * Your space (Arc-style): the sidebar and backdrop take your membership card's colors, with a
+ * fine grain, and pages sit on it as a floating panel. --tint-1/--tint-2 are set from the card.
+ */
+:root { --tint-1: #ffb52d; --tint-2: #ff7e94; }
+.max-space {
+  background-color: var(--canvas);
+  background-image: var(--paper-texture), linear-gradient(165deg, color-mix(in oklch, var(--tint-1) 26%, var(--canvas)), color-mix(in oklch, var(--tint-2) 22%, var(--canvas)) 70%, color-mix(in oklch, var(--tint-1) 14%, var(--canvas)));
+  background-size: 160px 160px, 100% 100%;
+}
+.dark .max-space {
+  background-image: var(--paper-texture), linear-gradient(165deg, color-mix(in oklch, var(--tint-1) 15%, #121212), color-mix(in oklch, var(--tint-2) 12%, #141414) 70%, color-mix(in oklch, var(--tint-1) 8%, #121212));
+}
+.max-panel { background-color: var(--canvas); }
+@media (min-width: 768px) {
+  .max-panel { margin: 8px 8px 8px 0; border-radius: 12px; box-shadow: 0 0 0 1px color-mix(in oklch, var(--fg) 7%, transparent), 0 1px 2px rgb(0 0 0 / .05), 0 10px 30px -12px rgb(0 0 0 / .16); overflow: hidden; }
+  [dir="rtl"] .max-panel { margin: 8px 0 8px 8px; }
+  .max-panel[data-alone] { margin-inline-start: 8px; }
+  .dark .max-panel { box-shadow: 0 0 0 1px rgb(255 255 255 / .07), 0 10px 30px -12px rgb(0 0 0 / .6); }
+}
+@media (forced-colors: active) { .max-space { background-image: none; } }
+

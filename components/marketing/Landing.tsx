@@ -5,6 +5,8 @@ const heroFont = Fraunces({ subsets: ["latin"], display: "swap", weight: ["600"]
 import { CLOUD } from "@/lib/config";
 import { PlayfulLogo } from "@/components/brand/PlayfulLogo";
 import Walkthrough from "./Walkthrough";
+import { CardShowcase } from "./CardShowcase";
+import { Together } from "./Together";
 
 /** The landing follows the OS palette independently of saved workspace preferences. */
 export function LandingContent() {
@@ -26,6 +28,27 @@ export function LandingContent() {
         </Link>
       </section>
       <Walkthrough />
+      <Together />
+      <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pt-8 pb-28 sm:px-8 md:grid-cols-2" aria-labelledby="card-title">
+        <div className="md:order-2">
+          <p className="font-mono text-[11px] font-bold tracking-[.18em] text-fg-3">EVERY MEMBER GETS A CARD</p>
+          <h2 id="card-title" className="landing-headline mt-4 text-[40px] leading-[1.08] font-semibold tracking-[-.03em] text-balance sm:text-6xl">
+            A little card.
+            <br />
+            All you.
+          </h2>
+          <p className="text-fg-2 mt-5 max-w-md text-base leading-relaxed sm:text-lg">
+            Pick its artwork and put your name on it. Flip it over for your member number, written by hand, and a QR code that invites your friends to Max.
+          </p>
+          <Link
+            href={CLOUD ? "/sign-up" : "/home"}
+            className="landing-action joy-press mt-8 inline-flex min-h-12 items-center justify-center rounded-full px-7 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+          >
+            Get your card
+          </Link>
+        </div>
+        <CardShowcase />
+      </section>
     </main>
   );
 }

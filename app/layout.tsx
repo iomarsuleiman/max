@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Inter, Cairo } from "next/font/google";
+import { Inter, Cairo, Caveat } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { APP_URL, CLERK_KEY, CLOUD, CONVEX_URL } from "@/lib/config";
 import { Providers } from "@/components/providers";
@@ -12,6 +12,8 @@ import "@/components/editor/editor.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 // Arabic loads only when Arabic text appears (its unicode-range), not on every first paint.
 const cairo = Cairo({ subsets: ["arabic"], variable: "--font-arabic", display: "swap", preload: false });
+// Handwriting on the back of the membership card; fetched only when the card is shown.
+const caveat = Caveat({ subsets: ["latin"], variable: "--font-hand", display: "swap", preload: false });
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -53,7 +55,7 @@ const EARLY_ORIGINS = CLOUD ? [CONVEX_URL && new URL(CONVEX_URL).origin, clerkOr
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const body = (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${cairo.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${cairo.variable} ${caveat.variable}`}>
       <head>
         {/* Open the sign-in and database connections while the app's JavaScript downloads. */}
         {EARLY_ORIGINS.map((origin) => (

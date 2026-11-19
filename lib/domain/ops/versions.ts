@@ -3,6 +3,7 @@ import { MaxError } from "../errors";
 import { blocksToMarkdown, countWords, documentText, parseContent } from "../blocks";
 import type { DocumentRow, PageRow, VersionRow } from "../types";
 import { defineOp, id, type OpContext } from "./define";
+import { clearRoom, findRoom } from "../collabRoom";
 import { allPages, requirePage } from "./helpers";
 
 /**
@@ -122,6 +123,8 @@ export const versionsRestore = defineOp({
     const text = documentText(blocks);
     await ctx.db.patch("documents", doc._id, { content: v.content, text, wordCount: countWords(text), revision, updatedAt: ctx.now });
     await ctx.db.patch("pages", page._id, { updatedAt: ctx.now, ...(restoreTitle ? { title: v.title } : {}) });
+    const room = await findRoom(ctx.db, ctx.ownerId, page._id);
+    if (room) await clearRoom(ctx.db, room);
     return { pageId: page._id, revision, restoredFrom: v.revision };
   },
 });

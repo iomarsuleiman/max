@@ -1,5 +1,5 @@
 import type { GenericDatabaseReader, GenericDatabaseWriter, GenericDataModel, StorageReader, StorageWriter } from "convex/server";
-import type { Db, IndexedField, NewRow, Storage } from "../lib/domain/db";
+import type { CrossField, CrossTable, Db, IndexedField, NewRow, Storage } from "../lib/domain/db";
 import type { TableName, Tables } from "../lib/domain/types";
 
 type Reader = GenericDatabaseReader<GenericDataModel>;
@@ -50,6 +50,34 @@ export function convexDb(db: Reader | Writer): Db {
         .withIndex("by_hash", (q) => q.eq("hash", hash))
         .first();
       return row ? (strip(row) as unknown as Tables["tokens"]) : null;
+    },
+    async memberNumber(ownerId: string) {
+      const mine = await db
+        .query("settings")
+        .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
+        .first();
+      if (!mine) return null;
+      // Everyone whose settings row (created when they joined) is older than yours.
+      const earlier = await db
+        .query("settings")
+        .withIndex("by_creation_time", (q) => (q as unknown as { lt(f: string, v: number): typeof q }).lt("_creationTime", Number(mine._creationTime)))
+        .collect();
+      return earlier.length + 1;
+    },
+    async updatesAfter(roomId: string, afterSeq: number, limit: number) {
+      const rows = await db
+        .query("collabUpdates")
+        // The adapter's db isn't typed by the schema, so the range builder is typed loosely.
+        .withIndex("by_roomId", (q) => (q.eq("roomId", roomId) as unknown as { gt(f: string, v: number): typeof q }).gt("seq", afterSeq))
+        .take(limit);
+      return rows.map((r) => strip(r) as unknown as Tables["collabUpdates"]);
+    },
+    async findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string) {
+      const rows = await db
+        .query(table)
+        .withIndex(`by_${String(field)}`, (q) => q.eq(field as string, value))
+        .take(500);
+      return rows.map((r) => strip(r) as unknown as Tables[T]);
     },
   };
 }

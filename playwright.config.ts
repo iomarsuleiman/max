@@ -20,6 +20,6 @@ export default defineConfig({
     port: PORT,
     timeout: 300_000,
     reuseExistingServer: !process.env.CI,
-    env: { MAX_LOCAL_MODE: "true", MAX_DATA_DIR: ".e2e-data", NEXT_PUBLIC_CONVEX_URL: "", NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "" },
+    env: { MAX_LOCAL_MODE: "true", MAX_DATA_DIR: ".e2e-data", MAX_LOCAL_MULTIUSER: "true", NEXT_PUBLIC_MAX_LOCAL_MULTIUSER: "true", NEXT_PUBLIC_CONVEX_URL: "", NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "" },
   },
 });

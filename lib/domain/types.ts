@@ -208,6 +208,8 @@ export interface AssetRow {
   size: number;
   alt: string;
   createdAt: number;
+  /** A copy of someone else's file record (from duplicating a shared page): deleting it never deletes the file. */
+  borrowed?: boolean;
 }
 
 export interface TokenRow {
@@ -246,6 +248,10 @@ export interface CommentRow {
   createdAt: number;
   updatedAt: number;
   source: Source;
+  /** Who wrote it, when someone the page is shared with comments. Absent means the page owner. */
+  authorId?: string | null;
+  authorName?: string | null;
+  authorImage?: string | null;
 }
 
 /** A saved earlier state of a page's content (page history). */
@@ -274,6 +280,86 @@ export interface IdempotencyRow {
   at: number;
 }
 
+/** What someone can do on a shared page (and its sub-pages), lowest to highest. */
+export type ShareLevel = "view" | "comment" | "edit" | "full_access";
+
+/** A page shared with one person. Applies to the page and everything inside it, like Notion. */
+export interface ShareRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  granteeId: string;
+  email: string | null;
+  name: string | null;
+  image: string | null;
+  level: ShareLevel;
+  invitedBy: string;
+  createdAt: number;
+}
+
+/** "Anyone with the link": signed-in people holding the token get `level`. */
+export interface ShareLinkRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  token: string;
+  level: Exclude<ShareLevel, "full_access">;
+  /** Published to the web: anyone with the link can view, no Max account needed. */
+  public?: boolean;
+  createdAt: number;
+}
+
+/** Who has a page open right now (heartbeat, expires after ~45 s). */
+export interface PresenceRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  accountId: string;
+  name: string;
+  image: string | null;
+  at: number;
+}
+
+/** A live co-editing session for one page: an append-only stream of Yjs updates. */
+export interface CollabRoomRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  /** Bumped when the room is reset (the page was changed outside the room); clients reload. */
+  epoch: number;
+  /** The document revision the room was seeded from, or last saved to. Null: needs seeding. */
+  seededRevision: number | null;
+  /** The client currently seeding the room from the saved document, and when it claimed it. */
+  seeding: string | null;
+  seedingAt: number;
+  nextSeq: number;
+  createdAt: number;
+}
+
+export interface CollabUpdateRow {
+  _id: string;
+  ownerId: string;
+  roomId: string;
+  pageId: string;
+  epoch: number;
+  seq: number;
+  /** A Yjs update (or a merged snapshot), base64. */
+  data: string;
+  at: number;
+}
+
+/** Cursors and selections (Yjs awareness) of one editor tab. */
+export interface CollabAwarenessRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  roomId: string;
+  clientId: string;
+  accountId: string;
+  data: string;
+  at: number;
+}
+
 export interface Tables {
   pages: PageRow;
   documents: DocumentRow;
@@ -284,6 +370,12 @@ export interface Tables {
   idempotency: IdempotencyRow;
   versions: VersionRow;
   comments: CommentRow;
+  shares: ShareRow;
+  shareLinks: ShareLinkRow;
+  presence: PresenceRow;
+  collabRooms: CollabRoomRow;
+  collabUpdates: CollabUpdateRow;
+  collabAwareness: CollabAwarenessRow;
 }
 
 export type TableName = keyof Tables;

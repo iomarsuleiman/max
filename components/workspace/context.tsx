@@ -21,7 +21,7 @@ export interface Identity {
   manageAccount: (() => void) | null;
 }
 
-export type SettingsSection = "account" | "preferences" | "editor" | "sidebar" | "connections" | "data" | "shortcuts" | "about";
+export type SettingsSection = "account" | "preferences" | "editor" | "sidebar" | "sharing" | "connections" | "data" | "shortcuts" | "about";
 
 interface WorkspaceValue {
   tree: PageSummary[] | undefined;
@@ -78,7 +78,18 @@ export function notifyError(err: unknown, fallback = "That didn't work. Try agai
   toast.error(message);
 }
 
-const SECTIONS: SettingsSection[] = ["account", "preferences", "editor", "sidebar", "connections", "data", "shortcuts", "about"];
+const SECTIONS: SettingsSection[] = ["account", "preferences", "editor", "sidebar", "sharing", "connections", "data", "shortcuts", "about"];
+
+/**
+ * Inside a page someone shared with you: the same workspace, but `call` goes through the share
+ * (see ShareScope in lib/client/data.tsx), so every existing `ws.call` in page code just works.
+ */
+export function ScopedWorkspace({ children }: { children: ReactNode }) {
+  const ws = useWorkspace();
+  const call = useCall();
+  const value = useMemo(() => ({ ...ws, call }), [ws, call]);
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
 
 export function WorkspaceProvider({ identity, children }: { identity: Identity; children: ReactNode }) {
   useLocalLiveUpdates();

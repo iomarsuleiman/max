@@ -83,7 +83,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `pages_tree` | List page tree | Read | Lists every live page and database in the sidebar hierarchy (lightweight metadata only, no content). Use parentId to rebuild nesting; siblings sort by rank. |
 | `pages_update` | Update page | Write | Renames a page or changes its icon, cover, width, text size or lock. Only the fields you pass change. |
 | `profileCard_export` | Export my workspace card | Read | Returns a self-contained SVG of your saved card using Max's native card renderer. No private information is uploaded or published. Use profileCard_exportPng for a PNG image. |
-| `profileCard_get` | Read my workspace card | Read | Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern. Other accounts' cards are inaccessible. |
+| `profileCard_get` | Read my workspace card | Read | Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern, plus your member number (your place among everyone who joined Max). Other accounts' cards are inaccessible. |
 | `profileCard_update` | Customize my workspace card | Write | Saves your private workspace card with the same validation as Max's card editor. This does not change your sign-in identity or publish a public profile. |
 | `properties_add` | Add property | Write | Adds a property (column) to a database. Types: text, number, select, multi_select, status, checkbox, date, url, email, relation (needs relationDatabaseId), created_time, updated_time. |
 | `properties_delete` | Delete property | Write · needs `confirm: true` | Deletes a property and its values from every row. The Name property can't be deleted. This can't be undone. |
@@ -97,7 +97,13 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `search_query` | Search | Read | Searches page titles and content. Filters: kind (page, database, record), titleOnly, inside (a page id whose subpages to search). Results are ranked title-first and include a text snippet and breadcrumbs. |
 | `settings_get` | Get settings | Read | Returns your personal preferences (theme, font, page width, sidebar order and more). |
 | `settings_reset` | Reset settings | Write | Restores preferences to their defaults. `scope: sidebar` resets only the sidebar order and sections. |
-| `settings_update` | Update settings | Write | Changes one or more preferences. Only the fields you pass change. |
+| `settings_update` | Update settings | Write | Changes one or more preferences. Workspace and card names stay synchronized; other fields change only when passed. |
+| `shares_invite` | Share a page with someone | Write | Gives one person (by Max account id, as shares.list shows) access to a page and everything inside it. Inviting someone again changes their level. To invite by email, use shares_inviteByEmail. |
+| `shares_list` | List who a page is shared with | Read | People with access to a page: shared directly, or through a page above it, plus the link setting. |
+| `shares_overview` | List everything I share | Read | Every page you share: who has access to it, and whether its link is open to people in Max or published to the web. |
+| `shares_remove` | Remove someone's access | Write | Stops sharing a page with one person. Their comments stay. |
+| `shares_setLink` | Set link access | Write | Sets who can open a page with its link: anyone signed in to Max (view, comment or edit), or, with web: true, anyone on the web without an account (view only, published). Level null turns link access off. |
+| `shares_update` | Change someone's access | Write | Changes the access level of one share. |
 | `tables_edit` | Edit table | Write | Edits a table block: set a cell's text, or insert/delete a row or column at an index (0-based). |
 | `templates_apply` | Use template | Write | Creates a new page from a template (under parentId), or a new row from a database row template. Content, icon, property values and subpages are copied; {{today}} becomes today's date. |
 | `templates_create` | Create template | Write | Creates a template: a page template, or a row template for a database (databaseId). Optionally copies content (and subpages) from an existing page. Use {{today}} in titles or text to insert the date when the template is used. |

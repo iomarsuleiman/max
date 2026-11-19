@@ -63,8 +63,12 @@ export function PageIcon({ icon, kind, className, size = 16 }: { icon: string | 
   }
   if (icon && isImageIcon(icon)) return <ImageIcon icon={icon} size={size} className={className} />;
   if (icon) {
+    // Color emoji glyphs are wider and taller than their font size (about 1.25 × 1.15 em). At large
+    // sizes, size the box to the glyph so it doesn't spill out of the box sized for Lucide icons.
+    const fontSize = size * 0.95;
+    const box = size >= 32 ? { width: Math.ceil(fontSize * 1.25), height: Math.ceil(fontSize * 1.15) } : { width: size + 2, height: size + 2 };
     return (
-      <span className={cn("inline-grid shrink-0 place-items-center leading-none", className)} style={{ width: size + 2, height: size + 2, fontSize: size * 0.95 }} aria-hidden>
+      <span className={cn("inline-grid shrink-0 place-items-center overflow-visible leading-none", className)} style={{ ...box, fontSize }} aria-hidden>
         {icon}
       </span>
     );

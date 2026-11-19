@@ -10,6 +10,18 @@ async function audit(page: Page, name: string) {
 }
 
 test.describe("accessibility (axe, WCAG 2.2 AA)", () => {
+  test("public pages have no violations, in light and dark", async ({ page }) => {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const path of ["/welcome", "/privacy", "/join?from=7"]) {
+        await page.goto(path);
+        await page.mouse.wheel(0, 4000);
+        await page.waitForTimeout(500);
+        await audit(page, `${path} (${scheme})`);
+      }
+    }
+  });
+
   test("main screens have no violations", async ({ page }) => {
     await page.goto("/home");
     await expect(page.getByRole("tree", { name: "Pages" })).toBeVisible();

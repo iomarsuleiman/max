@@ -11,12 +11,17 @@ export const profileCardGet = defineOp({
   kind: "query",
   title: "Read my workspace card",
   description:
-    "Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern. Other accounts' cards are inaccessible.",
+    "Returns your private customizable Max card, including name, subtitle, biography, palette, artwork and pattern, plus your member number (your place among everyone who joined Max). Other accounts' cards are inaccessible.",
   input: z.object({}),
   async run(ctx) {
     const settings = await getSettingsRow(ctx);
     const saved = profileCardSchema.safeParse(settings?.profileCard);
-    return { card: saved.success ? { ...saved.data, createdAt: settings?.joinedAt ?? saved.data.createdAt, name: settings?.displayName?.trim() || saved.data.name } : null };
+    const memberNumber = (await ctx.db.memberNumber(ctx.ownerId)) ?? undefined;
+    return {
+      card: saved.success ? { ...saved.data, createdAt: settings?.joinedAt ?? saved.data.createdAt, name: settings?.displayName?.trim() || saved.data.name, memberNumber } : null,
+      memberNumber: memberNumber ?? null,
+      joinedAt: settings?.joinedAt ?? null,
+    };
   },
 });
 export const profileCardUpdate = defineOp({

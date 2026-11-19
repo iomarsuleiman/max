@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { serializeError } from "@/lib/domain/errors";
 import { CLOUD } from "@/lib/config";
-import { localModeAllowed, runLocal } from "@/lib/server/local";
+import { localActor, localModeAllowed, runLocal } from "@/lib/server/local";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +16,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
   }
   try {
-    const result = await runLocal(String(body.op), body.args ?? {}, "ui", undefined, body.kind);
+    const result = await runLocal(String(body.op), body.args ?? {}, "ui", localActor(request).id, body.kind);
     return NextResponse.json({ result: result ?? null });
   } catch (err) {
     const error = serializeError(err);
     if (error.code === "INTERNAL") console.error(JSON.stringify({ level: "error", op: body.op, message: err instanceof Error ? err.message : String(err) }));
-    const status = { NOT_FOUND: 404, VALIDATION: 400, CONFLICT: 409, LIMIT: 413, CONFIRMATION_REQUIRED: 428, READ_ONLY: 423, UNAUTHENTICATED: 401, INTERNAL: 500 }[error.code] ?? 500;
+    const status = { FORBIDDEN: 403, NOT_FOUND: 404, VALIDATION: 400, CONFLICT: 409, LIMIT: 413, CONFIRMATION_REQUIRED: 428, READ_ONLY: 423, UNAUTHENTICATED: 401, INTERNAL: 500 }[error.code] ?? 500;
     return NextResponse.json({ error }, { status });
   }
 }

@@ -9,11 +9,17 @@ import { useRouter } from "next/navigation";
 import { ArrowUpRight, FileQuestion, Link2, Lock, MessageSquare, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Notice, Skeleton, cn } from "@/components/ui";
-import { useOp } from "@/lib/client/data";
+import { ShareScope, useOp, useSharing } from "@/lib/client/data";
 import { pageTitle, timeAgo } from "@/lib/client/format";
 import { useAssetResolver, useUploader } from "@/lib/client/upload";
 import type { DocumentGetResult, PageGetResult, PageSummary } from "@/lib/client/types";
-import { confirmPermanentDelete, notifyError, useWorkspace } from "@/components/workspace/context";
+import { ScopedWorkspace, confirmPermanentDelete, notifyError, useWorkspace } from "@/components/workspace/context";
+import { PageAccessProvider, can, useLinkToken, usePageAccess } from "@/components/share/access";
+import { ShareMenu } from "@/components/share/ShareMenu";
+import { DuplicateShared } from "@/components/share/DuplicateShared";
+import { PresenceStack } from "@/components/share/Presence";
+import { SHARING_ENABLED } from "@/lib/config";
+import type { ShareLevel } from "@/lib/domain/types";
 import { Topbar } from "@/components/workspace/Topbar";
 import { PageIcon } from "@/components/workspace/PageIcon";
 import type { MaxEditorType, PageRef } from "@/components/editor/blocks";
@@ -26,6 +32,7 @@ import { PageOptions } from "./PageOptions";
 import { SaveStatus } from "./SaveStatus";
 import { ImageDetailsDialog } from "./ImageDetailsDialog";
 import { useDocumentSync } from "./useDocumentSync";
+import { useLiveRoom } from "./useLiveRoom";
 import { CommentsPanel, requestComment, useCommentCount } from "./CommentsPanel";
 import { requestEditorFocus, takeEditorFocusRequest } from "@/lib/client/editorFocus";
 import { registerEditor } from "@/lib/client/saveFlush";
@@ -48,7 +55,37 @@ function EditorSkeleton() {
   );
 }
 
-export function PageView({ pageId, renderHeader }: { pageId: string; renderHeader?: (data: PageGetResult) => React.ReactNode }) {
+interface AccessInfo {
+  you: string;
+  level: ShareLevel | "owner";
+  ownerId: string;
+  ownerName: string | null;
+  rootId: string | null;
+}
+
+/**
+ * Opens a page: your own directly, or one shared with you inside a share scope, where every
+ * operation is checked against your level on the server (see lib/domain/sharing.ts).
+ */
+export function PageView(props: { pageId: string; renderHeader?: (data: PageGetResult) => React.ReactNode }) {
+  const linkToken = useLinkToken();
+  const access = useSharing<AccessInfo>("access", { pageId: props.pageId, linkToken });
+  const level = access.data?.level;
+  const scope = useMemo(() => (level && level !== "owner" ? { pageId: props.pageId, linkToken } : null), [level, props.pageId, linkToken]);
+  if (!scope) return <PageViewInner {...props} accessPending={access.isLoading} />;
+  return (
+    <ShareScope value={scope}>
+      <ScopedWorkspace>
+        <PageAccessProvider value={{ level: level as ShareLevel, shared: true, you: access.data?.you, ownerName: access.data?.ownerName ?? null }}>
+          <PageViewInner {...props} />
+        </PageAccessProvider>
+      </ScopedWorkspace>
+    </ShareScope>
+  );
+}
+
+function PageViewInner({ pageId, renderHeader, accessPending }: { pageId: string; renderHeader?: (data: PageGetResult) => React.ReactNode; accessPending?: boolean }) {
+  const access = usePageAccess();
   const embedded = !!renderHeader;
   const ws = useWorkspace();
   const router = useRouter();
@@ -69,16 +106,17 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
   const page = q.data?.page;
   const isDatabase = page?.kind === "database";
   const doc = useOp<DocumentGetResult>("documents.get", isDatabase ? "skip" : { pageId });
+  const ownerShares = useOp<{ direct: unknown[]; inherited: unknown[]; link: unknown }>("shares.list", SHARING_ENABLED && !access.shared && page && !isDatabase && !page.isTemplate ? { pageId } : "skip");
 
   // Start the editor download while page data is in flight, not after both queries finish.
 
   // Recents.
   const touched = useRef(false);
   useEffect(() => {
-    if (!page || touched.current || page.archivedAt) return;
+    if (!page || touched.current || page.archivedAt || access.shared) return;
     touched.current = true;
     void ws.call("pages.touch", { id: pageId }).catch(() => undefined);
-  }, [page, pageId, ws]);
+  }, [page, pageId, ws, access.shared]);
 
   useEffect(() => {
     if (!page || embedded) return;
@@ -97,6 +135,19 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
     setActivePageId(pageId);
     return () => setActivePageId(null);
   }, [embedded, pageId, setActivePageId]);
+
+  // While we're still learning whether this page was shared with you, a "not found" is premature.
+  if (q.error && accessPending) {
+    return (
+      <>
+        <Topbar crumbs={[]} />
+        <div className="mx-auto w-full max-w-[720px] px-4 pt-20 sm:px-12">
+          <Skeleton className="mb-6 h-10 w-2/3" />
+          <EditorSkeleton />
+        </div>
+      </>
+    );
+  }
 
   if (q.error) {
     return (
@@ -131,7 +182,11 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
   }
 
   const data = q.data;
-  const readOnly = !!page.archivedAt || page.locked;
+  const readOnly = !!page.archivedAt || page.locked || !can(access, "edit");
+  // Shared pages are edited live: everyone types in the same document and sees each other's cursors.
+  const ownShares = ownerShares.data;
+  const live = SHARING_ENABLED && !isDatabase && !page.isTemplate && !page.archivedAt && (access.shared || !!(ownShares && (ownShares.direct.length || ownShares.inherited.length || ownShares.link)));
+  const liveKnown = !SHARING_ENABLED || access.shared || isDatabase || !!ownShares || !!ownerShares.error;
   const commentsEnabled = !isDatabase && !page.isTemplate;
   const widthClass = page.fullWidth ? "max-w-none sm:px-24" : "max-w-[760px]";
   const crumbs = data.breadcrumbs.map((b) => ({ _id: b._id, title: b.title, icon: b.icon, kind: b.kind }));
@@ -172,10 +227,10 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
             <Notice tone="danger" title="Couldn't load this page's content" action={<Button size="sm" onClick={() => location.reload()}>Reload</Button>}>
               {doc.error.message}
             </Notice>
-          ) : !doc.data ? (
+          ) : !doc.data || !liveKnown ? (
             <EditorSkeleton />
           ) : (
-            <DocumentEditor key={pageId} pageId={pageId} doc={doc.data} readOnly={readOnly || doc.data.readOnly} smallText={page.smallText} outline={!embedded && !commentsOpen} />
+            <DocumentEditor key={`${pageId}:${live ? "live" : "solo"}`} pageId={pageId} doc={doc.data} readOnly={readOnly || doc.data.readOnly} smallText={page.smallText} outline={!embedded && !commentsOpen} live={live} />
           )}
           {!isDatabase && data.children.length > 0 && <ChildPages pages={data.children} />}
         </div>
@@ -189,11 +244,19 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
 
 export function PageTopbarActions({ page, saveSlotId, onToggleComments }: { page: PageGetResult["page"]; saveSlotId: string; onToggleComments?: () => void }) {
   const ws = useWorkspace();
+  const access = usePageAccess();
+  const linkToken = useLinkToken();
   const fav = !!page.favoriteRank;
   const commentCount = useCommentCount(page._id);
+  // Owners only need presence (and its heartbeats) once the page is actually shared.
+  const ownShares = useOp<{ direct: unknown[]; inherited: unknown[]; link: unknown }>("shares.list", SHARING_ENABLED && !access.shared && !page.isTemplate ? { pageId: page._id } : "skip");
+  const isShared = access.shared || !!(ownShares.data && (ownShares.data.direct.length || ownShares.data.inherited.length || ownShares.data.link));
   return (
     <>
       <div id={saveSlotId} className="flex items-center" />
+      {SHARING_ENABLED && <PresenceStack pageId={page._id} linkToken={linkToken} active={isShared && !page.archivedAt} />}
+      {SHARING_ENABLED && !page.archivedAt && <ShareMenu page={page} />}
+      {access.shared && !page.archivedAt && <DuplicateShared pageId={page._id} linkToken={linkToken} />}
       {onToggleComments && (
         <button type="button" onClick={onToggleComments} aria-label={`Comments${commentCount ? `, ${commentCount} open` : ""}`} title="Comments (⌘⇧M)" className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[12.5px] text-fg-3 hover:bg-hover hover:text-fg-2">
           <MessageSquare className="size-4" />
@@ -201,7 +264,7 @@ export function PageTopbarActions({ page, saveSlotId, onToggleComments }: { page
         </button>
       )}
       <span className="px-1 text-[12.5px] text-fg-3 max-lg:hidden">Edited {timeAgo(page.updatedAt)}</span>
-      {!page.isTemplate && !page.archivedAt && (
+      {!page.isTemplate && !page.archivedAt && !access.shared && (
         <IconButton label={fav ? "Remove from Favorites" : "Add to Favorites"} size="md" onClick={() => ws.toggleFavorite(page._id, !fav)}>
           <Star className={cn("size-4", fav && "fill-warning text-warning")} />
         </IconButton>
@@ -209,7 +272,7 @@ export function PageTopbarActions({ page, saveSlotId, onToggleComments }: { page
       <IconButton label="Copy link" size="md" className="max-sm:hidden" onClick={() => ws.copyLink(page._id)}>
         <Link2 className="size-4" />
       </IconButton>
-      <PageOptions page={page} />
+      {!access.shared && <PageOptions page={page} />}
     </>
   );
 }
@@ -316,8 +379,12 @@ function ChildPages({ pages }: { pages: PageSummary[] }) {
   );
 }
 
-function DocumentEditor({ pageId, doc, readOnly, smallText, outline }: { pageId: string; doc: DocumentGetResult; readOnly: boolean; smallText: boolean; outline: boolean }) {
+function DocumentEditor({ pageId, doc, readOnly, smallText, outline, live = false }: { pageId: string; doc: DocumentGetResult; readOnly: boolean; smallText: boolean; outline: boolean; live?: boolean }) {
   const ws = useWorkspace();
+  const access = usePageAccess();
+  const linkToken = useLinkToken();
+  const myName = access.you || ws.settings?.displayName || ws.identity.name || "Someone";
+  const room = useLiveRoom(pageId, live, access.shared ? linkToken : null, { name: myName, seed: myName });
   const router = useRouter();
   const upload = useUploader();
   const resolve = useAssetResolver();
@@ -342,8 +409,9 @@ function DocumentEditor({ pageId, doc, readOnly, smallText, outline }: { pageId:
   const onReady = useCallback(
     (editor: MaxEditorType) => {
       editorRef.current = editor;
+      if (live) room.session?.setView(editor.prosemirrorView);
       if (takeEditorFocusRequest(pageId)) requestAnimationFrame(() => focusEditorStart(editor));
-      if (draftChecked.current) return;
+      if (draftChecked.current || live) return;
       draftChecked.current = true;
       const draft = sync.readDraft();
       if (!draft) return;
@@ -358,11 +426,13 @@ function DocumentEditor({ pageId, doc, readOnly, smallText, outline }: { pageId:
         setRecovered("stale");
       }
     },
-    [doc.blocks, doc.revision, sync],
+    [doc.blocks, doc.revision, sync, live, room.session],
   );
 
   // Remote changes (another tab or a connected assistant).
   useEffect(() => {
+    // In a live room, everyone's changes arrive through the room instead.
+    if (live) return;
     const base = sync.baseRevision();
     if (base === null || doc.revision <= base) return;
     const editor = editorRef.current;
@@ -377,9 +447,10 @@ function DocumentEditor({ pageId, doc, readOnly, smallText, outline }: { pageId:
     editor.replaceBlocks(editor.document, (doc.blocks.length ? doc.blocks : [{ type: "paragraph" }]) as never);
     applyingRemote.current = false;
     sync.adopt(doc.revision);
-  }, [doc.revision, doc.blocks, sync, sync.state]);
+  }, [doc.revision, doc.blocks, sync, sync.state, live]);
 
-  useEffect(() => registerEditor(pageId, () => sync.flush()), [pageId, sync]);
+  const session = room.session;
+  useEffect(() => registerEditor(pageId, () => (live ? session?.commit() ?? Promise.resolve() : sync.flush())), [pageId, sync, live, session]);
 
   // Block ⋮⋮ → Comment, and ⌘⇧M with the cursor in a block, start a comment on that block.
   useEffect(() => {
@@ -424,13 +495,28 @@ function DocumentEditor({ pageId, doc, readOnly, smallText, outline }: { pageId:
     setRecovered(null);
   };
 
-  const conflict = sync.state === "conflict" || remoteChanged;
+  const conflict = !live && (sync.state === "conflict" || remoteChanged);
+  const liveSave = room.status === "saving" ? "saving" : room.status === "offline" ? "offline" : room.status === "error" ? "error" : "saved";
+
+  if (live && !room.collab) {
+    return room.status === "error" ? (
+      <Notice tone="danger" title="Couldn't start live editing" action={<Button size="sm" onClick={() => location.reload()}>Reload</Button>}>
+        {room.message ?? "Check your connection and reload the page."}
+      </Notice>
+    ) : (
+      <EditorSkeleton />
+    );
+  }
 
   return (
     <div ref={contentRef}>
       {outline && <DocumentOutline contentRef={contentRef} />}
       <SaveSlot pageId={pageId}>
-        <SaveStatus state={conflict ? "conflict" : sync.state} lastSavedAt={sync.lastSavedAt} error={sync.error} onRetry={() => void sync.flush()} updatedAt={doc.updatedAt} />
+        {live ? (
+          <SaveStatus state={liveSave} lastSavedAt={room.lastSavedAt} error={room.status === "error" ? room.message ?? null : null} onRetry={() => void session?.commit()} updatedAt={doc.updatedAt} />
+        ) : (
+          <SaveStatus state={conflict ? "conflict" : sync.state} lastSavedAt={sync.lastSavedAt} error={sync.error} onRetry={() => void sync.flush()} updatedAt={doc.updatedAt} />
+        )}
       </SaveSlot>
       {recovered === "applied" && (
         <Notice tone="info" className="mb-3" title="Recovered changes you hadn't saved" action={<Button size="xs" variant="ghost" onClick={() => (loadLatest(), toast("Discarded the recovered changes"))}>Discard them</Button>}>
@@ -493,11 +579,13 @@ function DocumentEditor({ pageId, doc, readOnly, smallText, outline }: { pageId:
       )}
       <EditorCrashBoundary onReopen={() => setEditorKey((k) => k + 1)}>
         <MaxEditor
-          key={editorKey}
+          key={`${editorKey}:${room.generation}`}
           initialContent={initial}
-          editable={!readOnly}
+          editable={!readOnly && (!live || !!room.session?.join?.canEdit)}
+          collab={live ? room.collab ?? undefined : undefined}
           onReady={onReady}
           onChange={(blocks) => {
+            if (live) return session?.setBlocks(blocks);
             if (applyingRemote.current) return;
             sync.change(blocks);
           }}

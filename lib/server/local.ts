@@ -109,6 +109,72 @@ export async function runLocal(op: string, args: unknown, source: Source, ownerI
   return run;
 }
 
+/**
+ * Who is calling in local mode. Always the single local owner, unless MAX_LOCAL_MULTIUSER=true
+ * (tests and demos only), where a `max-dev-user` cookie picks a pretend account so sharing can
+ * be exercised between two people on one machine.
+ */
+export function localActor(request: Request): { id: string; name: string; image: null } {
+  if (process.env.MAX_LOCAL_MULTIUSER === "true") {
+    const m = /(?:^|;\s*)max-dev-user=([a-z0-9_]{1,40})/.exec(request.headers.get("cookie") ?? "");
+    if (m && m[1] !== LOCAL_OWNER) return { id: m[1], name: m[1].charAt(0).toUpperCase() + m[1].slice(1), image: null };
+  }
+  return { id: LOCAL_OWNER, name: "You", image: null };
+}
+
+type SharingCall =
+  | { fn: "query" | "mutation"; scopePageId: string; op: string; args?: unknown; linkToken?: string | null }
+  | { fn: "access"; pageId: string; linkToken?: string | null }
+  | { fn: "withMe" }
+  | { fn: "ping"; pageId: string; linkToken?: string | null }
+  | { fn: "here"; pageId: string; linkToken?: string | null; at: number }
+  | { fn: "public"; token: string; scopePageId: string; op: string; args?: unknown }
+  | { fn: "duplicate"; pageId: string; linkToken?: string | null }
+  | { fn: "collab"; call: "join" | "pull" | "push" | "awareness" | "commit" | "leave"; args: Record<string, unknown>; linkToken?: string | null };
+
+/** The local twin of convex/sharing.ts. */
+export async function runLocalSharing(call: SharingCall, actor: { id: string; name: string; image: null }) {
+  const s = state();
+  await s.db.load();
+  const sharing = await import("@/lib/domain/sharing");
+  const now = Date.now();
+  if (call.fn === "access") return sharing.accessInfo(s.db, actor.id, call.pageId, call.linkToken);
+  if (call.fn === "withMe") return sharing.sharedWithMe(s.db, actor.id);
+  if (call.fn === "here") return sharing.present(s.db, actor.id, call.pageId, call.at, call.linkToken);
+  if (call.fn === "public") {
+    const visitor = { id: sharing.ANONYMOUS, name: "Visitor", image: null };
+    return sharing.executeShared(call.op, call.args, { db: s.db, storage: localStorageAdapter, actor: visitor, now, scopePageId: call.scopePageId, linkToken: call.token }, "query");
+  }
+  const write = async (fn: () => Promise<unknown>) => {
+    const run = s.lock.then(async () => {
+      const result = await s.db.transaction(fn);
+      await s.db.persist();
+      s.events.emit("change", { op: call.fn, source: "ui" });
+      return result;
+    });
+    s.lock = run.catch(() => undefined);
+    return run;
+  };
+  if (call.fn === "ping") return write(() => sharing.heartbeat(s.db, actor, call.pageId, now, call.linkToken));
+  if (call.fn === "duplicate") return write(() => sharing.duplicateShared(s.db, actor, call.pageId, now, call.linkToken));
+  if (call.fn === "collab") {
+    const collab = await import("@/lib/domain/collab");
+    const c = { db: s.db, actor, now, linkToken: call.linkToken };
+    const a = call.args as never as { pageId: string; roomId: string; clientId: string; afterSeq: number; epoch: number; data: string; seedRevision?: number; blocks: unknown[]; state?: string; upTo?: number };
+    if (call.call === "pull") return collab.pullRoom(c, String(a.roomId), Number(a.afterSeq));
+    return write(() => {
+      if (call.call === "join") return collab.joinRoom(c, String(a.pageId), String(a.clientId));
+      if (call.call === "push") return collab.pushRoom(c, a);
+      if (call.call === "awareness") return collab.setAwareness(c, a);
+      if (call.call === "commit") return collab.commitRoom({ ...c, storage: localStorageAdapter }, a);
+      return collab.leaveRoom(c, String(a.roomId), String(a.clientId));
+    });
+  }
+  const ctx = { db: s.db, storage: localStorageAdapter, actor, now, scopePageId: call.scopePageId, linkToken: call.linkToken };
+  if (call.fn === "query") return sharing.executeShared(call.op, call.args, ctx, "query");
+  return write(() => sharing.executeShared(call.op, call.args, ctx, "mutation"));
+}
+
 export async function resolveLocalToken(hash: string) {
   const s = state();
   await s.db.load();

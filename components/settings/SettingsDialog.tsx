@@ -6,11 +6,14 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { zipSync, strToU8 } from "fflate";
-import { ArrowDown, ArrowUp, Bot, Check, Copy, Database, Download, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Settings2, Trash2, Upload, User, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, Check, Copy, Database, Download, Globe, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Settings2, Trash2, Upload, User, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Field, IconButton, Input, Kbd, Notice, Segmented, Select, SettingRow, Skeleton, Switch, cn, confirmAction } from "@/components/ui";
 import { PageIcon } from "@/components/workspace/PageIcon";
-import { useOp, useRead } from "@/lib/client/data";
+import { useOp, useRead, useSharing } from "@/lib/client/data";
+import { useRouter } from "next/navigation";
+import { pageHref, publicHref } from "@/lib/pageUrl";
+import { SHARING_ENABLED } from "@/lib/config";
 import { bytes, dateTime, pageTitle, timeAgo } from "@/lib/client/format";
 import { APP_URL, CLOUD, REPO_URL, VERSION } from "@/lib/config";
 import type { SettingsRow } from "@/lib/client/types";
@@ -26,6 +29,7 @@ const NAV: { id: SettingsSection; label: string; icon: ReactNode; group: "Accoun
   { id: "preferences", label: "Preferences", icon: <Settings2 />, group: "Account" },
   { id: "editor", label: "Editor", icon: <PenLine />, group: "Account" },
   { id: "sidebar", label: "Sidebar", icon: <PanelLeft />, group: "Account" },
+  ...(SHARING_ENABLED ? [{ id: "sharing" as const, label: "Sharing", icon: <Users />, group: "Workspace" as const }] : []),
   { id: "connections", label: "Connections", icon: <Bot />, group: "Workspace" },
   { id: "data", label: "Data & export", icon: <Database />, group: "Workspace" },
   { id: "shortcuts", label: "Keyboard shortcuts", icon: <Keyboard />, group: "Workspace" },
@@ -51,7 +55,7 @@ export function SettingsDialog() {
         >
           <D.Title className="sr-only">Settings</D.Title>
           <D.Close asChild><IconButton label="Close settings" size="md" className="absolute end-2 top-2 z-10 bg-overlay md:hidden"><X className="size-5" /></IconButton></D.Close>
-          <nav aria-label="Settings sections" className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto bg-surface px-2 py-3 max-md:w-full max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-line max-md:py-2 max-md:pe-14">
+          <nav aria-label="Settings sections" className="max-space flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto px-2 py-3 max-md:w-full max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-line max-md:py-2 max-md:pe-14">
             {(["Account", "Workspace"] as const).map((g) => (
               <div key={g} className="contents">
                 <p className="px-2 pb-1 pt-2 text-[11.5px] font-medium text-fg-3 first:pt-0 max-md:hidden">{g}</p>
@@ -80,6 +84,7 @@ export function SettingsDialog() {
             {section === "preferences" && <PreferencesSection />}
             {section === "editor" && <EditorSection />}
             {section === "sidebar" && <SidebarSection />}
+            {section === "sharing" && <SharingSection />}
             {section === "connections" && <ConnectionsSection />}
             {section === "data" && <DataSection />}
             {section === "shortcuts" && <ShortcutsSection />}
@@ -355,6 +360,96 @@ function Copyable({ value, label }: { value: string; label: string }) {
         {copied ? "Copied" : "Copy"}
       </Button>
     </div>
+  );
+}
+
+const ACCESS: Record<string, string> = { full_access: "Full access", edit: "Can edit", comment: "Can comment", view: "Can view" };
+
+interface SharedPage {
+  _id: string;
+  title: string;
+  icon: string | null;
+  kind: string;
+  people: { name: string | null; email: string | null; image: string | null; level: string }[];
+  link: { level: string; public: boolean; token: string } | null;
+}
+
+/** Everything you share, everything shared with you, and what's published, in one place. */
+function SharingSection() {
+  const ws = useWorkspace();
+  const router = useRouter();
+  const mine = useOp<{ pages: SharedPage[] }>("shares.overview", {});
+  const withMe = useSharing<{ _id: string; title: string; icon: string | null; kind: string; level: string; ownerName: string | null }[]>("withMe", {});
+  const open = (id: string, title: string) => {
+    ws.closeSettings();
+    router.push(pageHref(id, title));
+  };
+  const published = mine.data?.pages.filter((p) => p.link?.public) ?? [];
+  const row = "flex min-h-12 items-center gap-3 py-2";
+  return (
+    <>
+      <Heading title="Sharing" description="Pages you share and pages shared with you. Change who has access from a page's Share menu." />
+      <Group title="Pages you share">
+        {!mine.data ? (
+          <Skeleton className="my-3 h-10" />
+        ) : mine.data.pages.length === 0 ? (
+          <p className="py-3 text-[13px] text-fg-3">You haven&apos;t shared any pages. Open a page and choose Share at the top.</p>
+        ) : (
+          mine.data.pages.map((p) => (
+            <div key={p._id} className={row}>
+              <PageIcon icon={p.icon} kind={p.kind} size={18} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] text-fg">{pageTitle(p.title)}</p>
+                <p className="truncate text-[12px] text-fg-3">
+                  {[
+                    p.people.length ? `${p.people.length} ${p.people.length === 1 ? "person" : "people"}: ${p.people.map((x) => x.name || x.email || "Someone").slice(0, 3).join(", ")}${p.people.length > 3 ? "…" : ""}` : null,
+                    p.link ? (p.link.public ? "Published to the web" : `Anyone in Max with the link (${(ACCESS[p.link.level] ?? "").toLowerCase()})`) : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => open(p._id, p.title)}>
+                Manage
+              </Button>
+            </div>
+          ))
+        )}
+      </Group>
+      <Group title="Published to the web">
+        {published.length === 0 ? (
+          <p className="py-3 text-[13px] text-fg-3">Nothing is published. In a page&apos;s Share menu, set General access to “Anyone on the web with the link”.</p>
+        ) : (
+          published.map((p) => (
+            <div key={p._id} className={row}>
+              <Globe className="size-4 shrink-0 text-fg-3" aria-hidden />
+              <p className="min-w-0 flex-1 truncate text-[13.5px] text-fg">{pageTitle(p.title)}</p>
+              <Copyable value={`${typeof window === "undefined" ? APP_URL : window.location.origin}${publicHref(p.link!.token, p._id, p.title)}`} label={`public link to ${pageTitle(p.title)}`} />
+            </div>
+          ))
+        )}
+      </Group>
+      <Group title="Shared with you">
+        {!withMe.data ? (
+          <Skeleton className="my-3 h-10" />
+        ) : withMe.data.length === 0 ? (
+          <p className="py-3 text-[13px] text-fg-3">Nothing has been shared with you yet. Pages people share with you also appear under Shared in the sidebar.</p>
+        ) : (
+          withMe.data.map((p) => (
+            <div key={p._id} className={row}>
+              <PageIcon icon={p.icon} kind={p.kind} size={18} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] text-fg">{pageTitle(p.title)}</p>
+                <p className="truncate text-[12px] text-fg-3">{[p.ownerName ? `From ${p.ownerName}` : null, ACCESS[p.level]].filter(Boolean).join(" · ")}</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => open(p._id, p.title)}>
+                Open
+              </Button>
+            </div>
+          ))
+        )}
+      </Group>
+    </>
   );
 }
 

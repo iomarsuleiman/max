@@ -360,6 +360,7 @@ export default defineSchema({
     size: v.number(),
     alt: v.string(),
     createdAt: v.number(),
+    borrowed: v.optional(v.boolean()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_pageId", ["ownerId", "pageId"]),
@@ -383,9 +384,86 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     source: v.string(),
+    authorId: v.optional(v.union(v.string(), v.null())),
+    authorName: v.optional(v.union(v.string(), v.null())),
+    authorImage: v.optional(v.union(v.string(), v.null())),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_pageId", ["ownerId", "pageId"]),
+  shares: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    granteeId: v.string(),
+    email: v.union(v.string(), v.null()),
+    name: v.union(v.string(), v.null()),
+    image: v.union(v.string(), v.null()),
+    level: v.union(v.literal("view"), v.literal("comment"), v.literal("edit"), v.literal("full_access")),
+    invitedBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_granteeId", ["granteeId"])
+    .index("by_pageId", ["pageId"]),
+  shareLinks: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    token: v.string(),
+    level: v.union(v.literal("view"), v.literal("comment"), v.literal("edit")),
+    public: v.optional(v.boolean()),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_token", ["token"])
+    .index("by_pageId", ["pageId"]),
+  presence: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    accountId: v.string(),
+    name: v.string(),
+    image: v.union(v.string(), v.null()),
+    at: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_pageId", ["pageId"]),
+  collabRooms: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    epoch: v.number(),
+    seededRevision: v.union(v.number(), v.null()),
+    seeding: v.union(v.string(), v.null()),
+    seedingAt: v.number(),
+    nextSeq: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_pageId", ["pageId"]),
+  collabUpdates: defineTable({
+    ownerId: v.string(),
+    roomId: v.string(),
+    pageId: v.string(),
+    epoch: v.number(),
+    seq: v.number(),
+    data: v.string(),
+    at: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_roomId", ["roomId", "seq"]),
+  collabAwareness: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    roomId: v.string(),
+    clientId: v.string(),
+    accountId: v.string(),
+    data: v.string(),
+    at: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_pageId", ["pageId"]),
   versions: defineTable({
     ownerId: v.string(),
     pageId: v.string(),

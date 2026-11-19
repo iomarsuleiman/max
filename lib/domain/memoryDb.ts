@@ -1,4 +1,4 @@
-import type { Db, IndexedField, NewRow } from "./db";
+import type { CrossField, CrossTable, Db, IndexedField, NewRow } from "./db";
 import type { TableName, Tables } from "./types";
 
 type State = { [T in TableName]: Map<string, Tables[T]> };
@@ -13,6 +13,12 @@ const emptyState = (): State => ({
   idempotency: new Map(),
   versions: new Map(),
   comments: new Map(),
+  shares: new Map(),
+  shareLinks: new Map(),
+  presence: new Map(),
+  collabRooms: new Map(),
+  collabUpdates: new Map(),
+  collabAwareness: new Map(),
 });
 
 let counter = 0;
@@ -65,6 +71,26 @@ export class MemoryDb implements Db {
   async findTokenByHash(hash: string) {
     for (const t of this.state.tokens.values()) if (t.hash === hash) return clone(t);
     return null;
+  }
+
+  async memberNumber(ownerId: string) {
+    const rows = [...this.state.settings.values()].sort((a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0));
+    const at = rows.findIndex((r) => r.ownerId === ownerId);
+    return at < 0 ? null : at + 1;
+  }
+
+  async updatesAfter(roomId: string, afterSeq: number, limit: number) {
+    const out: Tables["collabUpdates"][] = [];
+    for (const row of this.state.collabUpdates.values()) if (row.roomId === roomId && row.seq > afterSeq) out.push(clone(row));
+    return out.sort((a, b) => a.seq - b.seq).slice(0, limit);
+  }
+
+  async findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string) {
+    const out: Tables[T][] = [];
+    for (const row of this.state[table].values() as IterableIterator<Tables[T]>) {
+      if ((row as unknown as Record<string, unknown>)[field as string] === value) out.push(clone(row));
+    }
+    return out;
   }
 
   /** Runs `fn`; on error, restores the state from before it started. */

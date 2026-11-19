@@ -19,6 +19,7 @@ import { defineOp, id, type OpContext } from "./define";
 import { allPages, assertWritable, breadcrumbs, descendants, LIMITS, requirePage, summary, templateMembers } from "./helpers";
 import { insertDocument } from "./pages";
 import { snapshotBeforeWrite } from "./versions";
+import { clearRoom, findRoom } from "../collabRoom";
 
 async function loadDocument(ctx: OpContext, pageId: string): Promise<DocumentRow> {
   const doc = (await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: pageId }))[0];
@@ -28,8 +29,18 @@ async function loadDocument(ctx: OpContext, pageId: string): Promise<DocumentRow
   return (await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: pageId }))[0];
 }
 
-/** Validates and writes new content, bumping the revision. Enforces optimistic concurrency. */
-async function writeContent(ctx: OpContext, pageId: string, blocks: Block[], baseRevision?: number) {
+/** Ends a page's live room (if any): clients see the new epoch and reload from the saved page. */
+export async function resetRoom(ctx: OpContext, pageId: string) {
+  const room = await findRoom(ctx.db, ctx.ownerId, pageId);
+  if (room) await clearRoom(ctx.db, room);
+}
+
+/**
+ * Validates and writes new content, bumping the revision. Enforces optimistic concurrency. Writes
+ * that don't come from a live co-editing room (assistants, restores, imports) reset the page's
+ * room, so people editing it reload the new content instead of overwriting it.
+ */
+export async function writeContent(ctx: OpContext, pageId: string, blocks: Block[], baseRevision?: number, opts: { fromRoom?: boolean } = {}) {
   const page = await requirePage(ctx, pageId);
   assertWritable(page);
   const doc = await loadDocument(ctx, pageId);
@@ -50,6 +61,7 @@ async function writeContent(ctx: OpContext, pageId: string, blocks: Block[], bas
   const revision = doc.revision + 1;
   await ctx.db.patch("documents", doc._id, { content, text, wordCount: countWords(text), revision, updatedAt: ctx.now });
   await ctx.db.patch("pages", pageId, { updatedAt: ctx.now });
+  if (!opts.fromRoom) await resetRoom(ctx, pageId);
   return { revision, updatedAt: ctx.now, unchanged: false };
 }
 

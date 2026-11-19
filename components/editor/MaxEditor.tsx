@@ -51,6 +51,16 @@ export interface MaxEditorProps {
   smallText?: boolean;
   dir?: "auto" | "ltr" | "rtl";
   spellcheck?: boolean;
+  /**
+   * Live co-editing (shared pages): the editor is bound to this Yjs fragment instead of
+   * `initialContent`, and shows other people's cursors. Loaded with components/editor/collab.ts.
+   */
+  collab?: {
+    fragment: unknown;
+    awareness: unknown;
+    user: { name: string; color: string };
+    withCollaboration: <O extends object>(options: O & { collaboration: unknown }) => O;
+  };
 }
 
 function useDarkMode() {
@@ -75,7 +85,7 @@ export default function MaxEditor(props: MaxEditorProps) {
   const [languages] = useState(() => toEditorCodeLanguages(props.initialContent));
   const lastRemovedLinks = useRef(0);
 
-  const editor = useCreateBlockNote({
+  const options = {
     schema: maxSchema,
     // Shiki loads the first time a code block needs coloring, not with every page.
     extensions: [SyntaxHighlightingExtension({ createHighlighter: () => import("./shiki").then((m) => m.createHighlighter()) })],
@@ -121,7 +131,17 @@ export default function MaxEditor(props: MaxEditorProps) {
         },
       },
     },
-  });
+  } satisfies Parameters<typeof useCreateBlockNote>[0];
+  const collab = props.collab;
+  const editor = useCreateBlockNote(
+    (collab
+      ? collab.withCollaboration({
+          ...options,
+          initialContent: undefined,
+          collaboration: { fragment: collab.fragment, user: collab.user, provider: { awareness: collab.awareness }, showCursorLabels: "activity" },
+        })
+      : options) as typeof options,
+  );
 
   useEffect(() => {
     props.onReady?.(editor);

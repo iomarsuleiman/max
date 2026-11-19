@@ -7,6 +7,8 @@ import { Button, IconButton, Menu, MenuContent, MenuItem, MenuTrigger, Skeleton,
 import { useOp } from "@/lib/client/data";
 import { dateTime, timeAgo } from "@/lib/client/format";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
+import { Avatar } from "@/components/workspace/Sidebar";
+import { can, usePageAccess } from "@/components/share/access";
 
 export interface CommentView {
   _id: string;
@@ -19,6 +21,9 @@ export interface CommentView {
   source: "ui" | "mcp";
   blockExcerpt: string | null;
   blockMissing: boolean;
+  authorId?: string | null;
+  authorName?: string | null;
+  authorImage?: string | null;
 }
 
 /** Ask the open page to show comments, optionally starting a comment on a block. */
@@ -57,6 +62,12 @@ function BlockMarkers({ comments, onOpen }: { comments: CommentView[]; onOpen: (
 
 export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: string; open: boolean; onClose: () => void; focusBlock: { blockId: string | null; nonce: number } | null }) {
   const ws = useWorkspace();
+  const access = usePageAccess();
+  const canComment = can(access, "comment");
+  // Owner comments carry no author; on someone else's page they belong to the owner.
+  const isMine = (c: CommentView) => (c.authorId ? c.authorId === access.you : !access.shared);
+  const authorOf = (c: CommentView) =>
+    isMine(c) ? (ws.settings?.displayName || ws.identity.name || "You") : c.authorName || (c.authorId ? "Someone" : access.ownerName || "Page owner");
   const [showResolved, setShowResolved] = useState(false);
   const q = useOp<{ comments: CommentView[]; openCount: number; resolvedCount: number }>("comments.list", { pageId, includeResolved: true });
   const [draft, setDraft] = useState("");
@@ -124,6 +135,10 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
                         {c.blockMissing ? "Block was deleted" : c.blockExcerpt || "Block"}
                       </button>
                     )}
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <Avatar name={authorOf(c)} url={isMine(c) ? (ws.identity.imageUrl ?? null) : (c.authorImage ?? null)} size={20} />
+                      <span className="truncate text-[12.5px] font-medium text-fg">{authorOf(c)}</span>
+                    </div>
                     {editing === c._id ? (
                       <form
                         className="grid gap-1.5"
@@ -153,14 +168,17 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
                         {c.updatedAt > c.createdAt + 1000 && !c.resolvedAt ? " · edited" : ""}
                         {c.resolvedAt ? " · resolved" : ""}
                       </span>
-                      <IconButton
-                        label={c.resolvedAt ? "Reopen" : "Resolve"}
-                        size="xs"
-                        className="ms-auto"
-                        onClick={() => ws.call("comments.resolve", { id: c._id, resolved: !c.resolvedAt }).catch((e) => notifyError(e))}
-                      >
-                        {c.resolvedAt ? <RotateCcw className="size-3.5" /> : <Check className="size-3.5" />}
-                      </IconButton>
+                      {canComment && (
+                        <IconButton
+                          label={c.resolvedAt ? "Reopen" : "Resolve"}
+                          size="xs"
+                          className="ms-auto"
+                          onClick={() => ws.call("comments.resolve", { id: c._id, resolved: !c.resolvedAt }).catch((e) => notifyError(e))}
+                        >
+                          {c.resolvedAt ? <RotateCcw className="size-3.5" /> : <Check className="size-3.5" />}
+                        </IconButton>
+                      )}
+                      {(isMine(c) || can(access, "full_access")) && (
                       <Menu>
                         <MenuTrigger asChild>
                           <IconButton label="Comment actions" size="xs">
@@ -168,7 +186,7 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
                           </IconButton>
                         </MenuTrigger>
                         <MenuContent align="end">
-                          <MenuItem icon={<Pencil />} onSelect={() => (setEditing(c._id), setEditText(c.body))}>Edit</MenuItem>
+                          {isMine(c) && <MenuItem icon={<Pencil />} onSelect={() => (setEditing(c._id), setEditText(c.body))}>Edit</MenuItem>}
                           <MenuItem
                             icon={<Trash2 />}
                             danger
@@ -181,12 +199,16 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
                           </MenuItem>
                         </MenuContent>
                       </Menu>
+                      )}
                     </div>
                   </li>
                 ))}
               </ul>
             )}
           </div>
+          {!canComment ? (
+            <p className="border-t border-line p-3 text-[12.5px] text-fg-3">You can read comments here. Ask for “Can comment” access to add your own.</p>
+          ) : (
           <form className="grid gap-1.5 border-t border-line p-3" onSubmit={(e) => (e.preventDefault(), void send())}>
             {target && (
               <div className="flex items-center gap-1 text-[12px] text-fg-3">
@@ -217,6 +239,7 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
               </Button>
             </div>
           </form>
+          )}
         </aside>
       )}
     </>
