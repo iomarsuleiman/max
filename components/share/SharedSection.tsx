@@ -19,13 +19,16 @@ interface SharedRoot {
   kind: "page" | "database";
   level: ShareLevel;
   ownerName: string | null;
+  teamspace?: boolean;
 }
 
 /** Notion's "Shared" sidebar section: pages other people shared with you, with their sub-pages. */
 export function SharedSection() {
   const q = useSharing<SharedRoot[]>("withMe", {});
   const [open, setOpen] = useState(true);
-  if (!q.data?.length) return null;
+  // Teamspaces shared with you are listed under Teamspaces instead.
+  const pages = q.data?.filter((p) => !p.teamspace) ?? [];
+  if (!pages.length) return null;
   return (
     <section className="relative mt-3" aria-label="Shared with you">
       <div className="flex h-7 items-center rounded-md ps-1 pe-1 hover:bg-hover">
@@ -36,7 +39,7 @@ export function SharedSection() {
       </div>
       {open && (
         <ul role="tree" aria-label="Pages shared with you" className="mt-px">
-          {q.data.map((p) => (
+          {pages.map((p) => (
             <ShareScope key={p._id} value={{ pageId: p._id, linkToken: null }}>
               <SharedRow page={p} depth={0} owner={p.ownerName} />
             </ShareScope>
@@ -47,7 +50,7 @@ export function SharedSection() {
   );
 }
 
-function SharedRow({ page, depth, owner }: { page: Pick<SharedRoot, "_id" | "title" | "icon" | "kind">; depth: number; owner?: string | null }) {
+export function SharedRow({ page, depth, owner }: { page: Pick<SharedRoot, "_id" | "title" | "icon" | "kind">; depth: number; owner?: string | null }) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
   const active = pageIdFromPath(pathname) === page._id;

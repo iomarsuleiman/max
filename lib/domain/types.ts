@@ -147,6 +147,8 @@ export interface PageRow {
   locked: boolean;
   /** Templates never appear in the tree, search or database rows; they're copied into new pages. */
   isTemplate: boolean;
+  /** A teamspace: a top-level page shared with a group, listed under Teamspaces for everyone in it. */
+  teamspace?: boolean;
   createdAt: number;
   updatedAt: number;
   /** Database pages only. */
@@ -192,6 +194,10 @@ export interface SettingsRow {
   displayName: string | null;
   profileCard?: ProfileCard | null;
   profileCardOnboarded?: boolean;
+  /** The account that invited this one (through a card's invite link), if any. */
+  invitedBy?: string | null;
+  /** This person's handwritten note for the people they invite. */
+  inviteNote?: string | null;
   onboarded: boolean;
   updatedAt: number;
 }

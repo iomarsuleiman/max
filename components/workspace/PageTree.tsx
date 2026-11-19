@@ -34,7 +34,7 @@ const INDENT = 14;
 
 type Move = { id: string; parentId: string | null; index: number };
 
-export function PageTree({ pages, emptyHint }: { pages: PageSummary[]; emptyHint?: React.ReactNode }) {
+export function PageTree({ pages, emptyHint, label = "Pages" }: { pages: PageSummary[]; emptyHint?: React.ReactNode; label?: string }) {
   const ws = useWorkspace();
   const [pending, setPending] = useState<Move | null>(null);
   const view = useMemo(() => applyMove(pages, pending), [pages, pending]);
@@ -144,7 +144,7 @@ export function PageTree({ pages, emptyHint }: { pages: PageSummary[]; emptyHint
       }}
     >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <ul role="tree" aria-label="Pages" className="grid">
+        <ul role="tree" aria-label={label} className="grid">
           {flat.map((item) => (
             <TreeRow
               key={item.id}

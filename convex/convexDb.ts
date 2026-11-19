@@ -64,6 +64,11 @@ export function convexDb(db: Reader | Writer): Db {
         .collect();
       return earlier.length + 1;
     },
+    async memberByNumber(n: number) {
+      // Settings rows in the order people joined; the nth is member n.
+      const rows = await db.query("settings").withIndex("by_creation_time").order("asc").take(n);
+      return rows.length === n ? String((rows[n - 1] as { ownerId: string }).ownerId) : null;
+    },
     async updatesAfter(roomId: string, afterSeq: number, limit: number) {
       const rows = await db
         .query("collabUpdates")

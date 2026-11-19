@@ -34,7 +34,7 @@ interface Person {
   image: string | null;
 }
 
-async function findPerson(email: string): Promise<Person> {
+export async function findPerson(email: string): Promise<Person> {
   const res = await fetch(`/api/people?email=${encodeURIComponent(email)}`);
   const body = (await res.json().catch(() => ({}))) as { person?: Person; error?: { message: string } };
   if (!res.ok || !body.person) throw new Error(body.error?.message ?? "Couldn't find that person.");

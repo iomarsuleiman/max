@@ -1,4 +1,5 @@
 import { Bot, Copy, Globe, Users } from "lucide-react";
+import { SquiggleLabel } from "./Squiggle";
 
 /** Hand-drawn style cursor with a name tag, as people see each other in a shared page. */
 function Cursor({ name, color }: { name: string; color: string }) {
@@ -17,7 +18,8 @@ const tile = "relative overflow-hidden rounded-[28px] p-7 text-[#2b2620] shadow-
 export function Together() {
   return (
     <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8" aria-labelledby="together-title">
-      <h2 id="together-title" className="landing-headline text-center text-[40px] leading-[1.08] font-semibold tracking-[-.03em] text-balance sm:text-6xl">
+      <SquiggleLabel>Sharing</SquiggleLabel>
+      <h2 id="together-title" className="landing-headline mt-8 text-center text-[40px] leading-[1.08] font-semibold tracking-[-.03em] text-balance sm:text-6xl">
         Better together.
       </h2>
       <p className="text-fg-2 mx-auto mt-5 max-w-xl text-center text-base leading-relaxed text-balance sm:text-lg">Share a page and work on it at the same time, like you&apos;re in the same room.</p>

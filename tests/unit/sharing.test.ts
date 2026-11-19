@@ -165,4 +165,21 @@ describe("page sharing", () => {
     expect(pages.find((p) => p.title === "Team plan")).toMatchObject({ people: [{ name: "Bob" }], link: null });
     expect(pages.find((p) => p.title === "Milestones")?.link).toMatchObject({ public: true });
   });
+
+  it("makes teamspaces: top-level pages shared with a group, listed as teamspaces for everyone in them", async () => {
+    const { h, alice, as } = await world();
+    const { page } = await alice<{ page: { _id: string; teamspace?: boolean } }>("pages.create", { title: "Family", icon: "🏡", teamspace: true });
+    expect(page.teamspace).toBe(true);
+    await expect(alice("pages.create", { title: "Nested", parentId: page._id, teamspace: true })).rejects.toThrow(/top level/);
+    const inside = (await alice<{ page: { _id: string } }>("pages.create", { title: "Groceries", parentId: page._id })).page;
+    await alice("shares.invite", { pageId: page._id, granteeId: bob.id, name: "Bob", level: "edit" });
+    const forBob = await sharedWithMe(h.db, bob.id);
+    expect(forBob).toEqual([expect.objectContaining({ title: "Family", teamspace: true })]);
+    // Members edit what's inside, and can add pages to it.
+    await as(bob, inside._id)("pages.update", { id: inside._id, title: "Groceries this week" });
+    await as(bob, page._id)("pages.create", { title: "Holiday plans", parentId: page._id });
+    const tree = await alice<{ pages: { title: string; teamspace?: boolean }[] }>("pages.tree", {});
+    expect(tree.pages.find((p) => p.title === "Family")?.teamspace).toBe(true);
+    expect(tree.pages.map((p) => p.title)).toEqual(expect.arrayContaining(["Groceries this week", "Holiday plans"]));
+  });
 });

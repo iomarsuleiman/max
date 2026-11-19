@@ -178,3 +178,31 @@ test("type together live with cursors, publish to the web, and duplicate", async
 
   await Promise.all([alice.close(), bob.close(), visitor.close()]);
 });
+
+test("teamspaces: a shared workspace for a group, in everyone's sidebar", async ({ browser, baseURL }) => {
+  test.setTimeout(120_000);
+  const alice = await person(browser, baseURL!, "alice");
+  const bob = await person(browser, baseURL!, "bob");
+  const a = await alice.newPage();
+  const b = await bob.newPage();
+  await a.goto("/home");
+  const teamspaces = a.getByRole("region", { name: "Teamspaces" });
+  await teamspaces.getByRole("button", { name: "New teamspace" }).first().click();
+  const dialog = a.getByRole("dialog", { name: "New teamspace" });
+  await dialog.getByLabel("Name").fill("Book club");
+  await dialog.getByLabel("Add people").fill("bob@example.com");
+  await dialog.getByRole("button", { name: "Create teamspace" }).click();
+  await expect(a.getByLabel("Page title")).toHaveValue("Book club");
+  await expect(a.getByRole("tree", { name: "Your teamspaces" }).getByRole("link", { name: /Book club/ })).toBeVisible();
+  // It's not listed under Private.
+  await expect(a.getByRole("tree", { name: "Pages" }).getByRole("link", { name: /Book club/ })).toHaveCount(0);
+
+  // Bob finds it under Teamspaces (not Shared) and can add pages to it.
+  await b.goto("/home");
+  const his = b.getByRole("tree", { name: "Teamspaces you're in" });
+  await expect(his.getByRole("link", { name: /Book club/ })).toBeVisible();
+  await expect(b.getByRole("tree", { name: "Pages shared with you" }).getByRole("link", { name: /Book club/ })).toHaveCount(0);
+  await his.getByRole("link", { name: /Book club/ }).click();
+  await expect(b.locator(".bn-editor")).toHaveAttribute("contenteditable", "true");
+  await Promise.all([alice.close(), bob.close()]);
+});

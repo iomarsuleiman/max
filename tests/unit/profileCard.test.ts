@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cardInitials, defaultProfileCard, profileCardThemes, profileCardShapes } from "@/lib/domain/profileCard";
 import { setup } from "./harness";
 import { profileCardBackSvg, profileCardSvg } from "@/lib/domain/profileCardImage";
+import { FOUNDER_NAME, FOUNDER_NOTE, INVITE_NOTE, writeNote } from "@/lib/welcomeNote";
 
 describe("private profile cards", () => {
   it("saves through the shared settings operation and isolates owners", async () => {
@@ -65,7 +66,7 @@ describe("private profile cards", () => {
     const old = { name: "Older card", bio: "", theme: "ocean", pattern: "plain" };
     await call("settings.update", { profileCard: old });
     expect((await call("profileCard.get")).card).toMatchObject({ subtitle: "", shape: "arch" });
-    expect(profileCardSvg(defaultProfileCard("Omar")).height).toBeGreaterThan(500);
+    expect(profileCardSvg(defaultProfileCard("Omar"))).toMatchObject({ width: 300, height: 380 });
   });
 
   it("persists skipped onboarding independently of card creation", async () => {
@@ -134,22 +135,40 @@ describe("one workspace/card identity", () => {
       expect(svg).not.toContain("card-qr");
       expect(svg).not.toContain("data:image");
       expect(svg).not.toMatch(/(?:href|src)="https?:/);
-      expect(svg).toMatch(/<rect x="24" y="\d+" width="\d+" height="28"/);
+      expect(svg).toContain("MAX MEMBER");
     }
     expect(profileCardSvg(defaultProfileCard("New member")).svg).toContain("NEW CARD");
   });
 
-  it("puts only the handwriting and a scannable invite code on the back, for every palette", async () => {
-    const { default: sharp } = await import("sharp");
-    const { default: jsQR } = await import("jsqr");
-    const { PNG } = await import("pngjs");
-    for (const theme of profileCardThemes) {
-      const back = profileCardBackSvg({ ...defaultProfileCard("Avery"), theme, memberNumber: 42, createdAt: Date.UTC(2026, 10, 8) });
-      expect(back).toContain("#42");
-      expect(back).toContain("8 November 2026");
-      expect(back).not.toMatch(/invited|Scan|NO PRIVATE/i);
-      const png = PNG.sync.read(await sharp(Buffer.from(back)).resize(1080).extract({ left: 300, top: 1110, width: 480, height: 490 }).png().toBuffer());
-      expect(jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data, theme).toBe("https://max.chaos.fail/join?from=42");
-    }
-  }, 30000);
+  it("writes a note on the back: from Max's maker, or from whoever invited you", () => {
+    const card = { ...defaultProfileCard("Avery Lane"), memberNumber: 42, createdAt: Date.UTC(2026, 10, 8) };
+    const founder = profileCardBackSvg(card, { text: writeNote(FOUNDER_NOTE, "Avery Lane"), from: FOUNDER_NAME });
+    expect(founder).toContain("Avery,");
+    expect(founder).toContain(FOUNDER_NAME);
+    expect(founder).toContain("Nov 8, 2026");
+    expect(founder).not.toContain("<filter");
+    const invited = profileCardBackSvg(card, { text: "Avery,\nso glad you came.", from: "Sam" });
+    expect(invited).toContain("so glad you came.");
+    expect(invited).toContain(">Sam<");
+    // Handwriting is escaped like everything else.
+    expect(profileCardBackSvg(card, { text: "<b>hi</b>", from: "<i>x</i>" })).not.toMatch(/<b>|<i>/);
+  });
+
+  it("gives the note from the inviter when you joined through their link", async () => {
+    const h = setup();
+    const sam = h.as("user_sam");
+    await sam("settings.update", { displayName: "Sam" });
+    await sam("settings.update", { inviteNote: "{name},\nso glad you came." });
+    const avery = h.as("user_avery");
+    await avery("account.init", { displayName: "Avery Lane", invitedBy: 1 });
+    await avery("profileCard.update", { card: { ...defaultProfileCard("Avery Lane") } });
+    const got = await avery<{ note: { from: string; text: string; invited: boolean }; memberNumber: number }>("profileCard.get", {});
+    expect(got.memberNumber).toBe(2);
+    expect(got.note).toEqual({ from: "Sam", text: "Avery,\nso glad you came.", invited: true });
+    // Without a note of their own, the inviter signs Max's invite note.
+    await sam("settings.update", { inviteNote: null });
+    expect((await avery<{ note: { from: string; text: string } }>("profileCard.get", {})).note).toMatchObject({ from: "Sam", text: writeNote(INVITE_NOTE, "Avery Lane") });
+    // Someone who found Max alone gets the maker's note.
+    expect((await sam<{ note: { from: string; invited: boolean } }>("profileCard.get", {})).note).toMatchObject({ from: FOUNDER_NAME, invited: false });
+  });
 });

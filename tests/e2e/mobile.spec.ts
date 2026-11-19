@@ -13,13 +13,12 @@ test("mobile navigation drawer opens and navigates", async ({ page }) => {
 
 test("mobile card stays compact and settings remain reachable", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto("/home?settings=account");
+  await page.goto("/home?settings=about");
   const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
   const card = dialog.getByRole("article", { name: "Your profile card preview" });
   await expect(card).toBeVisible();
   expect((await card.boundingBox())!.width).toBeLessThanOrEqual(248);
-  await dialog.getByLabel("Name", { exact: true }).fill("A very long name with lots of words for a small card");
-  await dialog.getByRole("button", { name: "Change" }).click();
+  await dialog.getByRole("button", { name: "Change artwork" }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/max-mobile-card.png" });
   await dialog.getByRole("button", { name: "Close settings", exact: true }).click();

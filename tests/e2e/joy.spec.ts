@@ -54,13 +54,15 @@ test("landing butterfly flaps its wings on arrival, click and keyboard, and stay
   await page.screenshot({ path: "test-results/max-landing.png", fullPage: true });
 });
 
-test("landing grain stays small and static, follows the chosen theme, with no navigation", async ({ page }) => {
+test("landing grain stays small and static, follows the chosen theme, with a full-width header", async ({ page }) => {
   await page.addInitScript(() => { if (!localStorage.getItem("max:theme")) localStorage.setItem("max:theme", "dark"); });
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/welcome");
-  await expect(page.getByRole("navigation")).toHaveCount(0);
-  await expect(page.getByRole("banner")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toHaveCount(0);
+  // A full-width header with the theme switch, like the other public pages.
+  await expect(page.getByRole("banner")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Site" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toBeVisible();
+  expect((await page.getByRole("banner").boundingBox())!.width).toBeGreaterThanOrEqual(page.viewportSize()!.width - 20);
   const landing = page.locator(".landing-system");
   // A saved choice (dark) wins over the system (light), like every other page.
   await expect(landing).toHaveCSS("color-scheme", "dark");
@@ -74,7 +76,7 @@ test("landing grain stays small and static, follows the chosen theme, with no na
       animation: style.animationName,
       filter: style.filter,
       blend: style.backgroundBlendMode,
-      logo: getComputedStyle(element.querySelector("button")!).color,
+      logo: getComputedStyle(element.querySelector(".butterfly")!).color,
       text: getComputedStyle(element.querySelector("h1")!).color,
     };
   });
@@ -88,7 +90,7 @@ test("landing grain stays small and static, follows the chosen theme, with no na
   const connect = page.getByRole("button", { name: /Connect the dots/ });
   await connect.click();
   await expect(connect).toHaveAttribute("aria-current", "true");
-  await expect(page.locator(".mind-callout-pill")).toHaveText("Linked pages");
+  await expect(page.locator(".mind-callout-pill")).toHaveText("Graph view");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const texture = await page.request.get("/textures/grain.svg");
   expect((await texture.body()).byteLength).toBeLessThan(2048);

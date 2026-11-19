@@ -1,95 +1,80 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
-import { Shuffle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Download, Shuffle } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Field, Input } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
-import { defaultProfileCard, profileCardSchema, profileCardThemes, profileCardShapes, type ProfileCard as Card } from "@/lib/domain/profileCard";
-import { ProfileCard } from "./ProfileCard";
+import { defaultProfileCard, profileCardSchema, profileCardShapes, profileCardThemes, type ProfileCard as Card } from "@/lib/domain/profileCard";
 import { downloadProfileCardPng } from "@/lib/client/profileCardExport";
 import { useOp } from "@/lib/client/data";
+import { ProfileCard, type CardNote } from "./ProfileCard";
 
+const SUBTITLES = ["Curious explorer", "Quiet daydreamer", "Creative wanderer", "Thoughtful maker", "Bright observer", "Gentle trailblazer"];
+
+interface CardInfo {
+  memberNumber: number | null;
+  joinedAt: number | null;
+  note: CardNote & { invited: boolean };
+}
+
+/**
+ * Your membership card, as it appears in About: the card (hover it to read the note on the back),
+ * your member number and who the note is from. Changing the artwork saves it.
+ */
 export function ProfileCardEditor() {
   const ws = useWorkspace();
-  const id = useId();
+  const info = useOp<CardInfo>("profileCard.get", {});
+  const name = ws.settings?.displayName?.trim() || ws.identity.name || "You";
   const [card, setCard] = useState<Card>(() => {
     const saved = profileCardSchema.safeParse(ws.settings?.profileCard);
-    const initial = saved.success ? { ...saved.data, name: ws.settings?.displayName?.trim() || saved.data.name } : defaultProfileCard(ws.settings?.displayName || ws.identity.name);
-    return { ...initial, createdAt: ws.settings?.joinedAt ?? initial.createdAt };
+    const initial = saved.success ? saved.data : defaultProfileCard(name);
+    return { ...initial, name, createdAt: ws.settings?.joinedAt ?? initial.createdAt };
   });
-  // Your place among everyone who joined Max, shown on the card (computed by the server).
-  const member = useOp<{ memberNumber: number | null }>("profileCard.get", {});
-  const memberNumber = member.data?.memberNumber ?? undefined;
-  const shown = { ...card, memberNumber };
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const save = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const parsed = profileCardSchema.safeParse({ ...card, memberNumber: undefined });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await ws.call<{ card: Card }>("profileCard.update", { card: parsed.data });
-      setCard(result.card);
-      toast.success("Profile card saved");
-    } catch (err) {
-      notifyError(err, "Couldn't save your card. Your draft is still here.");
-    } finally {
-      setBusy(false);
-    }
+  // The card always carries your current name.
+  useEffect(() => setCard((c) => (c.name === name ? c : { ...c, name })), [name]);
+  const saving = useRef<Promise<unknown> | null>(null);
+  const shown: Card = { ...card, memberNumber: info.data?.memberNumber ?? undefined };
+  const note: CardNote = info.data?.note ?? { text: "", from: "" };
+  const joined = info.data?.joinedAt ?? ws.settings?.joinedAt ?? null;
+  const when = joined ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(joined) : null;
+
+  const change = () => {
+    const themes = profileCardThemes.filter((t) => t !== card.theme);
+    const r = crypto.getRandomValues(new Uint32Array(3));
+    const next: Card = { ...card, theme: themes[r[0] % themes.length], shape: profileCardShapes[r[1] % profileCardShapes.length], subtitle: SUBTITLES[r[2] % SUBTITLES.length], pattern: "gradient" };
+    setCard(next);
+    const parsed = profileCardSchema.safeParse({ ...next, memberNumber: undefined });
+    if (!parsed.success) return;
+    saving.current = ws.call("profileCard.update", { card: parsed.data }).catch((err) => notifyError(err, "Couldn't save your card's artwork."));
   };
+
   return (
-    <form onSubmit={save} className="card-studio">
-      <div className="card-studio-intro">
-        <h3 className="text-base font-semibold">Welcome to Max.</h3>
-        <p className="text-fg-2 mt-1 text-[13px]">A little membership card, just for you. Give it your name and find a design that feels right.</p>
+    <div className="card-about">
+      <div className="card-about-card">
+        <ProfileCard card={shown} note={note} />
       </div>
-      <div className="card-studio-preview">
-        <div className="card-outline">
-          <span className="card-outline-label">YOUR MAX MEMBERSHIP CARD</span>
-          <ProfileCard card={shown} />
-        </div>
-        <Button
-          icon={<Shuffle className="size-4" />}
-          onClick={() => {
-            const next = profileCardThemes.filter((theme) => theme !== card.theme);
-            const random = crypto.getRandomValues(new Uint32Array(3));
-            const subtitles = ["Curious explorer", "Quiet daydreamer", "Creative wanderer", "Thoughtful maker", "Bright observer", "Gentle trailblazer"];
-            setCard({ ...card, theme: next[random[0] % next.length], shape: profileCardShapes[random[1] % profileCardShapes.length], subtitle: subtitles[random[2] % subtitles.length], pattern: "gradient" });
-          }}
-        >
-          Change
-        </Button>
-        <p className="text-fg-3 text-center text-xs">Click the card to flip it. The QR invites people to Max; your workspace stays private.</p>
-      </div>
-      <div className="card-studio-controls">
-        <Field label="Name" htmlFor={`${id}-name`} help="Used on your card and throughout Max.">
-          <Input id={`${id}-name`} value={card.name} maxLength={80} required dir="auto" onChange={(e) => setCard({ ...card, name: e.target.value })} />
-        </Field>
-        {error && (
-          <p role="alert" className="text-danger text-sm">
-            {error}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="primary" pending={busy}>
-            Save my card
+      <div className="card-about-info">
+        <p className="card-about-number">{info.data?.memberNumber ? `No. ${info.data.memberNumber.toLocaleString("en-US")}` : "No. …"}</p>
+        <p className="text-fg-2 text-[13.5px]">{note.from ? `from ${note.from}${when ? `, ${when}` : ""}` : " "}</p>
+        <p className="text-fg-3 mt-3 max-w-[18rem] text-[12.5px] leading-relaxed">
+          {note.from ? (info.data?.note.invited ? `Hover the card to read ${note.from}'s note on the back.` : "Hover the card to read the note on the back.") : ""}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button size="sm" icon={<Shuffle className="size-3.5" />} onClick={change}>
+            Change artwork
           </Button>
           <Button
-            disabled={busy || !card.name.trim()}
+            size="sm"
+            variant="ghost"
+            icon={<Download className="size-3.5" />}
             onClick={async () => {
-              setBusy(true);
               try {
-                await downloadProfileCardPng(shown);
+                await saving.current;
+                await downloadProfileCardPng(shown, note);
+                toast.success("Card saved as an image", { duration: 1500 });
               } catch (err) {
                 notifyError(err, "Couldn't download your card.");
-              } finally {
-                setBusy(false);
               }
             }}
           >
@@ -97,6 +82,6 @@ export function ProfileCardEditor() {
           </Button>
         </div>
       </div>
-    </form>
+    </div>
   );
 }

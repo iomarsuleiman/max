@@ -190,6 +190,9 @@ export async function executeShared(op: string, rawArgs: unknown, ctx: SharedCon
     const mine = comment?.authorId === ctx.actor.id;
     if (!mine && !(op === "comments.delete" && atLeast(scope.level, "full_access"))) throw new MaxError("FORBIDDEN", "Only the person who wrote a comment can change it.");
   }
+  if (op === "pages.update" && args.teamspace !== undefined && scope.level !== "owner") {
+    throw new MaxError("FORBIDDEN", "Only the owner can turn a page into a teamspace.");
+  }
   if (op === "pages.update" && args.locked !== undefined && !atLeast(scope.level, "full_access")) {
     throw new MaxError("FORBIDDEN", "Only people with full access can lock a page.");
   }
@@ -220,7 +223,7 @@ export async function accessInfo(db: Db, callerId: string, pageId: string, linkT
 
 /** Pages other people shared with the caller (the share roots), newest first. */
 export async function sharedWithMe(db: Db, callerId: string) {
-  const out: { _id: string; title: string; icon: string | null; kind: PageRow["kind"]; level: ShareLevel; ownerId: string; ownerName: string | null; sharedAt: number }[] = [];
+  const out: { _id: string; title: string; icon: string | null; kind: PageRow["kind"]; level: ShareLevel; ownerId: string; ownerName: string | null; sharedAt: number; teamspace: boolean }[] = [];
   const seen = new Set<string>();
   const shares = (await db.findBy("shares", "granteeId", callerId)).sort((a, b) => b.createdAt - a.createdAt);
   for (const share of shares) {
@@ -229,7 +232,7 @@ export async function sharedWithMe(db: Db, callerId: string) {
     if (!page || page.archivedAt || page.ownerId !== share.ownerId) continue;
     seen.add(page._id);
     const owner = (await db.list("settings", share.ownerId))[0];
-    out.push({ _id: page._id, title: page.title, icon: page.icon, kind: page.kind, level: share.level, ownerId: share.ownerId, ownerName: owner?.displayName ?? null, sharedAt: share.createdAt });
+    out.push({ _id: page._id, title: page.title, icon: page.icon, kind: page.kind, level: share.level, ownerId: share.ownerId, ownerName: owner?.displayName ?? null, sharedAt: share.createdAt, teamspace: !!page.teamspace });
   }
   return out;
 }

@@ -37,7 +37,7 @@ export function ProfileCardInvitation() {
       <p className="text-sm font-semibold">A little card. All you.</p>
       <p className="text-fg-2 mt-1 text-[13px] leading-relaxed">Give your card a name, change its artwork, and keep a copy for yourself.</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button size="sm" variant="primary" onClick={() => ws.openSettings("account")}>
+        <Button size="sm" variant="primary" onClick={() => ws.openSettings("about")}>
           Create my card
         </Button>
         <Button size="sm" variant="ghost" pending={busy} onClick={skip}>
