@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { MARK_PATH } from "./Logo";
 
 /**
- * The landing butterfly. A tap (or Enter/Space) makes its wings flap. Grab it and you can carry
- * it away or fling it: it spins with the speed you give it, then floats home and settles upright.
+ * The landing butterfly. A tap (or Enter/Space) makes its wings flap. Grab it to carry it around
+ * (it doesn't turn while you hold it); flick it and it spins with the speed you gave it. Either way
+ * it then floats home and settles upright.
  * Its wings also flap on arrival and on hover. Arrow keys spin it. Reduced motion keeps it still.
  */
 export function PlayfulLogo() {
@@ -124,8 +125,6 @@ export function PlayfulLogo() {
           // Velocities in px/ms and deg/ms, smoothed so a fling carries its speed.
           s.vx = s.vx * 0.4 + (dx / dt) * 0.6;
           s.vy = s.vy * 0.4 + (dy / dt) * 0.6;
-          s.spin = Math.max(-3, Math.min(3, s.spin * 0.5 + (dx / dt) * 1.1));
-          s.angle += s.spin * dt * 0.6;
           s.px = e.clientX;
           s.py = e.clientY;
           s.time = now;
@@ -137,12 +136,13 @@ export function PlayfulLogo() {
           s.dragging = false;
           if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
           e.currentTarget.style.cursor = "grab";
-          // Held still before letting go: no fling.
-          if (performance.now() - s.time > 80) {
-            s.vx = s.vy = 0;
-            s.spin *= 0.2;
+          // Carrying it doesn't turn it; only a flick does. Held still before letting go: no fling.
+          if (performance.now() - s.time > 80) s.vx = s.vy = 0;
+          const speed = Math.hypot(s.vx, s.vy);
+          if (speed > 0.6) {
+            s.spin = Math.max(-3, Math.min(3, (Math.abs(s.vx) >= Math.abs(s.vy) ? Math.sign(s.vx) : Math.sign(s.vy) || 1) * speed * 1.4));
+            flap();
           }
-          if (Math.abs(s.spin) > 0.4) flap();
         }}
         onPointerCancel={() => {
           m.current.dragging = false;
@@ -176,7 +176,7 @@ export function PlayfulLogo() {
         </span>
       </button>
       <p id="butterfly-hint" className="sr-only">
-        Tap to flap its wings. Drag to carry it away or fling it to spin. Arrow keys spin it.
+        Tap to flap its wings. Drag to carry it, or flick it to make it spin. Arrow keys spin it.
       </p>
     </div>
   );

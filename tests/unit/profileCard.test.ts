@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cardInitials, defaultProfileCard, profileCardThemes, profileCardShapes } from "@/lib/domain/profileCard";
 import { setup } from "./harness";
-import { profileCardSvg } from "@/lib/domain/profileCardImage";
+import { profileCardBackSvg, profileCardSvg } from "@/lib/domain/profileCardImage";
 
 describe("private profile cards", () => {
   it("saves through the shared settings operation and isolates owners", async () => {
@@ -123,35 +123,33 @@ describe("one workspace/card identity", () => {
     expect(profileCardSvg({ ...defaultProfileCard("Member"), createdAt: joinedAt }).svg).toContain("8 Nov 2026");
   });
 
-  it("renders all palettes and shapes with smooth artwork lighting and a dated hatch stamp", () => {
+  it("renders all palettes and artworks with lighting, a dated stamp and no QR on the front", () => {
     expect(profileCardThemes.length).toBeGreaterThanOrEqual(10);
     for (const theme of profileCardThemes) for (const shape of profileCardShapes) {
       const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme, shape, createdAt: Date.UTC(2026, 10, 8) });
       expect(svg).toContain("8 Nov 2026");
       expect(svg).toContain("card-art-light");
-      expect(svg).toContain('filter="url(#card-grain)" mask="url(#card-art-mask)" opacity=".18"');
+      // Plain gradients only: no filters, so tilting and flipping stay smooth.
+      expect(svg).not.toContain("<filter");
+      expect(svg).not.toContain("card-qr");
       expect(svg).not.toContain("data:image");
-      expect(svg).toContain('mask="url(#card-art-mask)"');
-      expect(svg).toContain('class="card-qr-modules"');
-      expect(svg).toContain('<svg width="88" height="88"');
-      expect(svg).toContain('class="card-foil-gradient"');
-      expect(svg).not.toContain("card-qr-foil");
-      expect(svg).not.toContain("YOUR WORKSPACE CARD");
       expect(svg).not.toMatch(/(?:href|src)="https?:/);
       expect(svg).toMatch(/<rect x="24" y="\d+" width="\d+" height="28"/);
     }
     expect(profileCardSvg(defaultProfileCard("New member")).svg).toContain("NEW CARD");
   });
 
-  it("keeps the colored foil QR modules scannable at multiple reflection angles for every palette", async () => {
+  it("puts only the handwriting and a scannable invite code on the back, for every palette", async () => {
     const { default: sharp } = await import("sharp");
     const { default: jsQR } = await import("jsqr");
     const { PNG } = await import("pngjs");
-    for (const theme of profileCardThemes) for (const angle of [0, 90, 180, 270]) {
-      const { svg } = profileCardSvg({ ...defaultProfileCard("Avery"), theme, shape: "band" });
-      const reflected = svg.replace('class="card-foil-gradient"', `class="card-foil-gradient" gradientTransform="rotate(${angle} .5 .5)"`);
-      const png = PNG.sync.read(await sharp(Buffer.from(reflected)).resize(1080).extract({ left: 744, top: 1398, width: 264, height: 264 }).png().toBuffer());
-      expect(jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data, `${theme} at ${angle}°`).toBe("https://max.chaos.fail/join");
+    for (const theme of profileCardThemes) {
+      const back = profileCardBackSvg({ ...defaultProfileCard("Avery"), theme, memberNumber: 42, createdAt: Date.UTC(2026, 10, 8) });
+      expect(back).toContain("#42");
+      expect(back).toContain("8 November 2026");
+      expect(back).not.toMatch(/invited|Scan|NO PRIVATE/i);
+      const png = PNG.sync.read(await sharp(Buffer.from(back)).resize(1080).extract({ left: 300, top: 1110, width: 480, height: 490 }).png().toBuffer());
+      expect(jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data, theme).toBe("https://max.chaos.fail/join?from=42");
     }
   }, 30000);
 });

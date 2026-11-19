@@ -20,6 +20,20 @@ test("landing butterfly flaps its wings on arrival, click and keyboard, and stay
   await page.waitForTimeout(1100);
   // Grab it, carry it away and fling it: it spins, then floats home upright.
   const mover = body.locator("..");
+  // Carrying it slowly moves it without turning it.
+  {
+    const b0 = (await logo.boundingBox())!;
+    await page.waitForTimeout(1100);
+    await page.mouse.move(b0.x + b0.width / 2, b0.y + b0.height / 2);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) {
+      await page.mouse.move(b0.x + b0.width / 2 + i * 10, b0.y + b0.height / 2, { steps: 1 });
+      expect(await mover.evaluate((el) => el.style.transform)).toMatch(/rotate\(0deg\)$/);
+    }
+    await page.waitForTimeout(150);
+    await page.mouse.up();
+    await expect.poll(() => mover.evaluate((el) => el.style.transform), { timeout: 15_000 }).toBe("translate(0px, 0px) rotate(0deg)");
+  }
   const box = (await logo.boundingBox())!;
   await page.waitForTimeout(1100);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -27,6 +41,8 @@ test("landing butterfly flaps its wings on arrival, click and keyboard, and stay
   for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2 + i * 30, box.y + box.height / 2 + i * 6, { steps: 1 });
   await page.mouse.up();
   await expect.poll(() => mover.evaluate((el) => el.style.transform)).toMatch(/translate\((?!0px, 0px)/);
+  // A flick spins it.
+  await expect.poll(() => mover.evaluate((el) => el.style.transform)).toMatch(/rotate\((?!0deg)/);
   await expect.poll(() => mover.evaluate((el) => el.style.transform), { timeout: 15_000 }).toBe("translate(0px, 0px) rotate(0deg)");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.waitForTimeout(60);
@@ -38,7 +54,7 @@ test("landing butterfly flaps its wings on arrival, click and keyboard, and stay
   await page.screenshot({ path: "test-results/max-landing.png", fullPage: true });
 });
 
-test("landing texture stays small and static, with system colors and no navigation or theme toggle", async ({ page }) => {
+test("landing grain stays small and static, follows the chosen theme, with no navigation", async ({ page }) => {
   await page.addInitScript(() => { if (!localStorage.getItem("max:theme")) localStorage.setItem("max:theme", "dark"); });
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/welcome");
@@ -46,6 +62,10 @@ test("landing texture stays small and static, with system colors and no navigati
   await expect(page.getByRole("banner")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toHaveCount(0);
   const landing = page.locator(".landing-system");
+  // A saved choice (dark) wins over the system (light), like every other page.
+  await expect(landing).toHaveCSS("color-scheme", "dark");
+  await page.evaluate(() => localStorage.setItem("max:theme", "light"));
+  await page.reload();
   await expect(landing).toHaveCSS("color-scheme", "light");
   const paint = await landing.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -63,35 +83,18 @@ test("landing texture stays small and static, with system colors and no navigati
   expect(paint.filter).toBe("none");
   expect(paint.blend).toBe("normal");
   expect(paint.logo).toBe(paint.text);
-  const explore = page.getByRole("tablist", { name: "Explore Max" });
-  await explore
-    .getByRole("tab")
-    .first()
-    .evaluate((element) => element.scrollIntoView({ block: "start" }));
-  await expect(page.getByRole("tabpanel")).toHaveCSS("position", "sticky");
-  const pinnedTop = (await page.getByRole("tabpanel").boundingBox())!.y;
-  await page.evaluate(() => window.scrollBy(0, 80));
-  await expect.poll(async () => (await page.getByRole("tabpanel").boundingBox())!.y).toBeCloseTo(pinnedTop, 0);
-  await explore.getByRole("tab").first().click();
-  const shot = page.getByRole("tabpanel").getByRole("img");
-  await expect(shot).toHaveAttribute("src", "/screenshots/editor-light.webp");
-  await expect.poll(() => shot.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1280);
-  await explore.getByRole("tab").first().focus();
-  await page.keyboard.press("ArrowDown");
-  await expect(explore.getByRole("tab").nth(1)).toHaveAttribute("aria-selected", "true");
-  await expect(shot).toHaveAttribute("src", "/screenshots/graph-light.webp");
-  await explore.getByRole("tab").nth(2).click();
-  await expect(shot).toHaveAttribute("src", "/screenshots/card-light.webp");
-  await explore.getByRole("tab").nth(3).click();
-  await expect(shot).toHaveAttribute("src", "/screenshots/sidebar-light.webp");
-  // The screenshot is shown whole, never cut off at the edge of the window.
-  expect((await shot.boundingBox())!.x + (await shot.boundingBox())!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  // "Made for your mind": the current feature lights up and the drawn window points at it.
+  await expect(page.getByRole("heading", { name: /Made for your mind/ })).toBeVisible();
+  const connect = page.getByRole("button", { name: /Connect the dots/ });
+  await connect.click();
+  await expect(connect).toHaveAttribute("aria-current", "true");
+  await expect(page.locator(".mind-callout-pill")).toHaveText("Linked pages");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await explore.getByRole("tab").first().click();
   const texture = await page.request.get("/textures/grain.svg");
   expect((await texture.body()).byteLength).toBeLessThan(2048);
   await page.screenshot({ path: "test-results/max-landing-light.png", fullPage: true });
-  await page.emulateMedia({ colorScheme: "dark" });
+  await page.evaluate(() => localStorage.setItem("max:theme", "dark"));
+  await page.reload();
   await expect(landing).toHaveCSS("color-scheme", "dark");
   await expect(landing).toHaveCSS("background-image", /grain-dark\.svg/);
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze()).violations.map((violation) => violation.id)).toEqual([]);
@@ -107,9 +110,7 @@ test("landing texture stays small and static, with system colors and no navigati
   await page.screenshot({ path: "test-results/max-recovery-dark.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/welcome");
-  await expect(page.getByRole("tabpanel")).toHaveCSS("position", "static");
-  await page.getByRole("tablist", { name: "Explore Max" }).getByRole("tab").nth(1).click();
-  await expect(page.getByRole("tabpanel").getByRole("img")).toHaveAttribute("src", "/screenshots/graph-light.webp");
+  await expect(page.getByRole("heading", { name: /Made for your mind/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/max-landing-mobile.png", fullPage: true });
 });
