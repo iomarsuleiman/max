@@ -84,10 +84,13 @@ test("share a page like Notion: invite, comment, edit live, link access and remo
   await c.goto(`/p/${milestones._id}`);
   await expect(c.getByLabel("Page title")).toHaveValue("Milestones");
 
-  // Removing Bob ends his access.
+  // Removing Bob, and turning link access off, ends his access (with the link on, the page's
+  // address alone lets anyone signed in open it, as in Notion).
   await a.getByRole("button", { name: "Share", exact: true }).click();
   await a.getByRole("dialog").getByRole("combobox", { name: /Access for Bob/ }).click();
   await a.getByRole("option", { name: "Remove" }).click();
+  await a.getByRole("dialog").getByRole("combobox", { name: "Who can open the link" }).click();
+  await a.getByRole("option", { name: "Only people invited" }).click();
   await b.reload();
   await expect(b.getByText("This page doesn't exist")).toBeVisible();
 

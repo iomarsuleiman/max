@@ -76,6 +76,16 @@ export async function resolveAccess(db: Db, callerId: string, pageId: string, li
       if (share.ownerId === page.ownerId && ids.has(share.pageId)) consider(share.level, share.pageId);
     }
   }
+  if (!anonymous) {
+    // "Anyone in Max with the link": the page's own address is the link, like Notion. Anyone signed
+    // in who opens it gets the link's level, with or without the token in the URL (sign-in
+    // redirects and copied addresses often drop it).
+    for (const p of ancestors) {
+      for (const link of await db.findBy("shareLinks", "pageId", p._id)) {
+        if (link.ownerId === page.ownerId) consider(link.public ? "view" : link.level, link.pageId);
+      }
+    }
+  }
   if (linkToken) {
     for (const link of await db.findBy("shareLinks", "token", linkToken)) {
       // Visitors without an account only get in through links published to the web, and only to view.

@@ -205,20 +205,26 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
 
   const settingsParam = params.get("settings") as SettingsSection | null;
   const settingsSection = settingsParam && SECTIONS.includes(settingsParam) ? settingsParam : null;
+  // Settings open and close with a shallow URL update (Next keeps useSearchParams in sync with the
+  // History API): no server round trip and no re-render of the page behind the dialog.
   const openSettings = useCallback(
     (section: SettingsSection = "account") => {
-      const sp = new URLSearchParams(params.toString());
+      const sp = new URLSearchParams(window.location.search);
+      const wasOpen = sp.has("settings");
       sp.set("settings", section);
-      router.push(`${pathname}?${sp.toString()}`, { scroll: false });
+      const url = `${window.location.pathname}?${sp.toString()}`;
+      // A fresh state object: Next only syncs useSearchParams for history entries it didn't create.
+      if (wasOpen) window.history.replaceState(null, "", url);
+      else window.history.pushState(null, "", url);
     },
-    [params, pathname, router],
+    [],
   );
   const closeSettings = useCallback(() => {
-    const sp = new URLSearchParams(params.toString());
+    const sp = new URLSearchParams(window.location.search);
     sp.delete("settings");
     const q = sp.toString();
-    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-  }, [params, pathname, router]);
+    window.history.replaceState(null, "", q ? `${window.location.pathname}?${q}` : window.location.pathname);
+  }, []);
 
   const byId = useMemo(() => new Map((tree.data?.pages ?? []).map((p) => [p._id, p])), [tree.data]);
   useEffect(() => {

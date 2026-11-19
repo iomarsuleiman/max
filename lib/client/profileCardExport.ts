@@ -4,7 +4,13 @@ export { profileCardBackSvg, profileCardSvg };
 
 /** Rasterize locally. Card text never leaves the browser. */
 export async function downloadProfileCardPng(card: ProfileCard): Promise<void> {
-  const { svg, width, height } = profileCardSvg(card);
+  // Both sides, side by side: the artwork and, on the back, the handwritten number and the code.
+  const front = profileCardSvg(card, "png-front");
+  const back = profileCardBackSvg(card, "png-back", front.height);
+  const gap = 32;
+  const width = front.width * 2 + gap;
+  const height = front.height;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><g>${front.svg}</g><g transform="translate(${front.width + gap} 0)">${back}</g></svg>`;
   const svgUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
   let pngUrl: string | null = null;
   try {

@@ -81,14 +81,19 @@ describe("page sharing", () => {
 
   it("gives signed-in people with the link the link's level, and lists shares for the recipient", async () => {
     const { h, alice, root, child, as } = await world();
-    const { link } = await alice<{ link: { token: string } }>("shares.setLink", { pageId: root._id, level: "view" });
     await expect(as(cara, child._id)("documents.get", { pageId: child._id })).rejects.toThrow();
+    const { link } = await alice<{ link: { token: string } }>("shares.setLink", { pageId: root._id, level: "view" });
+    // Like Notion, the page's address is the link: no token needed once link access is on.
+    await as(cara, child._id)("documents.get", { pageId: child._id });
     await as(cara, child._id, link.token)("documents.get", { pageId: child._id });
+    // Visitors without an account never get in through a Max-only link.
+    await expect(as({ id: ANONYMOUS, name: "Visitor", image: null }, child._id, link.token)("documents.get", { pageId: child._id })).rejects.toThrow();
     expect((await accessInfo(h.db, cara.id, child._id, link.token)).level).toBe("view");
     const inherited = await alice<{ link: { fromTitle: string } }>("shares.list", { pageId: child._id });
     expect(inherited.link.fromTitle).toBe("Team plan");
     await alice("shares.setLink", { pageId: root._id, level: null });
     await expect(as(cara, child._id, link.token)("documents.get", { pageId: child._id })).rejects.toThrow();
+    await expect(as(cara, child._id)("documents.get", { pageId: child._id })).rejects.toThrow();
 
     await alice("shares.invite", { pageId: root._id, granteeId: bob.id, level: "view" });
     expect((await sharedWithMe(h.db, bob.id)).map((p) => p.title)).toEqual(["Team plan"]);

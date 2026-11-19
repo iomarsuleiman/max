@@ -29,13 +29,12 @@ test("profile card previews, saves and persists across reload", async ({ page })
   const issued = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(data.profileCard.createdAt);
   await expect(preview).toContainText(issued);
   await expect(preview).not.toContainText("YOUR WORKSPACE CARD");
-  // The card flips to a handwritten member number, join date and an invite.
+  // The card flips to a handwritten member number and join date, with just the code.
   await expect(preview).toContainText(/NO\. \d{6}/);
   await preview.getByRole("button", { name: "Show the back of the card" }).click();
   await expect(preview.getByRole("button", { name: "Show the front of the card" })).toHaveAttribute("aria-pressed", "true");
   await expect(preview).toContainText(/#\d+/);
-  await expect(preview).toContainText("joined Max on");
-  await expect(preview).toContainText("You're invited");
+  await expect(preview).not.toContainText("invited");
   await expect(settings.getByRole("button", { name: "Enable phone tilt" })).toHaveCount(0);
   await settings.getByRole("button", { name: "Show front" }).click();
   await page.reload();
