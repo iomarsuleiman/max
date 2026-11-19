@@ -70,11 +70,11 @@ test("databases: add rows and filter", async ({ page }) => {
 
 test("preferences persist", async ({ page }) => {
   await page.goto("/home?settings=preferences");
-  await page.getByRole("radio", { name: "Dark" }).click();
+  await page.getByRole("radio", { name: "Dark", exact: true }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("radio", { name: "Light" }).click();
+  await page.getByRole("radio", { name: "Light", exact: true }).click();
 });
 
 test("MCP: tokens authenticate and tools match the UI", async ({ page, request }) => {

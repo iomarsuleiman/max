@@ -21,7 +21,7 @@ export interface Identity {
   manageAccount: (() => void) | null;
 }
 
-export type SettingsSection = "account" | "preferences" | "editor" | "sidebar" | "sharing" | "connections" | "data" | "shortcuts" | "about";
+export type SettingsSection = "account" | "preferences" | "editor" | "sidebar" | "teamspaces" | "sharing" | "connections" | "data" | "shortcuts" | "about";
 
 interface WorkspaceValue {
   tree: PageSummary[] | undefined;
@@ -78,7 +78,7 @@ export function notifyError(err: unknown, fallback = "That didn't work. Try agai
   toast.error(message);
 }
 
-const SECTIONS: SettingsSection[] = ["account", "preferences", "editor", "sidebar", "sharing", "connections", "data", "shortcuts", "about"];
+const SECTIONS: SettingsSection[] = ["account", "preferences", "editor", "sidebar", "teamspaces", "sharing", "connections", "data", "shortcuts", "about"];
 
 /**
  * Inside a page someone shared with you: the same workspace, but `call` goes through the share
@@ -118,7 +118,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   useEffect(() => {
     if (initRan.current || !settingsQ.data || settingsQ.data.settings.onboarded) return;
     initRan.current = true;
-    call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null, invitedBy: readInviter() })
+    call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null, invitedBy: readInviter(), email: identity.email ?? null })
       .then((r) => {
         if (r.welcomeId && (pathname === "/home" || pathname === "/")) {
           const query = params.toString();

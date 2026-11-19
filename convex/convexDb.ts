@@ -64,6 +64,10 @@ export function convexDb(db: Reader | Writer): Db {
         .collect();
       return earlier.length + 1;
     },
+    async listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number) {
+      const rows = await db.query(table).order("desc").take(limit);
+      return rows.map((r) => strip(r, table) as unknown as Tables[T]);
+    },
     async memberByNumber(n: number) {
       // Settings rows in the order people joined; the nth is member n.
       const rows = await db.query("settings").withIndex("by_creation_time").order("asc").take(n);

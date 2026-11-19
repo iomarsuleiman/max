@@ -31,6 +31,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | --- | --- | --- | --- |
 | `—` | Delete all my data | UI only | Permanently deletes every page, database, file, token, setting and log in this account. This cannot be undone. |
 | `account_init` | Set up workspace | Write | Prepares a new workspace on first sign-in (preferences and a welcome page). Safe to call again; does nothing once set up. |
+| `account_standing` | My account's standing | Read | Whether an admin has suspended (read-only) or banned this account, and the reason they gave. |
 | `assets_createUploadUrl` | Start an upload | Write | Returns a short-lived URL. POST the file body to it (with its Content-Type), then call assets.register with the returned storageId. |
 | `assets_getUrl` | Get file URL | Read | Resolves a max-asset:// id to a URL the owner can load. |
 | `assets_list` | List files | Read | Uploaded files, optionally for one page, with total storage used. |
@@ -104,6 +105,10 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | `shares_remove` | Remove someone's access | Write | Stops sharing a page with one person. Their comments stay. |
 | `shares_setLink` | Set link access | Write | Sets who can open a page with its link: anyone signed in to Max (view, comment or edit), or, with web: true, anyone on the web without an account (view only, published). Level null turns link access off. |
 | `shares_update` | Change someone's access | Write | Changes the access level of one share. |
+| `sites_get` | Get a page's website | Read | Returns the website published from a page (its address, name, icon, description and whether visitors can search), or null. |
+| `sites_list` | List my websites | Read | Every page you've published as a website. |
+| `sites_publish` | Publish a page as a website | Write | Publishes a page and every page inside it as a simple public website with navigation, at /site/<slug> (and <slug>.<your domain> where subdomains are set up). Calling it again updates the name, address, icon, description or search. Anyone with the address can read the site; nothing else in your workspace is visible. |
+| `sites_unpublish` | Unpublish a website | Write | Takes a page's website offline. The pages stay in your workspace. |
 | `tables_edit` | Edit table | Write | Edits a table block: set a cell's text, or insert/delete a row or column at an index (0-based). |
 | `templates_apply` | Use template | Write | Creates a new page from a template (under parentId), or a new row from a database row template. Content, icon, property values and subpages are copied; {{today}} becomes today's date. |
 | `templates_create` | Create template | Write | Creates a template: a page template, or a row template for a database (databaseId). Optionally copies content (and subpages) from an existing page. Use {{today}} in titles or text to insert the date when the template is used. |

@@ -418,6 +418,42 @@ export default defineSchema({
     .index("by_owner_pageId", ["ownerId", "pageId"])
     .index("by_token", ["token"])
     .index("by_pageId", ["pageId"]),
+  reports: defineTable({
+    ownerId: v.string(),
+    reporterId: v.union(v.string(), v.null()),
+    reporterName: v.union(v.string(), v.null()),
+    reporterEmail: v.union(v.string(), v.null()),
+    kind: v.union(v.literal("bug"), v.literal("content"), v.literal("other")),
+    message: v.string(),
+    url: v.union(v.string(), v.null()),
+    pageId: v.union(v.string(), v.null()),
+    siteSlug: v.union(v.string(), v.null()),
+    status: v.union(v.literal("open"), v.literal("resolved")),
+    createdAt: v.number(),
+    resolvedAt: v.union(v.number(), v.null()),
+  }).index("by_owner", ["ownerId"]),
+  moderation: defineTable({
+    ownerId: v.string(),
+    status: v.union(v.literal("suspended"), v.literal("banned")),
+    reason: v.string(),
+    by: v.string(),
+    updatedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
+  sites: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    slug: v.string(),
+    name: v.string(),
+    icon: v.union(v.string(), v.null()),
+    description: v.string(),
+    search: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_slug", ["slug"])
+    .index("by_pageId", ["pageId"]),
   presence: defineTable({
     ownerId: v.string(),
     pageId: v.string(),

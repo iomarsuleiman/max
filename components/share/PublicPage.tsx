@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ReportDialog } from "@/components/admin/ReportDialog";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -113,7 +114,7 @@ function PublicPageBody({ token, pageId }: { token: string; pageId: string }) {
   );
 }
 
-function PublicDatabase({ token, databaseId }: { token: string; databaseId: string }) {
+export function PublicDatabase({ token, databaseId, hrefFor }: { token: string; databaseId: string; hrefFor?: (id: string, title: string) => string }) {
   const meta = useOp<{ properties: PropertyDef[] }>("databases.get", { databaseId });
   const rows = useOp<{ records: RecordView[]; total: number }>("databases.query", { databaseId, limit: 200 });
   if (!meta.data || !rows.data) return <Skeleton className="h-40" />;
@@ -134,7 +135,7 @@ function PublicDatabase({ token, databaseId }: { token: string; databaseId: stri
           {rows.data.records.map((r) => (
             <tr key={r._id} className="hover:bg-hover">
               <td className="border-b border-line px-3 py-2">
-                <Link href={publicHref(token, r._id, r.title)} className="flex items-center gap-1.5 font-medium text-fg">
+                <Link href={hrefFor ? hrefFor(r._id, r.title) : publicHref(token, r._id, r.title)} className="flex items-center gap-1.5 font-medium text-fg">
                   <PageIcon icon={r.icon} kind="page" size={15} />
                   {pageTitle(r.title)}
                 </Link>
@@ -173,11 +174,24 @@ function Frame({ crumbs = [], duplicateHref, children }: { crumbs?: { title: str
             <Copy className="size-4" /> Duplicate
           </Link>
         )}
+        <ReportLink />
         <Link href="/" className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] text-fg-2 hover:bg-hover hover:text-fg">
           <LogoMark className="size-4" /> Made with Max
         </Link>
       </header>
       <main>{children}</main>
     </div>
+  );
+}
+
+function ReportLink() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="shrink-0 rounded-md px-2 py-1 text-[12.5px] text-fg-3 hover:bg-hover hover:text-fg">
+        Report
+      </button>
+      {open && <ReportDialog open={open} onOpenChange={setOpen} defaultKind="content" />}
+    </>
   );
 }

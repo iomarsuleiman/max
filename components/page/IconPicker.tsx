@@ -12,17 +12,33 @@ import { ICON_COLOR_LABEL, PageIcon, iconColorVar, type IconColor } from "@/comp
 type EmojiData = { groups: string[]; emoji: [string, string, number, string, number][] };
 let emojiCache: EmojiData | null = null;
 
+let emojiLoading: Promise<EmojiData> | null = null;
+
+/**
+ * Loads the emoji list (and checks which emoji this device can draw) once. Called ahead of time,
+ * when the app is idle and when you point at an icon button, so the picker opens with it ready.
+ */
+export function preloadEmojiData(): Promise<EmojiData> {
+  if (emojiCache) return Promise.resolve(emojiCache);
+  emojiLoading ??= import("@/lib/client/emoji-data.json").then((m) => {
+    const all = (m.default ?? m) as unknown as EmojiData;
+    const max = supportedEmojiVersion(all.emoji);
+    // Hide emoji newer than the device's emoji font, which would show as boxes.
+    emojiCache = { groups: all.groups, emoji: all.emoji.filter((e) => e[4] <= max) };
+    return emojiCache;
+  });
+  return emojiLoading;
+}
+
 function useEmojiData() {
   const [data, setData] = useState<EmojiData | null>(emojiCache);
   useEffect(() => {
     if (emojiCache) return;
-    void import("@/lib/client/emoji-data.json").then((m) => {
-      const all = (m.default ?? m) as unknown as EmojiData;
-      const max = supportedEmojiVersion(all.emoji);
-      // Hide emoji newer than the device's emoji font, which would show as boxes.
-      emojiCache = { groups: all.groups, emoji: all.emoji.filter((e) => e[4] <= max) };
-      setData(emojiCache);
-    });
+    let live = true;
+    void preloadEmojiData().then((d) => live && setData(d));
+    return () => {
+      live = false;
+    };
   }, []);
   return data;
 }
@@ -287,7 +303,8 @@ function EmojiGrid({ query, onPick }: { query: string; onPick: (e: string) => vo
     return data.groups.map((name, i) => ({ name, items: data.emoji.filter((e) => e[2] === i) })).filter((g) => g.items.length);
   }, [data, q]);
   const total = groups.reduce((n, g) => n + g.items.length, 0);
-  const [limit, setSentinel] = useMore(total, 360);
+  // A first screenful renders at once; the rest follows as you scroll.
+  const [limit, setSentinel] = useMore(total, 168);
   // Render groups in order until the running limit is used up.
   const shown = useMemo(() => {
     const starts = groups.map((_, i) => groups.slice(0, i).reduce((n, g) => n + g.items.length, 0));
@@ -310,7 +327,7 @@ function EmojiGrid({ query, onPick }: { query: string; onPick: (e: string) => vo
       )}
       {shown.map((g) =>
         !g.items.length ? null : (
-          <section key={g.name} aria-label={g.name}>
+          <section key={g.name} aria-label={g.name} className="[content-visibility:auto] [contain-intrinsic-size:auto_320px]">
             <SectionTitle>{g.name}</SectionTitle>
             <div className="grid grid-cols-12">
               {g.items.map(([e, label]) => (

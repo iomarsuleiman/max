@@ -31,16 +31,20 @@ export interface Db {
   memberNumber(ownerId: string): Promise<number | null>;
   /** The account with this member number, or null. */
   memberByNumber(n: number): Promise<string | null>;
+  /** Admins only (lib/domain/admin.ts): every row of a table across all accounts, newest first. */
+  listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number): Promise<Tables[T][]>;
 }
 
-export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness";
+export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites";
 export type CrossField<T extends CrossTable> = T extends "shares"
   ? "granteeId" | "pageId"
   : T extends "shareLinks"
     ? "token" | "pageId"
     : T extends "collabUpdates"
       ? "roomId"
-      : "pageId";
+      : T extends "sites"
+        ? "slug" | "pageId"
+        : "pageId";
 
 export type IndexedField<T extends TableName> = T extends "pages"
   ? "parentId" | "databaseId"
@@ -54,7 +58,7 @@ export type IndexedField<T extends TableName> = T extends "pages"
           ? "pageId"
           : T extends "comments"
             ? "pageId"
-            : T extends "shares" | "shareLinks" | "presence" | "collabRooms" | "collabAwareness"
+            : T extends "shares" | "shareLinks" | "presence" | "collabRooms" | "collabAwareness" | "sites"
               ? "pageId"
               : never;
 

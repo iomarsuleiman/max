@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useConvex, useQueries } from "convex/react";
 import { anyApi } from "convex/server";
 import { CLOUD } from "@/lib/config";
@@ -23,6 +23,8 @@ export interface ShareScopeValue {
   linkToken: string | null;
   /** A page published to the web, read by a visitor without an account. */
   anonymous?: boolean;
+  /** A page on a published website (the site's address); read without an account. */
+  site?: string;
 }
 const ShareScopeContext = createContext<ShareScopeValue | null>(null);
 export function ShareScope({ value, children }: { value: ShareScopeValue | null; children: ReactNode }) {
@@ -30,7 +32,7 @@ export function ShareScope({ value, children }: { value: ShareScopeValue | null;
 }
 export const useShareScope = () => useContext(ShareScopeContext);
 
-const keyOf = (op: string, args: Args, scope?: ShareScopeValue | null) => `${scope ? `shared:${scope.anonymous ? "web:" : ""}${scope.pageId}:${scope.linkToken ?? ""}:` : ""}${op}:${JSON.stringify(args)}`;
+const keyOf = (op: string, args: Args, scope?: ShareScopeValue | null) => `${scope ? (scope.site ? `site:${scope.site}:` : `shared:${scope.anonymous ? "web:" : ""}${scope.pageId}:${scope.linkToken ?? ""}:`) : ""}${op}:${JSON.stringify(args)}`;
 
 /* ── Local mode: a small subscription cache over /api/local/ops ───────────── */
 
@@ -51,7 +53,9 @@ interface Entry {
 const cache = new Map<string, Entry>();
 
 async function post(op: string, args: Args, kind: "query" | "mutation", scope?: ShareScopeValue | null) {
-  const res = scope?.anonymous
+  const res = scope?.site
+    ? await fetch("/api/local/sites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fn: "read", slug: scope.site, op, args }) })
+    : scope?.anonymous
     ? await fetch("/api/local/sharing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fn: "public", token: scope.linkToken, scopePageId: scope.pageId, op, args }) })
     : scope
     ? await fetch("/api/local/sharing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fn: kind, scopePageId: scope.pageId, linkToken: scope.linkToken, op, args }) })
@@ -184,12 +188,13 @@ function useReadLocal() {
 function useOpCloud<T>(op: string, args: Args | "skip"): QueryState<T> {
   const scope = useShareScope();
   const argKey = args === "skip" ? "skip" : JSON.stringify(args);
-  const scopeKey = scope ? `${scope.anonymous ? "web" : "in"}:${scope.pageId}:${scope.linkToken ?? ""}` : "";
+  const scopeKey = scope ? (scope.site ? `site:${scope.site}:` : `${scope.anonymous ? "web" : "in"}:${scope.pageId}:${scope.linkToken ?? ""}`) : "";
   const queries = useMemo(() => {
     if (argKey === "skip") return {};
     const parsed = JSON.parse(argKey);
     if (!scopeKey) return { q: { query: anyApi.ops.query, args: { op, args: parsed } } };
     const [mode, scopePageId, linkToken] = scopeKey.split(":");
+    if (mode === "site") return { q: { query: anyApi.sites.read, args: { slug: scopePageId, op, args: parsed } } };
     if (mode === "web") return { q: { query: anyApi.sharing.publicQuery, args: { token: linkToken, scopePageId, op, args: parsed } } };
     return { q: { query: anyApi.sharing.query, args: { scopePageId, op, args: parsed, linkToken: linkToken || null } } };
   }, [op, argKey, scopeKey]);
@@ -225,6 +230,7 @@ function useReadCloud() {
   return useCallback(
     async <T,>(op: string, args: Args = {}): Promise<T> => {
       try {
+        if (scope?.site) return (await convex.query(anyApi.sites.read, { slug: scope.site, op, args })) as T;
         if (scope?.anonymous) return (await convex.query(anyApi.sharing.publicQuery, { token: scope.linkToken, scopePageId: scope.pageId, op, args })) as T;
         if (scope) return (await convex.query(anyApi.sharing.query, { scopePageId: scope.pageId, linkToken: scope.linkToken, op, args })) as T;
         return (await convex.query(anyApi.ops.query, { op, args })) as T;
@@ -358,6 +364,30 @@ function useJoinSharedLocal() {
 
 /** Accepts a link as an invitation: the page or teamspace joins your sidebar. */
 export const useJoinShared: () => (pageId: string, linkToken: string | null) => Promise<{ pageId: string; title: string; teamspace: boolean; joined: boolean }> = CLOUD ? useJoinSharedCloud : useJoinSharedLocal;
+
+function useLeaveSharedCloud() {
+  const convex = useConvex();
+  return useCallback(
+    async (pageId: string) => {
+      try {
+        await convex.mutation(anyApi.sharing.leave, { pageId });
+      } catch (err) {
+        throw toOpError(err);
+      }
+    },
+    [convex],
+  );
+}
+
+function useLeaveSharedLocal() {
+  return useCallback(async (pageId: string) => {
+    await postSharing({ fn: "leave", pageId });
+    await invalidateLocal();
+  }, []);
+}
+
+/** Leaves a page or teamspace someone shared with you. */
+export const useLeaveShared: () => (pageId: string) => Promise<void> = CLOUD ? useLeaveSharedCloud : useLeaveSharedLocal;
 
 /** Copies a page shared with you (or published) into your own workspace. */
 export const useDuplicateShared: () => (pageId: string, linkToken: string | null) => Promise<{ id: string; title: string; copied: number }> = CLOUD ? useDuplicateSharedCloud : useDuplicateSharedLocal;
@@ -513,3 +543,52 @@ function useCollabTransportLocal(linkToken: string | null): CollabTransport {
 
 /** Talks to a shared page's live room. */
 export const useCollabTransport: (linkToken: string | null) => CollabTransport = CLOUD ? useCollabTransportCloud : useCollabTransportLocal;
+
+/* ── Published websites (lib/domain/sites.ts) ─────────────────────────────── */
+
+export interface SiteNav {
+  site: { slug: string; name: string; icon: string | null; description: string; search: boolean; rootId: string };
+  nav: { _id: string; title: string; icon: string | null; kind: "page" | "database"; parentId: string | null }[];
+}
+
+function useSiteNavCloud(slug: string): QueryState<SiteNav> {
+  const queries = useMemo(() => ({ q: { query: anyApi.sites.nav, args: { slug } } }), [slug]);
+  const raw = (useQueries(queries as never) as { q?: unknown }).q;
+  if (raw instanceof Error) return { data: undefined, error: toOpError(raw), isLoading: false };
+  if (raw === undefined) return { data: undefined, error: null, isLoading: true };
+  return { data: raw as SiteNav, error: null, isLoading: false };
+}
+
+async function postSite(body: Record<string, unknown>) {
+  const res = await fetch("/api/local/sites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const json = (await res.json().catch(() => ({}))) as { result?: unknown; error?: { code: string; message: string } };
+  if (!res.ok || json.error) throw new OpError((json.error ?? { code: "INTERNAL", message: "Max's server returned an unexpected response." }) as never);
+  return json.result;
+}
+
+function useSiteNavLocal(slug: string): QueryState<SiteNav> {
+  const [state, setState] = useState<QueryState<SiteNav>>({ data: undefined, error: null, isLoading: true });
+  useEffect(() => {
+    let live = true;
+    postSite({ fn: "nav", slug })
+      .then((data) => live && setState({ data: data as SiteNav, error: null, isLoading: false }))
+      .catch((error) => live && setState({ data: undefined, error, isLoading: false }));
+    return () => {
+      live = false;
+    };
+  }, [slug]);
+  return state;
+}
+
+/** A website's details and navigation, for visitors. */
+export const useSiteNav: (slug: string) => QueryState<SiteNav> = CLOUD ? useSiteNavCloud : useSiteNavLocal;
+
+function useSiteSearchCloud() {
+  const convex = useConvex();
+  return useCallback((slug: string, q: string) => convex.query(anyApi.sites.search, { slug, q }) as Promise<{ results: { _id: string; title: string; icon: string | null; excerpt: string }[] }>, [convex]);
+}
+function useSiteSearchLocal() {
+  return useCallback((slug: string, q: string) => postSite({ fn: "search", slug, q }) as Promise<{ results: { _id: string; title: string; icon: string | null; excerpt: string }[] }>, []);
+}
+/** Searches a website's pages. */
+export const useSiteSearch: () => (slug: string, q: string) => Promise<{ results: { _id: string; title: string; icon: string | null; excerpt: string }[] }> = CLOUD ? useSiteSearchCloud : useSiteSearchLocal;

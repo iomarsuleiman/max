@@ -21,7 +21,9 @@ import {
   MoveHorizontal,
   Unlock, Printer, Waypoints } from "lucide-react";
 import { toast } from "sonner";
-import { UsersRound } from "lucide-react";
+import { Flag, Globe, UsersRound } from "lucide-react";
+import { ReportDialog } from "@/components/admin/ReportDialog";
+import { SiteDialog } from "@/components/site/SiteDialog";
 import { SHARING_ENABLED } from "@/lib/config";
 import { IconButton, Menu, MenuCheckItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Switch } from "@/components/ui";
 import { useRead } from "@/lib/client/data";
@@ -43,6 +45,8 @@ export function download(filename: string, content: string, type: string) {
 export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: number }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
+  const [siteOpen, setSiteOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const ws = useWorkspace();
   const read = useRead();
   const router = useRouter();
@@ -119,6 +123,11 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
               {fav ? "Remove from Favorites" : "Add to Favorites"}
             </MenuItem>
           )}
+          {page.kind === "page" && !page.isTemplate && !page.archivedAt && (
+            <MenuItem icon={<Globe />} onSelect={() => setSiteOpen(true)}>
+              Publish as a site…
+            </MenuItem>
+          )}
           {SHARING_ENABLED && !page.parentId && !page.databaseId && page.kind === "page" && !page.isTemplate && (
             <MenuItem icon={<UsersRound />} onSelect={() => update({ teamspace: !page.teamspace }, page.teamspace ? "Turned back into a private page" : "Turned into a teamspace. Add people from Share.")}>
               {page.teamspace ? "Turn into a private page" : "Turn into a teamspace"}
@@ -126,6 +135,9 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
           )}
           <MenuItem icon={<Link2 />} onSelect={() => ws.copyLink(page._id)}>
             Copy link
+          </MenuItem>
+          <MenuItem icon={<Flag />} onSelect={() => setReportOpen(true)}>
+            Report a problem
           </MenuItem>
           <MenuItem icon={<Copy />} onSelect={() => ws.duplicatePage(page._id)}>
             Duplicate
@@ -172,6 +184,8 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
       </Menu>
       <LocalGraphDialog pageId={page._id} open={graphOpen} onOpenChange={setGraphOpen} />
       {page.kind === "page" && <PageHistory pageId={page._id} open={historyOpen} onOpenChange={setHistoryOpen} />}
+      {siteOpen && <SiteDialog page={page} open={siteOpen} onOpenChange={setSiteOpen} />}
+      {reportOpen && <ReportDialog open={reportOpen} onOpenChange={setReportOpen} context={{ pageId: page._id }} />}
     </>
   );
 }

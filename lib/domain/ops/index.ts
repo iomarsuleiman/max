@@ -13,9 +13,10 @@ import * as comments from "./comments";
 import * as graph from "./graph";
 import * as profileCard from "./profileCard";
 import * as shares from "./shares";
+import * as sites from "./sites";
 
 const all: OpDef[] = [];
-for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares]) {
+for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares, sites]) {
   for (const value of Object.values(mod)) {
     if (value && typeof value === "object" && "name" in value && "run" in value && "input" in value) all.push(value as OpDef);
   }
@@ -73,6 +74,20 @@ function targetOf(args: unknown): string | null {
 }
 
 /**
+ * Accounts an admin suspended can read but not change anything; banned accounts can't do either.
+ * Applies to whoever is acting (and to the owner of the workspace being acted on).
+ */
+async function assertInGoodStanding(ctx: OpContext, kind: "query" | "mutation") {
+  const ids = new Set([ctx.ownerId, ctx.actor?.id].filter((x): x is string => !!x && x !== "anon"));
+  for (const id of ids) {
+    const m = (await ctx.db.list("moderation", id))[0];
+    if (!m) continue;
+    if (m.status === "banned") throw new MaxError("FORBIDDEN", id === (ctx.actor?.id ?? ctx.ownerId) ? "This account has been banned from Max." : "This workspace is no longer available.");
+    if (kind === "mutation") throw new MaxError("FORBIDDEN", id === (ctx.actor?.id ?? ctx.ownerId) ? "This account is suspended: you can read your pages but not change them. Contact support if you think this is a mistake." : "This workspace is read-only right now.");
+  }
+}
+
+/**
  * The single entry point for every operation, from the UI, Convex and MCP alike.
  * Validates input, enforces confirmations, and records assistant activity (never content).
  */
@@ -81,6 +96,8 @@ export async function execute(name: string, args: unknown, ctx: OpContext, expec
   if (!def) throw new MaxError("NOT_FOUND", `Unknown operation "${name}".`);
   if (expectKind && def.kind !== expectKind) throw new MaxError("VALIDATION", `"${name}" is a ${def.kind}, not a ${expectKind}.`);
   if (def.uiOnly && ctx.source === "mcp") throw new MaxError("VALIDATION", `"${name}" isn't available to assistants.`);
+  // Your own standing is always readable, so a suspended or banned account can see why.
+  if (name !== "account.standing") await assertInGoodStanding(ctx, def.kind);
   const audit = ctx.source === "mcp" && def.kind === "mutation";
   // Writes may carry an idempotency key: a retry with the same key returns the first result.
   const raw = (args ?? {}) as Record<string, unknown>;

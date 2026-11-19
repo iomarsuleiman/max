@@ -131,6 +131,7 @@ type SharingCall =
   | { fn: "public"; token: string; scopePageId: string; op: string; args?: unknown }
   | { fn: "duplicate"; pageId: string; linkToken?: string | null }
   | { fn: "join"; pageId: string; linkToken?: string | null }
+  | { fn: "leave"; pageId: string }
   | { fn: "collab"; call: "join" | "pull" | "push" | "awareness" | "commit" | "leave"; args: Record<string, unknown>; linkToken?: string | null };
 
 /** The local twin of convex/sharing.ts. */
@@ -159,6 +160,7 @@ export async function runLocalSharing(call: SharingCall, actor: { id: string; na
   if (call.fn === "ping") return write(() => sharing.heartbeat(s.db, actor, call.pageId, now, call.linkToken));
   if (call.fn === "duplicate") return write(() => sharing.duplicateShared(s.db, actor, call.pageId, now, call.linkToken));
   if (call.fn === "join") return write(() => sharing.joinByLink(s.db, actor, call.pageId, now, call.linkToken));
+  if (call.fn === "leave") return write(() => sharing.leaveShare(s.db, actor, call.pageId));
   if (call.fn === "collab") {
     const collab = await import("@/lib/domain/collab");
     const c = { db: s.db, actor, now, linkToken: call.linkToken };
@@ -189,4 +191,47 @@ export async function resolveLocalToken(hash: string) {
 
 export function localModeAllowed(): boolean {
   return process.env.NODE_ENV !== "production" || process.env.MAX_LOCAL_MODE === "true";
+}
+
+/** Local mode's published websites: read by anyone, no account (the twin of convex/sites.ts). */
+export async function runLocalSites(call: { fn: "nav" | "read" | "search"; slug: string; op?: string; args?: unknown; q?: string }) {
+  const s = state();
+  await s.db.load();
+  const sites = await import("@/lib/domain/sites");
+  if (call.fn === "nav") return sites.siteNav(s.db, call.slug);
+  if (call.fn === "search") return sites.siteSearch(s.db, call.slug, call.q ?? "");
+  return sites.siteRead(s.db, localStorageAdapter, call.slug, String(call.op), call.args, Date.now());
+}
+
+type AdminCall =
+  | { fn: "check" }
+  | { fn: "overview" }
+  | { fn: "reports" }
+  | { fn: "setStatus"; userId: string; status: "active" | "suspended" | "banned"; reason: string }
+  | { fn: "setReport"; id: string; status: "open" | "resolved" }
+  | { fn: "report"; kind: "bug" | "content" | "other"; message: string; url?: string | null; pageId?: string | null; siteSlug?: string | null };
+
+/** Local mode's admin dashboard: the person who runs this server (the local owner) is the admin. */
+export async function runLocalAdmin(call: AdminCall, actor: { id: string; name: string }) {
+  const s = state();
+  await s.db.load();
+  const admin = await import("@/lib/domain/admin");
+  const isAdmin = actor.id === LOCAL_OWNER;
+  const write = async (fn: () => Promise<unknown>) => {
+    const run = s.lock.then(async () => {
+      const result = await s.db.transaction(fn);
+      await s.db.persist();
+      s.events.emit("change", { op: "admin", source: "ui" });
+      return result;
+    });
+    s.lock = run.catch(() => undefined);
+    return run;
+  };
+  if (call.fn === "check") return { admin: isAdmin };
+  if (call.fn === "report") return write(() => admin.submitReport(s.db, { id: actor.id, name: actor.name, email: null }, call, Date.now()));
+  if (!isAdmin) throw new (await import("@/lib/domain/errors")).MaxError("FORBIDDEN", "This page is for Max's admins.");
+  if (call.fn === "overview") return admin.adminOverview(s.db, Date.now());
+  if (call.fn === "reports") return admin.listReports(s.db);
+  if (call.fn === "setStatus") return write(() => admin.setModeration(s.db, actor.id, call.userId, call.status, call.reason ?? "", Date.now()));
+  return write(() => admin.setReportStatus(s.db, call.id, call.status, Date.now()));
 }

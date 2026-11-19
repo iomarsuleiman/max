@@ -35,6 +35,9 @@ import { LogoMark } from "@/components/brand/Logo";
 import { SharedSection } from "@/components/share/SharedSection";
 import { TeamspacesSection } from "@/components/share/Teamspaces";
 import { withoutTeamspaces } from "@/lib/client/teamspaces";
+import { DOODLE, Doodle } from "@/components/icons/Doodle";
+import { useAdminApi } from "@/lib/client/admin";
+import { ShieldCheck } from "lucide-react";
 import { useOp, prefetchOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";
 import type { PageSummary, SettingsRow } from "@/lib/client/types";
@@ -96,10 +99,11 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
       <SidebarHeader mobile={mobile} />
       {WORKSPACE_NAVIGATION_PREVIEW && <MobileWorkspacePicker />}
       <nav className="grid gap-px ps-4 pe-2 pb-2" aria-label="Main">
-        <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
-        <NavLink href="/templates" icon={<LayoutTemplate />} label="Templates" />
-        <NavLink href="/graph" icon={<Waypoints />} label="Graph view" />
-        <NavButton icon={<Download />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
+        <NavButton icon={<Doodle icon={Search} color={DOODLE.blue} size={15} />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
+        <NavLink href="/templates" icon={<Doodle icon={LayoutTemplate} color={DOODLE.amber} size={15} />} label="Templates" />
+        <NavLink href="/graph" icon={<Doodle icon={Waypoints} color={DOODLE.violet} size={15} />} label="Graph view" />
+        <NavButton icon={<Doodle icon={Download} color={DOODLE.mint} size={15} />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
+        <AdminLink />
       </nav>
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto overflow-x-hidden ps-4 pe-2 pb-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
@@ -140,20 +144,20 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
           align="end"
           trigger={
             <button type="button" className="flex h-7 items-center gap-2 rounded-md px-2 text-[13.5px] text-fg-2 hover:bg-hover hover:text-fg">
-              <Trash2 className="size-4 text-fg-3" strokeWidth={1.75} />
+              <Doodle icon={Trash2} color={DOODLE.red} size={15} />
               Trash
             </button>
           }
         >
           <TrashPanel compact />
         </Popover>
-        <NavButton icon={<Settings />} label="Settings" onClick={() => ws.openSettings("account")} />
+        <NavButton icon={<Doodle icon={Settings} color={DOODLE.gray} size={15} />} label="Settings" onClick={() => ws.openSettings("account")} />
         <button
           type="button"
           onClick={() => ws.createPage()}
           className="mt-1 flex h-8 items-center gap-2 rounded-md px-2 text-[13.5px] font-medium text-fg hover:bg-hover"
         >
-          <SquarePen className="size-4 text-fg-2" strokeWidth={1.75} />
+          <Doodle icon={SquarePen} color={DOODLE.pink} size={15} />
           New page
           <span className="ms-auto text-[11px] font-normal text-fg-3 max-md:hidden">⌘⌥N</span>
         </button>
@@ -333,6 +337,21 @@ export function Avatar({ name, url, size = 28 }: { name: string; url: string | n
       {initials}
     </span>
   );
+}
+
+/** Shown only to Max's admins (MAX_ADMIN_EMAILS). */
+function AdminLink() {
+  const api = useAdminApi();
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    let live = true;
+    api.check().then((r) => live && setAdmin(r.admin), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [api]);
+  if (!admin) return null;
+  return <NavLink href="/admin" icon={<Doodle icon={ShieldCheck} color={DOODLE.red} size={15} />} label="Admin" />;
 }
 
 function NavLink({ href, icon, label }: { href: string; icon: ReactNode; label: string }) {

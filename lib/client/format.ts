@@ -1,3 +1,4 @@
+import { formatDay, formatDayTime } from "./datePrefs";
 const rtf = typeof Intl !== "undefined" ? new Intl.RelativeTimeFormat("en", { numeric: "auto" }) : null;
 
 export function timeAgo(ts: number | null | undefined, now = Date.now()): string {
@@ -21,11 +22,11 @@ export function fullDate(ts: number | string | null | undefined): string {
   if (ts === null || ts === undefined || ts === "") return "";
   const d = new Date(typeof ts === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ts) ? `${ts}T00:00:00` : ts);
   if (Number.isNaN(d.getTime())) return String(ts);
-  return d.toLocaleDateString("en", { year: "numeric", month: "short", day: "numeric" });
+  return formatDay(d);
 }
 
 export function dateTime(ts: number): string {
-  return new Date(ts).toLocaleString("en", { dateStyle: "medium", timeStyle: "short" });
+  return formatDayTime(new Date(ts));
 }
 
 export function bytes(n: number): string {

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { PNG } from "pngjs";
 
-test("the membership card lives in About: number, note on the back, artwork that saves, download", async ({ page }) => {
+test("the membership card lives in About: number, note on the back, artwork as it came, download", async ({ page }) => {
   await page.goto("/home?settings=account");
   const settings = page.getByRole("dialog", { name: "Settings", exact: true });
   // Your name is set in My account and carried to the card.
@@ -15,7 +15,8 @@ test("the membership card lives in About: number, note on the back, artwork that
   await expect(preview).toContainText("عمر Omar");
   await expect(preview).toContainText(/NO\. \d{6}/);
   await expect(settings.getByText(/^No\. \d/)).toBeVisible();
-  await expect(settings.getByText(/^from The Max team/)).toBeVisible();
+  // No hints or labels around the card: it explains itself.
+  await expect(settings.getByText(/Hover the card|Read the note/)).toHaveCount(0);
 
   // Hovering turns it over to the handwritten note (no QR, no invitation text).
   await preview.hover();
@@ -26,16 +27,13 @@ test("the membership card lives in About: number, note on the back, artwork that
   await expect(preview.getByRole("button", { name: "Show the back of the card" })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Enable phone tilt" })).toHaveCount(0);
 
-  // Changing the artwork saves it.
+  // The artwork is what you get: no reshuffling, and it stays the same after a reload.
+  await expect(settings.getByRole("button", { name: "Change artwork" })).toHaveCount(0);
   const art = () => preview.locator("svg").first().evaluate((svg) => Array.from(svg.querySelectorAll("path, stop, circle")).map((e) => [e.getAttribute("d"), e.getAttribute("stop-color"), e.getAttribute("r")]));
   const before = await art();
-  await settings.getByRole("button", { name: "Change artwork" }).click();
-  await expect.poll(art).not.toEqual(before);
-  const saved = await art();
-  await expect.poll(async () => (await (await page.request.post("/api/local/ops", { data: { op: "settings.get", args: {} } })).json()).result.settings.profileCard?.theme).toBeTruthy();
   await page.reload();
   await expect(preview).toContainText(/NO\. \d{6}/);
-  await expect.poll(art).toEqual(saved);
+  await expect.poll(art).toEqual(before);
 
   // Your note for people you invite, and the invite link.
   await settings.getByLabel("Your note for people you invite").fill("{name},\nso glad you're here.");

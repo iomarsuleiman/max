@@ -51,6 +51,15 @@ const settingsPatch = z.object({
   profileCard: profileCardSchema.nullable().optional(),
   profileCardOnboarded: z.boolean().optional(),
   inviteNote: z.string().trim().max(240).nullable().optional(),
+  accent: z.enum(["blue", "purple", "pink", "red", "orange", "green", "teal", "graphite"]).optional(),
+  spaceColor: z.enum(["card", "ocean", "sage", "clay", "lilac", "sunset", "rose", "mint", "amber", "midnight", "lagoon", "plum", "citrus"]).optional(),
+  space: z
+    .object({ colors: z.array(z.string().regex(/^#[0-9a-f]{6}$/i)).min(1).max(3), grain: z.number().min(0).max(100), intensity: z.number().min(0).max(100) })
+    .nullable()
+    .optional(),
+  dateFormat: z.enum(["medium", "us", "eu", "iso"]).optional(),
+  timeFormat: z.enum(["12h", "24h"]).optional(),
+  weekStart: z.enum(["monday", "sunday"]).optional(),
 });
 
 export const settingsGet = defineOp({
@@ -148,10 +157,14 @@ export const accountInit = defineOp({
   kind: "mutation",
   title: "Set up workspace",
   description: "Prepares a new workspace on first sign-in (preferences and a welcome page). Safe to call again; does nothing once set up.",
-  input: z.object({ displayName: z.string().max(80).nullable().optional(), invitedBy: z.number().int().positive().max(1_000_000_000).nullable().optional() }),
-  async run(ctx, { displayName, invitedBy }) {
+  input: z.object({ displayName: z.string().max(80).nullable().optional(), invitedBy: z.number().int().positive().max(1_000_000_000).nullable().optional(), email: z.string().trim().max(320).nullable().optional() }),
+  async run(ctx, { displayName, invitedBy, email }) {
     const existing = await getSettingsRow(ctx);
-    if (existing?.onboarded) return { created: false };
+    // Remember the sign-in email (once) so admins can recognise accounts.
+    if (existing?.onboarded) {
+      if (email && !existing.email) await upsertSettings(ctx, { email });
+      return { created: false };
+    }
     // Joined through someone's invite link (their member number): remember who, for the card's note.
     const inviter = invitedBy ? await ctx.db.memberByNumber(invitedBy) : null;
     const pages = await allPages(ctx);
@@ -161,7 +174,7 @@ export const accountInit = defineOp({
       welcomeId = await ctx.db.insert("pages", row);
       await insertDocument(ctx, welcomeId, markdownToBlocks(WELCOME));
     }
-    await upsertSettings(ctx, { onboarded: true, ...(displayName && !existing?.displayName ? { displayName } : {}), ...(inviter && inviter !== ctx.ownerId && !existing?.invitedBy ? { invitedBy: inviter } : {}) });
+    await upsertSettings(ctx, { onboarded: true, ...(email ? { email } : {}), ...(displayName && !existing?.displayName ? { displayName } : {}), ...(inviter && inviter !== ctx.ownerId && !existing?.invitedBy ? { invitedBy: inviter } : {}) });
     return { created: true, welcomeId };
   },
 });
@@ -212,7 +225,7 @@ export const accountDeleteAllData = defineOp({
   input: z.object({ confirm }),
   async run(ctx) {
     let removed = 0;
-    for (const table of ["documents", "versions", "comments", "shares", "shareLinks", "presence", "collabUpdates", "collabAwareness", "collabRooms", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
+    for (const table of ["documents", "versions", "comments", "shares", "shareLinks", "presence", "collabUpdates", "collabAwareness", "collabRooms", "sites", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
       for (const row of await ctx.db.list(table, ctx.ownerId)) {
         await ctx.db.delete(table, row._id);
         removed++;
@@ -692,3 +705,15 @@ export const importMaxExport = defineOp({
 
 export { descendants };
 export type { OpContext };
+
+export const accountStanding = defineOp({
+  name: "account.standing",
+  kind: "query",
+  title: "My account's standing",
+  description: "Whether an admin has suspended (read-only) or banned this account, and the reason they gave.",
+  input: z.object({}),
+  async run(ctx) {
+    const m = (await ctx.db.list("moderation", ctx.ownerId))[0];
+    return m ? { status: m.status, reason: m.reason || null, since: m.updatedAt } : { status: "active" as const, reason: null, since: null };
+  },
+});

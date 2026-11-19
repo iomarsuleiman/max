@@ -381,3 +381,11 @@ export async function duplicateShared(db: Db, actor: Actor, pageId: string, now:
   }
   return { id: rootId, title: source.title, copied: idMap.size };
 }
+
+/** Leaves a page or teamspace someone shared with you: removes your own share on it. */
+export async function leaveShare(db: Db, actor: Actor, pageId: string) {
+  const mine = (await db.findBy("shares", "granteeId", actor.id)).filter((s) => s.pageId === pageId);
+  if (!mine.length) throw new MaxError("NOT_FOUND", "You aren't a member of this page.");
+  for (const s of mine) await db.delete("shares", s._id);
+  return { left: true };
+}

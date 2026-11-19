@@ -19,6 +19,9 @@ const emptyState = (): State => ({
   collabRooms: new Map(),
   collabUpdates: new Map(),
   collabAwareness: new Map(),
+  sites: new Map(),
+  reports: new Map(),
+  moderation: new Map(),
 });
 
 let counter = 0;
@@ -77,6 +80,10 @@ export class MemoryDb implements Db {
     const rows = [...this.state.settings.values()].sort((a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0));
     const at = rows.findIndex((r) => r.ownerId === ownerId);
     return at < 0 ? null : at + 1;
+  }
+
+  async listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number) {
+    return ([...this.state[table].values()] as Tables[T][]).map((r) => clone(r)).reverse().slice(0, limit);
   }
 
   async memberByNumber(n: number) {
