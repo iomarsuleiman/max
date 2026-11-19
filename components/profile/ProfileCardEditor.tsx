@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Share } from "lucide-react";
 import { toast } from "sonner";
-import { IconButton } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { defaultProfileCard, profileCardSchema, profileCardShapes, profileCardThemes, type ProfileCard as Card } from "@/lib/domain/profileCard";
-import { downloadProfileCardPng } from "@/lib/client/profileCardExport";
+import { downloadProfileCardPng, shareProfileCard } from "@/lib/client/profileCardExport";
+import { inviteUrl } from "@/lib/domain/profileCardImage";
 import { useOp } from "@/lib/client/data";
 import { ProfileCard, type CardNote } from "./ProfileCard";
 
@@ -18,8 +19,8 @@ interface CardInfo {
 }
 
 /**
- * Your membership card, as it appears in About: the card (its note is on the back), your member
- * number and a quiet download button. The artwork is yours as it came: no reshuffling.
+ * Your membership card, as it appears in About: the card (hover to see the note on the back), your
+ * member number, who welcomed you, and Download / Share. The artwork is yours as it came.
  */
 export function ProfileCardEditor() {
   const ws = useWorkspace();
@@ -44,21 +45,40 @@ export function ProfileCardEditor() {
       </div>
       <div className="card-about-info">
         <p className="card-about-number">{info.data?.memberNumber ? `No. ${info.data.memberNumber.toLocaleString("en-US")}` : "No. …"}</p>
-        <div className="mt-2 flex flex-wrap gap-1">
-          <IconButton
-            label="Download PNG"
-            size="md"
+        {note.from && <p className="card-about-from">from {note.from}</p>}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Download className="size-3.5" />}
             onClick={async () => {
               try {
                 await downloadProfileCardPng(shown, note);
-                toast.success("Card saved as an image", { duration: 1500 });
+                toast.success("Card saved, both sides", { duration: 1500 });
               } catch (err) {
                 notifyError(err, "Couldn't download your card.");
               }
             }}
           >
-            <Download className="size-4" />
-          </IconButton>
+            Download
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Share className="size-3.5" />}
+            onClick={async () => {
+              const url = inviteUrl(memberNumber);
+              try {
+                if (await shareProfileCard(shown, note, url)) return;
+                await navigator.clipboard.writeText(url);
+                toast.success("Invite link copied", { duration: 1500 });
+              } catch (err) {
+                notifyError(err, "Couldn't share your card.");
+              }
+            }}
+          >
+            Share
+          </Button>
         </div>
       </div>
     </div>

@@ -10,6 +10,7 @@
  * So the editor, comments, history and databases behave the same for everyone, with one code path.
  */
 import { MaxError, notFound } from "./errors";
+import { accountOf } from "./workspaces";
 import type { Db, Storage } from "./db";
 import { execute } from "./ops";
 import type { PageRow, ShareLevel, Source } from "./types";
@@ -60,7 +61,7 @@ export async function resolveAccess(db: Db, callerId: string, pageId: string, li
   const page = await db.get("pages", pageId);
   if (!page) throw notFound();
   const anonymous = callerId === ANONYMOUS;
-  if (!anonymous && page.ownerId === callerId) return { level: "owner", ownerId: page.ownerId, page, rootId: null };
+  if (!anonymous && accountOf(page.ownerId) === callerId) return { level: "owner", ownerId: page.ownerId, page, rootId: null };
   if (page.archivedAt) throw notFound();
   const ancestors = await chain(db, page);
   const ids = new Set(ancestors.map((p) => p._id));
@@ -217,7 +218,7 @@ function trimBreadcrumbs(result: unknown, scope: Access) {
 /** What the signed-in person sees in the share menu header and the page chrome. */
 export async function accessInfo(db: Db, callerId: string, pageId: string, linkToken?: string | null) {
   const a = await resolveAccess(db, callerId, pageId, linkToken);
-  const owner = a.level === "owner" ? null : (await db.list("settings", a.ownerId))[0];
+  const owner = a.level === "owner" ? null : (await db.list("settings", accountOf(a.ownerId)))[0];
   // Someone visiting through a link (no share of their own) can join: the page, or the teamspace it
   // belongs to, then stays in their sidebar like an invitation.
   let invite: { pageId: string; title: string; icon: string | null; teamspace: boolean } | null = null;
@@ -272,7 +273,7 @@ export async function sharedWithMe(db: Db, callerId: string) {
     const page = await db.get("pages", share.pageId);
     if (!page || page.archivedAt || page.ownerId !== share.ownerId) continue;
     seen.add(page._id);
-    const owner = (await db.list("settings", share.ownerId))[0];
+    const owner = (await db.list("settings", accountOf(share.ownerId)))[0];
     out.push({ _id: page._id, title: page.title, icon: page.icon, kind: page.kind, level: share.level, ownerId: share.ownerId, ownerName: owner?.displayName ?? null, sharedAt: share.createdAt, teamspace: !!page.teamspace });
   }
   return out;

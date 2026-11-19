@@ -1,4 +1,5 @@
 import { MaxError, notFound } from "./errors";
+import { accountOf, ownerFor } from "./workspaces";
 import type { Db } from "./db";
 import type { ModerationRow, ReportRow } from "./types";
 
@@ -27,7 +28,9 @@ export async function adminOverview(db: Db, now: number) {
   const week = now - 7 * 86_400_000;
   const users = [];
   for (const s of settings) {
-    const pages = (await db.list("pages", s.ownerId)).filter((p) => !p.isTemplate);
+    // Every workspace of the account counts: the main one and any extra ones.
+    const owners = [s.ownerId, ...(s.workspaces ?? []).map((w) => ownerFor(s.ownerId, w.id))];
+    const pages = (await Promise.all(owners.map((o) => db.list("pages", o)))).flat().filter((p) => !p.isTemplate);
     const live = pages.filter((p) => !p.archivedAt);
     const lastActive = Math.max(s.updatedAt ?? 0, ...pages.map((p) => p.updatedAt));
     users.push({
@@ -40,8 +43,9 @@ export async function adminOverview(db: Db, now: number) {
       databases: live.filter((p) => p.kind === "database").length,
       rows: live.filter((p) => p.databaseId).length,
       trashed: pages.length - live.length,
-      sites: sites.filter((x) => x.ownerId === s.ownerId).length,
-      shares: (await db.list("shares", s.ownerId)).length,
+      workspaces: owners.length,
+      sites: sites.filter((x) => accountOf(x.ownerId) === s.ownerId).length,
+      shares: (await Promise.all(owners.map((o) => db.list("shares", o)))).flat().length,
       status: moderation.get(s.ownerId)?.status ?? "active",
       reason: moderation.get(s.ownerId)?.reason ?? null,
     });

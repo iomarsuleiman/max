@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { accountOf } from "../workspaces";
 import { defineOp } from "./define";
 import { getSettingsRow } from "./helpers";
 import { settingsUpdate } from "./account";
@@ -17,7 +18,7 @@ export const profileCardGet = defineOp({
   async run(ctx) {
     const settings = await getSettingsRow(ctx);
     const saved = profileCardSchema.safeParse(settings?.profileCard);
-    const memberNumber = (await ctx.db.memberNumber(ctx.ownerId)) ?? undefined;
+    const memberNumber = (await ctx.db.memberNumber(accountOf(ctx.ownerId))) ?? undefined;
     // The note on the back: from whoever invited you (their note, or the default one signed by them),
     // otherwise from Max's maker. Only the inviter's name and note are shared, nothing else.
     const memberName = settings?.displayName?.trim() || (saved.success ? saved.data.name : "") || "friend";

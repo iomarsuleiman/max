@@ -10,6 +10,7 @@ import { pageHref, publicHref } from "@/lib/pageUrl";
 import type { ShareLevel, ShareRow } from "@/lib/domain/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { Avatar } from "@/components/workspace/Sidebar";
+import { SiteForm } from "@/components/site/SiteForm";
 import { can, usePageAccess } from "./access";
 
 const LEVEL_OPTIONS: { value: ShareLevel; label: string; hint: string }[] = [
@@ -41,11 +42,15 @@ export async function findPerson(email: string): Promise<Person> {
   return body.person;
 }
 
-/** Notion's Share menu: invite people, set their access, and choose who else can open the link. */
-export function ShareMenu({ page }: { page: { _id: string; title: string; isTemplate?: boolean; teamspace?: boolean } }) {
+type SharePage = { _id: string; title: string; icon?: string | null; kind?: string; isTemplate?: boolean; teamspace?: boolean };
+
+/** Notion's Share menu: a Share tab for people and links, and a Publish tab for the web and sites. */
+export function ShareMenu({ page }: { page: SharePage }) {
   const access = usePageAccess();
   const manage = can(access, "full_access");
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"share" | "publish">("share");
+  const canPublish = manage && !page.isTemplate && (page.kind ?? "page") === "page";
   return (
     <Popover
       open={open}
@@ -58,7 +63,16 @@ export function ShareMenu({ page }: { page: { _id: string; title: string; isTemp
         </button>
       }
     >
-      {open && (manage ? <ManageShares page={page} /> : <SharedWithYou page={page} />)}
+      {open && canPublish && (
+        <div role="tablist" aria-label="Share or publish" className="flex gap-1 border-b border-line px-3 pt-2">
+          {(["share", "publish"] as const).map((t) => (
+            <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="share-tab">
+              {t === "share" ? "Share" : "Publish"}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && (canPublish && tab === "publish" ? <PublishPanel page={page} /> : manage ? <ManageShares page={page} /> : <SharedWithYou page={page} />)}
     </Popover>
   );
 }
@@ -85,7 +99,7 @@ function SharedWithYou({ page }: { page: { _id: string; title: string } }) {
   );
 }
 
-function ManageShares({ page }: { page: { _id: string; title: string; isTemplate?: boolean; teamspace?: boolean } }) {
+function ManageShares({ page }: { page: SharePage }) {
   const ws = useWorkspace();
   const access = usePageAccess();
   const q = useOp<ShareList>("shares.list", { pageId: page._id });
@@ -192,7 +206,7 @@ function ManageShares({ page }: { page: { _id: string; title: string; isTemplate
               options={[
                 { value: "restricted", label: "Only people invited" },
                 { value: "link", label: "Anyone in Max with the link" },
-                { value: "web", label: "Anyone on the web with the link" },
+                ...(link?.public ? [{ value: "web", label: "Published to the web" }] : []),
               ]}
             />
             <p className="text-[12px] text-fg-3">
@@ -247,3 +261,59 @@ function Row({ name, detail, image, right }: { name: string; detail: string | nu
   );
 }
 
+/** Share → Publish: put the page on the web with a link, and/or publish it with its sub-pages as a site. */
+function PublishPanel({ page }: { page: SharePage }) {
+  const ws = useWorkspace();
+  const q = useOp<ShareList>("shares.list", { pageId: page._id });
+  const [busy, setBusy] = useState(false);
+  const link = q.data?.link ?? null;
+  const inherited = !!link?.fromTitle;
+  const live = !!link?.public;
+  const url = link?.public ? `${location.origin}${publicHref(link.token, page._id, page.title)}` : "";
+  const toggle = async () => {
+    setBusy(true);
+    try {
+      await ws.call("shares.setLink", { pageId: page._id, level: live ? null : "view", web: !live });
+      toast.success(live ? "Unpublished from the web" : "Published. Anyone with the link can read it.", { duration: 2000 });
+    } catch (err) {
+      notifyError(err, "Couldn't change publishing.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="grid">
+      <section className="grid gap-2.5 p-4" aria-label="Publish to the web">
+        <div className="flex items-center gap-3">
+          <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", live ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-fg-2")}>
+            <Globe className="size-[18px]" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-medium text-fg">{live ? "Live on the web" : "Publish to the web"}</p>
+            <p className="text-[12px] text-fg-3">{inherited ? `Set on “${pageTitle(link!.fromTitle)}”.` : live ? "Anyone with the link can read it, no account needed." : "Anyone with the link can read it. Sub-pages too."}</p>
+          </div>
+          {!inherited && (
+            <Button size="sm" variant={live ? "ghost" : "primary"} pending={busy || !q.data} onClick={() => void toggle()}>
+              {live ? "Unpublish" : "Publish"}
+            </Button>
+          )}
+        </div>
+        {live && (
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate rounded-md bg-surface-2 px-2 py-1.5 font-mono text-[12px] text-fg-2">{url}</span>
+            <Button size="sm" variant="secondary" icon={<Link2 className="size-3.5" />} onClick={() => copy(url, "Link copied. Anyone with it can read the page.")}>
+              Copy
+            </Button>
+          </div>
+        )}
+      </section>
+      <section className="grid gap-2 border-t border-line p-4" aria-label="Site">
+        <div>
+          <p className="text-[13.5px] font-medium text-fg">Publish as a site</p>
+          <p className="text-[12px] text-fg-3">This page and everything inside it become a simple website with navigation and search.</p>
+        </div>
+        <SiteForm page={page} />
+      </section>
+    </div>
+  );
+}

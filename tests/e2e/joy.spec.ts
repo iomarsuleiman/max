@@ -54,15 +54,18 @@ test("landing butterfly flaps its wings on arrival, click and keyboard, and stay
   await page.screenshot({ path: "test-results/max-landing.png", fullPage: true });
 });
 
-test("landing grain stays small and static, follows the chosen theme, with a full-width header", async ({ page }) => {
+test("landing grain stays small and static, follows the chosen theme, with no navbar (other pages have a solid one)", async ({ page }) => {
   await page.addInitScript(() => { if (!localStorage.getItem("max:theme")) localStorage.setItem("max:theme", "dark"); });
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/welcome");
-  // A full-width header with the theme switch, like the other public pages.
-  await expect(page.getByRole("banner")).toBeVisible();
+  // The landing has no navbar; the other public pages have a full-width, solid one.
+  await expect(page.getByRole("navigation", { name: "Site" })).toHaveCount(0);
+  await page.goto("/privacy");
   await expect(page.getByRole("navigation", { name: "Site" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toBeVisible();
   expect((await page.getByRole("banner").boundingBox())!.width).toBeGreaterThanOrEqual(page.viewportSize()!.width - 20);
+  expect(await page.locator(".site-header").evaluate((e) => getComputedStyle(e).backdropFilter)).toBe("none");
+  await page.goto("/welcome");
   const landing = page.locator(".landing-system");
   // A saved choice (dark) wins over the system (light), like every other page.
   await expect(landing).toHaveCSS("color-scheme", "dark");

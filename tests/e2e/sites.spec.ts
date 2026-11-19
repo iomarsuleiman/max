@@ -8,9 +8,10 @@ test("publish a page as a website and browse it as a visitor", async ({ page, br
   await ops("pages.create", "mutation", { title: "Private plans" });
 
   await page.goto(`/p/${home._id}`);
-  await page.getByRole("button", { name: "Page options" }).click();
-  await page.getByRole("menuitem", { name: "Publish as a site…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Publish as a site" });
+  // Publishing lives in Share → Publish, like Notion.
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await page.getByRole("tab", { name: "Publish" }).click();
+  const dialog = page.getByRole("form", { name: "Publish as a site" });
   await dialog.getByLabel("Address").fill("field-guide");
   await dialog.getByRole("button", { name: "Publish site" }).click();
   await expect(page.getByText("Your site is live")).toBeVisible();

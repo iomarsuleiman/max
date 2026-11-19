@@ -209,6 +209,13 @@ export interface SettingsRow {
   dateFormat?: "medium" | "us" | "eu" | "iso";
   timeFormat?: "12h" | "24h";
   weekStart?: "monday" | "sunday";
+  /** Pages on a floating rounded card, or edge to edge. */
+  frame?: "floating" | "full";
+  /** The main workspace's name and icon (extra workspaces keep theirs in `workspaces`). */
+  workspaceName?: string | null;
+  workspaceIcon?: string | null;
+  /** Extra personal workspaces, each a private namespace of its own (see lib/domain/workspaces.ts). */
+  workspaces?: import("./workspaces").WorkspaceEntry[];
   onboarded: boolean;
   updatedAt: number;
 }

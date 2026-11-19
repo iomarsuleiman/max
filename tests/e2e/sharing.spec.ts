@@ -148,9 +148,9 @@ test("type together live with cursors, publish to the web, and duplicate", async
 
   // Publish to the web: anyone can read it without an account, read-only.
   await a.getByRole("button", { name: "Share", exact: true }).click();
-  await a.getByRole("dialog").getByRole("combobox", { name: "Who can open the link" }).click();
-  await a.getByRole("option", { name: "Anyone on the web with the link" }).click();
-  await expect(a.getByRole("dialog").getByText(/Published/)).toBeVisible();
+  await a.getByRole("tab", { name: "Publish" }).click();
+  await a.getByRole("dialog").getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(a.getByRole("dialog").getByText("Live on the web")).toBeVisible();
   await a.keyboard.press("Escape");
   const link = (await ops("shares.list", "query", { pageId: page._id })).link as { token: string; public: boolean };
   expect(link.public).toBe(true);

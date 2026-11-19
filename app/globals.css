@@ -237,7 +237,8 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .joy-press { transition: transform 160ms cubic-bezier(.2,.8,.2,1), background-color 150ms ease, box-shadow 150ms ease; }
 .joy-press:active { transform: scale(.97); }
 @keyframes max-tab-settle { from { box-shadow: inset 0 -1px 0 transparent; } to { box-shadow: inset 0 -1px 0 var(--accent); } }
-@keyframes max-panel-arrive { from { opacity: .65; translate: 0 3px; } to { opacity: 1; translate: 0 0; } }
+/* Moves with transform, never `translate`: centered dialogs use `translate` to center themselves. */
+@keyframes max-panel-arrive { from { opacity: .65; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
@@ -293,20 +294,22 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .profile-card-flip { position: relative; display: block; width: 100%; border-radius: 16px; transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform 500ms cubic-bezier(.2,.8,.2,1); outline-offset: 4px; }
 .profile-card[data-active] .profile-card-flip { transition: transform 120ms ease-out; }
 .profile-card-inner { display: grid; transform-style: preserve-3d; transition: transform 700ms cubic-bezier(.3,1.3,.5,1); }
-.profile-card-flip[data-flipped] .profile-card-inner { transform: rotateY(180deg); }
+/* Hovering reveals the back through the front, like looking through the card: no flip. */
+.profile-card-flip .profile-card-face:not(.profile-card-back) { transition: opacity 420ms ease, filter 420ms ease, transform 420ms ease; }
+.profile-card-flip .profile-card-back { opacity: 0; transform: scale(.985); transition: opacity 420ms ease, transform 420ms ease; }
+.profile-card-flip[data-flipped] .profile-card-face:not(.profile-card-back) { opacity: 0; filter: blur(6px); transform: scale(1.01); }
+.profile-card-flip[data-flipped] .profile-card-back { opacity: 1; transform: none; }
 .profile-card-hit { position: absolute; inset: 0; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 16px; }
 .profile-card-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .profile-card-face { grid-area: 1 / 1; display: block; overflow: hidden; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 22px 40px -12px rgb(0 0 0 / .28), 0 4px 10px rgb(0 0 0 / .08); }
 .card-hand { font-family: var(--font-hand), "Segoe Script", "Bradley Hand", cursive; }
 .profile-card-face > svg { display: block; width: 100%; height: auto; }
-.profile-card-back { transform: rotateY(180deg); }
 /* Light that follows the pointer, with a faint foil rainbow, like a laminated member card. */
 .profile-card-glare { grid-area: 1 / 1; pointer-events: none; border-radius: 16px; opacity: 0; transition: opacity 300ms; background:
   radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / .55), rgb(255 255 255 / 0) 45%),
   linear-gradient(115deg, transparent 30%, rgb(255 120 180 / .14) 42%, rgb(120 200 255 / .16) 50%, rgb(160 255 170 / .14) 58%, transparent 70%);
   background-size: 100% 100%, 220% 220%; background-position: 0 0, var(--mx) var(--my); mix-blend-mode: soft-light; }
 .profile-card[data-active] .profile-card-glare { opacity: 1; }
-.profile-card-flip[data-flipped] .profile-card-glare { transform: rotateY(180deg); }
 .card-studio { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; padding-block: 12px; }
 .card-studio-intro { grid-column: 2; grid-row: 1; align-self: end; }
 .card-studio-intro h3 { font-size: 26px; letter-spacing: -.04em; }
@@ -371,6 +374,7 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
   .max-panel { margin: 8px 8px 8px 0; border-radius: 12px; box-shadow: 0 0 0 1px color-mix(in oklch, var(--fg) 7%, transparent), 0 1px 2px rgb(0 0 0 / .05), 0 10px 30px -12px rgb(0 0 0 / .16); overflow: hidden; }
   [dir="rtl"] .max-panel { margin: 8px 0 8px 8px; }
   .max-panel[data-alone] { margin-inline-start: 8px; }
+  .max-panel[data-frame="full"] { margin: 0; border-radius: 0; box-shadow: -1px 0 0 color-mix(in oklch, var(--fg) 7%, transparent); }
   .dark .max-panel { box-shadow: 0 0 0 1px rgb(255 255 255 / .07), 0 10px 30px -12px rgb(0 0 0 / .6); }
 }
 @media (forced-colors: active) { .max-space { background-image: none; } }
@@ -472,7 +476,7 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .squiggle-label { display: flex; align-items: center; gap: 28px; color: var(--fg-2); font-family: var(--font-mono); font-size: 15px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; text-align: center; }
 .squiggle-label > span:not(.squiggle) { flex: none; max-width: 70vw; }
 .mind-eyebrow { margin-bottom: 18px; color: var(--fg-3); font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-.site-header { position: sticky; top: 0; z-index: 30; width: 100%; background: color-mix(in oklch, var(--canvas) 86%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.site-header { position: sticky; top: 0; z-index: 30; width: 100%; background: var(--canvas); }
 .site-header::after { content: ""; position: absolute; inset: auto 0 -5px; height: 10px; background: var(--fg); opacity: .18; pointer-events: none;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='10'%3E%3Cpath d='M0 5 Q6 0 12 5 T24 5' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E") repeat-x left center / 24px 10px;
           mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='10'%3E%3Cpath d='M0 5 Q6 0 12 5 T24 5' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E") repeat-x left center / 24px 10px; }
@@ -504,10 +508,10 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 /* Space editor (after Arc's theme picker). */
 .space-editor { display: grid; gap: 14px; max-width: 380px; padding: 14px; border-radius: 16px; background: var(--surface-1); box-shadow: 0 0 0 1px var(--line); }
 .space-field-wrap { position: relative; }
-.space-modes { position: absolute; top: 10px; left: 50%; z-index: 2; display: flex; gap: 4px; transform: translateX(-50%); }
-.space-mode { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--fg-2); }
-.space-mode:hover { background: var(--hover); }
-.space-mode.is-on { background: color-mix(in oklch, var(--fg) 10%, transparent); color: var(--fg); }
+.space-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.space-mode { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 54px; border-radius: 12px; font-size: 12px; font-weight: 500; color: var(--fg-2); background: var(--surface-2); box-shadow: 0 0 0 1px var(--line); transition: background 120ms, color 120ms, box-shadow 120ms; }
+.space-mode:hover { color: var(--fg); }
+.space-mode.is-on { color: var(--fg); background: var(--overlay); box-shadow: 0 0 0 1.5px var(--fg), 0 2px 6px rgb(0 0 0 / .08); }
 .space-field { position: relative; height: 230px; border-radius: 12px; touch-action: none;
   background: linear-gradient(to bottom, rgb(255 255 255 / .92), rgb(255 255 255 / 0) 85%), linear-gradient(to right, #ff7b7b, #ffc56b, #f8e36a, #8fe0a0, #6fd3e0, #7a9cf5, #b48cf2, #f28cc8, #ff7b7b);
   background-blend-mode: normal; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .06); }
@@ -559,3 +563,21 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
   .site-nav.is-open { transform: none; }
 }
 .admin-stat { padding: 16px; border-radius: 14px; background: var(--surface-1); box-shadow: 0 0 0 1px var(--line); }
+
+/* Better together: calm tiles, one accent mark each. */
+.together-tile { background: var(--surface-1); box-shadow: 0 0 0 1px var(--line); }
+.together-tile:first-child { background: color-mix(in oklch, #ffb52d 9%, var(--surface-1)); }
+.together-mark { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--mark); background: color-mix(in oklch, var(--mark) 16%, transparent); }
+.share-tab { position: relative; height: 32px; padding: 0 8px; font-size: 13.5px; font-weight: 500; color: var(--fg-3); }
+.share-tab:hover { color: var(--fg); }
+.share-tab[aria-selected="true"] { color: var(--fg); }
+.share-tab[aria-selected="true"]::after { content: ""; position: absolute; inset: auto 6px -1px; height: 2px; border-radius: 2px; background: var(--fg); }
+.card-about-from { margin-top: 2px; font-family: var(--font-hand), "Segoe Script", cursive; font-size: 20px; color: var(--fg-2); }
+/* The sidebar scrolls without showing a bar. */
+.scroll-none { scrollbar-width: none; }
+.scroll-none::-webkit-scrollbar { display: none; }
+
+/* The space editor floats over the app, so you can see your space change as you edit it (like Arc). */
+.space-panel { position: fixed; z-index: 60; left: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; scrollbar-width: none; border-radius: 20px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line), 0 24px 60px -20px rgb(0 0 0 / .35); animation: max-panel-arrive 200ms ease-out; }
+.space-panel .space-editor { max-width: none; background: none; box-shadow: none; }
+.workspace-initial { display: inline-grid; place-items: center; flex: none; border-radius: 6px; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--tint-1, #7b8cff), var(--tint-2, #c27bff)); }

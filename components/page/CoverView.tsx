@@ -54,7 +54,8 @@ export function CoverView({
           alt=""
           fill
           sizes={sizes}
-          quality={72}
+          // The page's own cover is big and sharp; small previews stay light.
+          quality={eager ? 90 : 72}
           preload={eager}
           loading={eager ? "eager" : "lazy"}
           fetchPriority={eager ? "high" : "auto"}
