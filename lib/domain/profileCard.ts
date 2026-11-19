@@ -13,6 +13,8 @@ export const profileCardSchema = z.object({
   shape: z.enum(profileCardShapes).default("arch"),
   /** Max join date, assigned by the server from the workspace creation timestamp. */
   createdAt: z.number().nonnegative().max(8_640_000_000_000_000).optional(),
+  /** Your place in line among everyone who joined Max, assigned by the server. */
+  memberNumber: z.number().int().positive().max(1_000_000_000).optional(),
 });
 
 export type ProfileCard = z.infer<typeof profileCardSchema>;

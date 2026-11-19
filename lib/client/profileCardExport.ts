@@ -1,6 +1,6 @@
 import type { ProfileCard } from "@/lib/domain/profileCard";
-import { profileCardSvg } from "@/lib/domain/profileCardImage";
-export { profileCardSvg };
+import { profileCardBackSvg, profileCardSvg } from "@/lib/domain/profileCardImage";
+export { profileCardBackSvg, profileCardSvg };
 
 /** Rasterize locally. Card text never leaves the browser. */
 export async function downloadProfileCardPng(card: ProfileCard): Promise<void> {

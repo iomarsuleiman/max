@@ -51,6 +51,19 @@ export function convexDb(db: Reader | Writer): Db {
         .first();
       return row ? (strip(row) as unknown as Tables["tokens"]) : null;
     },
+    async memberNumber(ownerId: string) {
+      const mine = await db
+        .query("settings")
+        .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
+        .first();
+      if (!mine) return null;
+      // Everyone whose settings row (created when they joined) is older than yours.
+      const earlier = await db
+        .query("settings")
+        .withIndex("by_creation_time", (q) => (q as unknown as { lt(f: string, v: number): typeof q }).lt("_creationTime", Number(mine._creationTime)))
+        .collect();
+      return earlier.length + 1;
+    },
     async updatesAfter(roomId: string, afterSeq: number, limit: number) {
       const rows = await db
         .query("collabUpdates")

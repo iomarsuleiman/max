@@ -27,6 +27,8 @@ export interface Db {
   findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string): Promise<Tables[T][]>;
   /** A live room's updates after `afterSeq`, oldest first (lib/domain/collab.ts). */
   updatesAfter(roomId: string, afterSeq: number, limit: number): Promise<Tables["collabUpdates"][]>;
+  /** Your place in line among everyone who joined Max (1 = first), or null before you've joined. */
+  memberNumber(ownerId: string): Promise<number | null>;
 }
 
 export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness";

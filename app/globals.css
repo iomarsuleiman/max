@@ -291,24 +291,40 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 }
 
 /* Membership cards stay a keepsake size, even on narrow screens. */
-.profile-card { width: 100%; max-width: 248px; margin: auto; overflow: hidden; border-radius: 8px; box-shadow: 0 10px 28px #0002; transition: transform 220ms ease-out; transform-origin: center; }
+.profile-card { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 30%; width: 100%; max-width: 268px; margin: auto; perspective: 900px; }
+.profile-card-flip { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 16px; transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform 500ms cubic-bezier(.2,.8,.2,1); outline-offset: 4px; }
+.profile-card[data-active] .profile-card-flip { transition: transform 120ms ease-out; }
+.profile-card-inner { display: grid; transform-style: preserve-3d; transition: transform 700ms cubic-bezier(.3,1.3,.5,1); }
+.profile-card-flip[data-flipped] .profile-card-inner { transform: rotateY(180deg); }
+.profile-card-flip:focus-visible { outline: 2px solid var(--accent); }
+.profile-card-face { grid-area: 1 / 1; display: block; overflow: hidden; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 22px 40px -12px rgb(0 0 0 / .28), 0 4px 10px rgb(0 0 0 / .08); }
+.card-hand { font-family: var(--font-hand), "Segoe Script", "Bradley Hand", cursive; }
+.profile-card-face > svg { display: block; width: 100%; height: auto; }
+.profile-card-back { transform: rotateY(180deg); }
+/* Light that follows the pointer, with a faint foil rainbow, like a laminated member card. */
+.profile-card-glare { grid-area: 1 / 1; pointer-events: none; border-radius: 16px; opacity: 0; transition: opacity 300ms; background:
+  radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / .55), rgb(255 255 255 / 0) 45%),
+  linear-gradient(115deg, transparent 30%, rgb(255 120 180 / .14) 42%, rgb(120 200 255 / .16) 50%, rgb(160 255 170 / .14) 58%, transparent 70%);
+  background-size: 100% 100%, 220% 220%; background-position: 0 0, var(--mx) var(--my); mix-blend-mode: soft-light; }
+.profile-card[data-active] .profile-card-glare { opacity: 1; }
+.profile-card-flip[data-flipped] .profile-card-glare { transform: rotateY(180deg); }
 .card-studio { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; padding-block: 12px; }
 .card-studio-intro { grid-column: 2; grid-row: 1; align-self: end; }
 .card-studio-intro h3 { font-size: 26px; letter-spacing: -.04em; }
 .card-studio-preview { grid-row: 1 / span 2; display: grid; justify-items: center; gap: 16px; min-width: 0; perspective: 800px; }
-.card-outline { position: relative; width: 100%; max-width: 276px; padding: 16px 13px 13px; border: 1px dashed var(--line-strong); }
+.card-outline { position: relative; width: 100%; max-width: 296px; padding: 16px 13px 13px; border: 1px dashed var(--line-strong); }
 .card-outline-label { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 0 7px; color: var(--fg-3); background: var(--overlay); font: 9px/12px var(--font-mono); letter-spacing: .06em; }
 .card-studio-controls { display: grid; gap: 16px; min-width: 0; align-self: start; }
 @media(max-width: 600px) {
  .card-studio { grid-template-columns: minmax(0,1fr); gap: 24px; }
  .card-studio-intro { grid-column: 1; grid-row: 1; }
  .card-studio-preview { grid-row: 2; }
- .profile-card { max-width: 210px; }
- .card-outline { max-width: 238px; }
+ .profile-card { max-width: 230px; }
+ .card-outline { max-width: 258px; }
  .card-studio-controls input, .card-studio-controls textarea { font-size: 16px; }
 }
-@media(prefers-reduced-motion: reduce) { .profile-card { transform: none !important; transition: none; } }
-[data-reduce-motion="on"] .profile-card { transform: none !important; }
+@media(prefers-reduced-motion: reduce) { .profile-card-flip, .profile-card-inner { transition: none; } .profile-card-glare { display: none; } }
+[data-reduce-motion="on"] .profile-card-flip, [data-reduce-motion="on"] .profile-card-inner { transition: none; }
 
 /* A scalloped edge and oversized real captures clipped at the viewport side. */
 .landing-system { --landing-section: #fff; }

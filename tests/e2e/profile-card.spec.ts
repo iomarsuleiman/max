@@ -11,6 +11,7 @@ test("profile card previews, saves and persists across reload", async ({ page })
   await expect(settings.getByLabel("About you", { exact: true })).toHaveCount(0);
   await expect(settings.getByLabel("Card name", { exact: true })).toHaveCount(0);
   const preview = settings.getByRole("article", { name: "Your profile card preview" });
+  await expect(preview).toContainText(/NO\. \d{6}/);
   const before = await preview.innerHTML();
   await settings.getByRole("button", { name: "Change" }).click();
   expect(await preview.innerHTML()).not.toBe(before);
@@ -28,6 +29,15 @@ test("profile card previews, saves and persists across reload", async ({ page })
   const issued = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(data.profileCard.createdAt);
   await expect(preview).toContainText(issued);
   await expect(preview).not.toContainText("YOUR WORKSPACE CARD");
+  // The card flips to a handwritten member number, join date and an invite.
+  await expect(preview).toContainText(/NO\. \d{6}/);
+  await preview.getByRole("button", { name: "Show the back of the card" }).click();
+  await expect(preview.getByRole("button", { name: "Show the front of the card" })).toHaveAttribute("aria-pressed", "true");
+  await expect(preview).toContainText(/#\d+/);
+  await expect(preview).toContainText("joined Max on");
+  await expect(preview).toContainText("You're invited");
+  await expect(settings.getByRole("button", { name: "Enable phone tilt" })).toHaveCount(0);
+  await settings.getByRole("button", { name: "Show front" }).click();
   await page.reload();
   await expect(settings.getByLabel("Name", { exact: true })).toHaveValue("عمر Omar");
   expect(
@@ -48,6 +58,14 @@ test("profile card previews, saves and persists across reload", async ({ page })
   expect((await readFile(path!)).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
   const png = PNG.sync.read(await readFile(path!));
   const scanned = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
-  expect(scanned?.data).toBe("https://max.chaos.fail");
+  // The QR is an invite to Max that names the member only by number.
+  expect(scanned?.data).toMatch(/^https:\/\/max\.chaos\.fail\/join\?from=\d+$/);
   await file.saveAs("test-results/max-workspace-card.png");
+});
+
+test("the card's QR opens an invitation to Max", async ({ page }) => {
+  await page.goto("/join?from=42");
+  await expect(page.getByText("You're invited")).toBeVisible();
+  await expect(page.getByText("#42")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Join Max" })).toBeVisible();
 });

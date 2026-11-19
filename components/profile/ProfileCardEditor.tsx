@@ -8,6 +8,7 @@ import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { defaultProfileCard, profileCardSchema, profileCardThemes, profileCardShapes, type ProfileCard as Card } from "@/lib/domain/profileCard";
 import { ProfileCard } from "./ProfileCard";
 import { downloadProfileCardPng } from "@/lib/client/profileCardExport";
+import { useOp } from "@/lib/client/data";
 
 export function ProfileCardEditor() {
   const ws = useWorkspace();
@@ -17,11 +18,15 @@ export function ProfileCardEditor() {
     const initial = saved.success ? { ...saved.data, name: ws.settings?.displayName?.trim() || saved.data.name } : defaultProfileCard(ws.settings?.displayName || ws.identity.name);
     return { ...initial, createdAt: ws.settings?.joinedAt ?? initial.createdAt };
   });
+  // Your place among everyone who joined Max, shown on the card (computed by the server).
+  const member = useOp<{ memberNumber: number | null }>("profileCard.get", {});
+  const memberNumber = member.data?.memberNumber ?? undefined;
+  const shown = { ...card, memberNumber };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const parsed = profileCardSchema.safeParse(card);
+    const parsed = profileCardSchema.safeParse({ ...card, memberNumber: undefined });
     if (!parsed.success) {
       setError(parsed.error.issues[0].message);
       return;
@@ -47,7 +52,7 @@ export function ProfileCardEditor() {
       <div className="card-studio-preview">
         <div className="card-outline">
           <span className="card-outline-label">YOUR MAX MEMBERSHIP CARD</span>
-          <ProfileCard card={card} />
+          <ProfileCard card={shown} />
         </div>
         <Button
           icon={<Shuffle className="size-4" />}
@@ -60,7 +65,7 @@ export function ProfileCardEditor() {
         >
           Change
         </Button>
-        <p className="text-fg-3 text-center text-xs">The QR opens Max. Your workspace stays private.</p>
+        <p className="text-fg-3 text-center text-xs">Click the card to flip it. The QR invites people to Max; your workspace stays private.</p>
       </div>
       <div className="card-studio-controls">
         <Field label="Name" htmlFor={`${id}-name`} help="Used on your card and throughout Max.">
@@ -80,7 +85,7 @@ export function ProfileCardEditor() {
             onClick={async () => {
               setBusy(true);
               try {
-                await downloadProfileCardPng(card);
+                await downloadProfileCardPng(shown);
               } catch (err) {
                 notifyError(err, "Couldn't download your card.");
               } finally {
