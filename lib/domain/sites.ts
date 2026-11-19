@@ -15,6 +15,8 @@ const MAX_PAGES = 2000;
 export async function siteBySlug(db: Db, slug: string): Promise<SiteRow> {
   const site = (await db.findBy("sites", "slug", slug.toLowerCase()))[0];
   if (!site) throw notFound("site");
+  // Sites of banned accounts go offline.
+  if ((await db.list("moderation", site.ownerId)).some((m) => m.status === "banned")) throw notFound("site");
   return site;
 }
 

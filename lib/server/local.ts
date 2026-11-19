@@ -202,3 +202,36 @@ export async function runLocalSites(call: { fn: "nav" | "read" | "search"; slug:
   if (call.fn === "search") return sites.siteSearch(s.db, call.slug, call.q ?? "");
   return sites.siteRead(s.db, localStorageAdapter, call.slug, String(call.op), call.args, Date.now());
 }
+
+type AdminCall =
+  | { fn: "check" }
+  | { fn: "overview" }
+  | { fn: "reports" }
+  | { fn: "setStatus"; userId: string; status: "active" | "suspended" | "banned"; reason: string }
+  | { fn: "setReport"; id: string; status: "open" | "resolved" }
+  | { fn: "report"; kind: "bug" | "content" | "other"; message: string; url?: string | null; pageId?: string | null; siteSlug?: string | null };
+
+/** Local mode's admin dashboard: the person who runs this server (the local owner) is the admin. */
+export async function runLocalAdmin(call: AdminCall, actor: { id: string; name: string }) {
+  const s = state();
+  await s.db.load();
+  const admin = await import("@/lib/domain/admin");
+  const isAdmin = actor.id === LOCAL_OWNER;
+  const write = async (fn: () => Promise<unknown>) => {
+    const run = s.lock.then(async () => {
+      const result = await s.db.transaction(fn);
+      await s.db.persist();
+      s.events.emit("change", { op: "admin", source: "ui" });
+      return result;
+    });
+    s.lock = run.catch(() => undefined);
+    return run;
+  };
+  if (call.fn === "check") return { admin: isAdmin };
+  if (call.fn === "report") return write(() => admin.submitReport(s.db, { id: actor.id, name: actor.name, email: null }, call, Date.now()));
+  if (!isAdmin) throw new (await import("@/lib/domain/errors")).MaxError("FORBIDDEN", "This page is for Max's admins.");
+  if (call.fn === "overview") return admin.adminOverview(s.db, Date.now());
+  if (call.fn === "reports") return admin.listReports(s.db);
+  if (call.fn === "setStatus") return write(() => admin.setModeration(s.db, actor.id, call.userId, call.status, call.reason ?? "", Date.now()));
+  return write(() => admin.setReportStatus(s.db, call.id, call.status, Date.now()));
+}

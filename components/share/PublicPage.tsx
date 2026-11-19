@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ReportDialog } from "@/components/admin/ReportDialog";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -173,11 +174,24 @@ function Frame({ crumbs = [], duplicateHref, children }: { crumbs?: { title: str
             <Copy className="size-4" /> Duplicate
           </Link>
         )}
+        <ReportLink />
         <Link href="/" className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] text-fg-2 hover:bg-hover hover:text-fg">
           <LogoMark className="size-4" /> Made with Max
         </Link>
       </header>
       <main>{children}</main>
     </div>
+  );
+}
+
+function ReportLink() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="shrink-0 rounded-md px-2 py-1 text-[12.5px] text-fg-3 hover:bg-hover hover:text-fg">
+        Report
+      </button>
+      {open && <ReportDialog open={open} onOpenChange={setOpen} defaultKind="content" />}
+    </>
   );
 }

@@ -118,7 +118,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   useEffect(() => {
     if (initRan.current || !settingsQ.data || settingsQ.data.settings.onboarded) return;
     initRan.current = true;
-    call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null, invitedBy: readInviter() })
+    call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null, invitedBy: readInviter(), email: identity.email ?? null })
       .then((r) => {
         if (r.welcomeId && (pathname === "/home" || pathname === "/")) {
           const query = params.toString();

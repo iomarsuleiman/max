@@ -12,6 +12,30 @@ Notion-style page sharing works in Max itself once the backend is deployed (step
 
 People you share with find the page under **Shared** in their sidebar, see who else has it open, and comment with their name. Shared pages are edited live: everyone types in the same page at once and sees each other's named cursors, and Max saves the merged page every second or so. If an assistant or a history restore changes the page meanwhile, everyone's editor reloads with the new content. Anyone a page is shared with (or who has a published link) can **Duplicate** it into their own workspace. Only you (or people with full access) can change sharing. Assistants connected over MCP can too, with `shares_list`, `shares_inviteByEmail`, `shares_update`, `shares_remove` and `shares_setLink`. For names and pictures to appear, the Convex JWT template in Clerk should include `name` and `picture` (Clerk's Convex template does by default).
 
+## Admin dashboard
+
+Max's admins get an **Admin** link in the sidebar (`/admin`): everyone's accounts with how they use Max, suspending (read-only) or banning (no access, published sites go offline) with a reason the person sees, and the inbox of problems reported from the app ("Report a problem") and from published pages and sites ("Report this page"). Admins are listed by sign-in email in Convex:
+
+```bash
+npx convex env set MAX_ADMIN_EMAILS you@example.com --prod
+```
+
+Separate several with commas. In local mode, whoever runs the server is the admin.
+
+## Websites from pages
+
+"Publish as a site…" in a page's ⋯ menu publishes the page and everything inside it at `/site/<address>`. For `<address>.max.chaos.fail` too, add the wildcard domain `*.max.chaos.fail` to the Vercel project (Settings → Domains, with the DNS record Vercel shows), then set:
+
+```bash
+npx vercel env add SITES_DOMAIN production
+```
+
+Enter `max.chaos.fail` when prompted, then redeploy.
+
+## The note on the back of membership cards
+
+New members who weren't invited get a handwritten note from Max's maker. Write it in your own words, and sign it, in `lib/welcomeNote.ts`.
+
 The rest of this runbook is about the separate Max 2.0 *workspace* features (teams, members, shared databases, automations), which stay behind flags.
 
 ## What you get today

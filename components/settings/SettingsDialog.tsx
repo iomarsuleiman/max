@@ -26,6 +26,7 @@ import { NotionConnection } from "./NotionConnection";
 import { ProfileCardEditor } from "@/components/profile/ProfileCardEditor";
 import { INVITE_NOTE, MAX_NOTE_CHARS, writeNote } from "@/lib/welcomeNote";
 import { SpaceEditor } from "./SpaceEditor";
+import { ReportDialog } from "@/components/admin/ReportDialog";
 
 const NAV: { id: SettingsSection; label: string; icon: ReactNode; group: "Account" | "Workspace"; keywords: string }[] = [
   { id: "account", label: "My account", icon: <Doodle icon={User} color={DOODLE.pink} size={15} />, group: "Account", keywords: "name email sign out delete account profile" },
@@ -859,6 +860,18 @@ function InviteFriends() {
   );
 }
 
+function ReportButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        Report
+      </Button>
+      {open && <ReportDialog open={open} onOpenChange={setOpen} />}
+    </>
+  );
+}
+
 function AboutSection() {
   const { s } = useSettings();
   return (
@@ -873,6 +886,9 @@ function AboutSection() {
       <Group>
         <SettingRow title="Version" description={VERSION}><span /></SettingRow>
         <SettingRow title="Mode" description={CLOUD ? "Cloud: accounts and sync" : "Local: private workspace on this server"}><span /></SettingRow>
+        <SettingRow title="Report a problem" description="Something broken, or something that shouldn't be here? Tell the people who run Max.">
+          <ReportButton />
+        </SettingRow>
         <SettingRow title="Privacy" description="What Max stores and how to delete it."><a className="text-[13px] underline underline-offset-2" href="/privacy" target="_blank">Read</a></SettingRow>
         <SettingRow title="Source code" description="Max is open source under the AGPL-3.0 license."><a className="text-[13px] underline underline-offset-2" href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a></SettingRow>
       </Group>

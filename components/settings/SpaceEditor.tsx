@@ -76,7 +76,7 @@ export function SpaceEditor() {
     <div className="space-editor">
       <div className="space-field-wrap">
         <div className="space-modes" role="radiogroup" aria-label="Appearance">
-          {([["system", Sparkles, "Match my device"], ["light", Sun, "Light"], ["dark", Moon, "Dark"]] as const).map(([v, Icon, label]) => (
+          {([["system", Sparkles, "Match my device"], ["light", Sun, "Use light mode"], ["dark", Moon, "Use dark mode"]] as const).map(([v, Icon, label]) => (
             <button key={v} type="button" role="radio" aria-checked={(theme ?? "system") === v} aria-label={label} title={label} onClick={() => { setTheme(v); void ws.call("settings.update", { theme: v }).catch(() => undefined); }} className={cn("space-mode", (theme ?? "system") === v && "is-on")}>
               <Icon className="size-4" />
             </button>

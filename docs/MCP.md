@@ -31,6 +31,7 @@ Every operation the app performs is a tool, generated from the same registry. Th
 | --- | --- | --- | --- |
 | `—` | Delete all my data | UI only | Permanently deletes every page, database, file, token, setting and log in this account. This cannot be undone. |
 | `account_init` | Set up workspace | Write | Prepares a new workspace on first sign-in (preferences and a welcome page). Safe to call again; does nothing once set up. |
+| `account_standing` | My account's standing | Read | Whether an admin has suspended (read-only) or banned this account, and the reason they gave. |
 | `assets_createUploadUrl` | Start an upload | Write | Returns a short-lived URL. POST the file body to it (with its Content-Type), then call assets.register with the returned storageId. |
 | `assets_getUrl` | Get file URL | Read | Resolves a max-asset:// id to a URL the owner can load. |
 | `assets_list` | List files | Read | Uploaded files, optionally for one page, with total storage used. |

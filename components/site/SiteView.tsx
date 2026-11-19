@@ -16,6 +16,8 @@ import { PageIcon } from "@/components/workspace/PageIcon";
 import { CoverView } from "@/components/page/CoverView";
 import { PublicDatabase } from "@/components/share/PublicPage";
 import { ThemeToggle } from "@/components/marketing/ThemeToggle";
+import { ReportDialog } from "@/components/admin/ReportDialog";
+import { APP_URL } from "@/lib/config";
 import type { PageRef } from "@/components/editor/blocks";
 
 const MaxEditor = dynamic(() => import("@/components/editor/MaxEditor"), { ssr: false, loading: () => <Skeleton className="h-40" /> });
@@ -52,6 +54,7 @@ function SiteFrame({ data, pageId, hrefFor, nav }: { data: SiteNav; pageId: stri
   const { site } = data;
   const [menu, setMenu] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const pathname = usePathname();
   useEffect(() => setMenu(false), [pathname]);
   useEffect(() => {
@@ -108,9 +111,14 @@ function SiteFrame({ data, pageId, hrefFor, nav }: { data: SiteNav; pageId: stri
             </button>
           </div>
           <NavTree items={order.kids} parent={null} depth={0} current={pageId} hrefFor={hrefFor} />
-          <a href="/" className="site-made">
-            <LogoMark className="size-3.5" /> Made with Max
-          </a>
+          <div className="site-made">
+            <a href={APP_URL} className="inline-flex items-center gap-1.5 hover:text-fg">
+              <LogoMark className="size-3.5" /> Made with Max
+            </a>
+            <button type="button" className="ms-auto hover:text-fg" onClick={() => setReporting(true)}>
+              Report this site
+            </button>
+          </div>
         </nav>
         {menu && <button type="button" className="site-scrim lg:hidden" aria-label="Close navigation" onClick={() => setMenu(false)} />}
         <main className="site-main">
@@ -134,6 +142,7 @@ function SiteFrame({ data, pageId, hrefFor, nav }: { data: SiteNav; pageId: stri
         </main>
       </div>
       {searching && <SiteSearch slug={site.slug} hrefFor={hrefFor} onClose={() => setSearching(false)} />}
+      {reporting && <ReportDialog open={reporting} onOpenChange={setReporting} defaultKind="content" context={{ siteSlug: site.slug, pageId }} />}
     </div>
   );
 }

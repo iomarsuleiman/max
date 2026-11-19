@@ -31,6 +31,8 @@ export interface Db {
   memberNumber(ownerId: string): Promise<number | null>;
   /** The account with this member number, or null. */
   memberByNumber(n: number): Promise<string | null>;
+  /** Admins only (lib/domain/admin.ts): every row of a table across all accounts, newest first. */
+  listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number): Promise<Tables[T][]>;
 }
 
 export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites";

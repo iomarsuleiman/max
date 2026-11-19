@@ -196,6 +196,8 @@ export interface SettingsRow {
   profileCardOnboarded?: boolean;
   /** The account that invited this one (through a card's invite link), if any. */
   invitedBy?: string | null;
+  /** The sign-in email, recorded at setup so admins can recognise accounts. */
+  email?: string | null;
   /** This person's handwritten note for the people they invite. */
   inviteNote?: string | null;
   /** The color of buttons, links and highlights. */
@@ -325,6 +327,34 @@ export interface ShareLinkRow {
 }
 
 /** Who has a page open right now (heartbeat, expires after ~45 s). */
+/** A problem someone reported: a bug, or abusive content on a published page or site. */
+export interface ReportRow {
+  _id: string;
+  /** Reports aren't owned by a workspace; this is always "reports" (the admin's inbox). */
+  ownerId: string;
+  reporterId: string | null;
+  reporterName: string | null;
+  reporterEmail: string | null;
+  kind: "bug" | "content" | "other";
+  message: string;
+  url: string | null;
+  pageId: string | null;
+  siteSlug: string | null;
+  status: "open" | "resolved";
+  createdAt: number;
+  resolvedAt: number | null;
+}
+
+/** An admin's decision about an account: suspended (read-only) or banned (no access). */
+export interface ModerationRow {
+  _id: string;
+  ownerId: string;
+  status: "suspended" | "banned";
+  reason: string;
+  by: string;
+  updatedAt: number;
+}
+
 /** A page (and everything inside it) published as a website, at /site/<slug> or <slug>.<domain>. */
 export interface SiteRow {
   _id: string;
@@ -403,6 +433,8 @@ export interface Tables {
   shareLinks: ShareLinkRow;
   presence: PresenceRow;
   sites: SiteRow;
+  reports: ReportRow;
+  moderation: ModerationRow;
   collabRooms: CollabRoomRow;
   collabUpdates: CollabUpdateRow;
   collabAwareness: CollabAwarenessRow;
