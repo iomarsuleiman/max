@@ -9,11 +9,16 @@ import { useRouter } from "next/navigation";
 import { ArrowUpRight, FileQuestion, Link2, Lock, MessageSquare, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Notice, Skeleton, cn } from "@/components/ui";
-import { useOp } from "@/lib/client/data";
+import { ShareScope, useOp, useSharing } from "@/lib/client/data";
 import { pageTitle, timeAgo } from "@/lib/client/format";
 import { useAssetResolver, useUploader } from "@/lib/client/upload";
 import type { DocumentGetResult, PageGetResult, PageSummary } from "@/lib/client/types";
-import { confirmPermanentDelete, notifyError, useWorkspace } from "@/components/workspace/context";
+import { ScopedWorkspace, confirmPermanentDelete, notifyError, useWorkspace } from "@/components/workspace/context";
+import { PageAccessProvider, can, useLinkToken, usePageAccess } from "@/components/share/access";
+import { ShareMenu } from "@/components/share/ShareMenu";
+import { PresenceStack } from "@/components/share/Presence";
+import { SHARING_ENABLED } from "@/lib/config";
+import type { ShareLevel } from "@/lib/domain/types";
 import { Topbar } from "@/components/workspace/Topbar";
 import { PageIcon } from "@/components/workspace/PageIcon";
 import type { MaxEditorType, PageRef } from "@/components/editor/blocks";
@@ -48,7 +53,37 @@ function EditorSkeleton() {
   );
 }
 
-export function PageView({ pageId, renderHeader }: { pageId: string; renderHeader?: (data: PageGetResult) => React.ReactNode }) {
+interface AccessInfo {
+  you: string;
+  level: ShareLevel | "owner";
+  ownerId: string;
+  ownerName: string | null;
+  rootId: string | null;
+}
+
+/**
+ * Opens a page: your own directly, or one shared with you inside a share scope, where every
+ * operation is checked against your level on the server (see lib/domain/sharing.ts).
+ */
+export function PageView(props: { pageId: string; renderHeader?: (data: PageGetResult) => React.ReactNode }) {
+  const linkToken = useLinkToken();
+  const access = useSharing<AccessInfo>("access", { pageId: props.pageId, linkToken });
+  const level = access.data?.level;
+  const scope = useMemo(() => (level && level !== "owner" ? { pageId: props.pageId, linkToken } : null), [level, props.pageId, linkToken]);
+  if (!scope) return <PageViewInner {...props} accessPending={access.isLoading} />;
+  return (
+    <ShareScope value={scope}>
+      <ScopedWorkspace>
+        <PageAccessProvider value={{ level: level as ShareLevel, shared: true, you: access.data?.you, ownerName: access.data?.ownerName ?? null }}>
+          <PageViewInner {...props} />
+        </PageAccessProvider>
+      </ScopedWorkspace>
+    </ShareScope>
+  );
+}
+
+function PageViewInner({ pageId, renderHeader, accessPending }: { pageId: string; renderHeader?: (data: PageGetResult) => React.ReactNode; accessPending?: boolean }) {
+  const access = usePageAccess();
   const embedded = !!renderHeader;
   const ws = useWorkspace();
   const router = useRouter();
@@ -75,10 +110,10 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
   // Recents.
   const touched = useRef(false);
   useEffect(() => {
-    if (!page || touched.current || page.archivedAt) return;
+    if (!page || touched.current || page.archivedAt || access.shared) return;
     touched.current = true;
     void ws.call("pages.touch", { id: pageId }).catch(() => undefined);
-  }, [page, pageId, ws]);
+  }, [page, pageId, ws, access.shared]);
 
   useEffect(() => {
     if (!page || embedded) return;
@@ -97,6 +132,19 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
     setActivePageId(pageId);
     return () => setActivePageId(null);
   }, [embedded, pageId, setActivePageId]);
+
+  // While we're still learning whether this page was shared with you, a "not found" is premature.
+  if (q.error && accessPending) {
+    return (
+      <>
+        <Topbar crumbs={[]} />
+        <div className="mx-auto w-full max-w-[720px] px-4 pt-20 sm:px-12">
+          <Skeleton className="mb-6 h-10 w-2/3" />
+          <EditorSkeleton />
+        </div>
+      </>
+    );
+  }
 
   if (q.error) {
     return (
@@ -131,7 +179,7 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
   }
 
   const data = q.data;
-  const readOnly = !!page.archivedAt || page.locked;
+  const readOnly = !!page.archivedAt || page.locked || !can(access, "edit");
   const commentsEnabled = !isDatabase && !page.isTemplate;
   const widthClass = page.fullWidth ? "max-w-none sm:px-24" : "max-w-[760px]";
   const crumbs = data.breadcrumbs.map((b) => ({ _id: b._id, title: b.title, icon: b.icon, kind: b.kind }));
@@ -189,11 +237,18 @@ export function PageView({ pageId, renderHeader }: { pageId: string; renderHeade
 
 export function PageTopbarActions({ page, saveSlotId, onToggleComments }: { page: PageGetResult["page"]; saveSlotId: string; onToggleComments?: () => void }) {
   const ws = useWorkspace();
+  const access = usePageAccess();
+  const linkToken = useLinkToken();
   const fav = !!page.favoriteRank;
   const commentCount = useCommentCount(page._id);
+  // Owners only need presence (and its heartbeats) once the page is actually shared.
+  const ownShares = useOp<{ direct: unknown[]; inherited: unknown[]; link: unknown }>("shares.list", SHARING_ENABLED && !access.shared && !page.isTemplate ? { pageId: page._id } : "skip");
+  const isShared = access.shared || !!(ownShares.data && (ownShares.data.direct.length || ownShares.data.inherited.length || ownShares.data.link));
   return (
     <>
       <div id={saveSlotId} className="flex items-center" />
+      {SHARING_ENABLED && <PresenceStack pageId={page._id} linkToken={linkToken} active={isShared && !page.archivedAt} />}
+      {SHARING_ENABLED && !page.archivedAt && <ShareMenu page={page} />}
       {onToggleComments && (
         <button type="button" onClick={onToggleComments} aria-label={`Comments${commentCount ? `, ${commentCount} open` : ""}`} title="Comments (⌘⇧M)" className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[12.5px] text-fg-3 hover:bg-hover hover:text-fg-2">
           <MessageSquare className="size-4" />
@@ -201,7 +256,7 @@ export function PageTopbarActions({ page, saveSlotId, onToggleComments }: { page
         </button>
       )}
       <span className="px-1 text-[12.5px] text-fg-3 max-lg:hidden">Edited {timeAgo(page.updatedAt)}</span>
-      {!page.isTemplate && !page.archivedAt && (
+      {!page.isTemplate && !page.archivedAt && !access.shared && (
         <IconButton label={fav ? "Remove from Favorites" : "Add to Favorites"} size="md" onClick={() => ws.toggleFavorite(page._id, !fav)}>
           <Star className={cn("size-4", fav && "fill-warning text-warning")} />
         </IconButton>
@@ -209,7 +264,7 @@ export function PageTopbarActions({ page, saveSlotId, onToggleComments }: { page
       <IconButton label="Copy link" size="md" className="max-sm:hidden" onClick={() => ws.copyLink(page._id)}>
         <Link2 className="size-4" />
       </IconButton>
-      <PageOptions page={page} />
+      {!access.shared && <PageOptions page={page} />}
     </>
   );
 }

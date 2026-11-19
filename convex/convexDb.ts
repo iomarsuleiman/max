@@ -1,5 +1,5 @@
 import type { GenericDatabaseReader, GenericDatabaseWriter, GenericDataModel, StorageReader, StorageWriter } from "convex/server";
-import type { Db, IndexedField, NewRow, Storage } from "../lib/domain/db";
+import type { CrossField, CrossTable, Db, IndexedField, NewRow, Storage } from "../lib/domain/db";
 import type { TableName, Tables } from "../lib/domain/types";
 
 type Reader = GenericDatabaseReader<GenericDataModel>;
@@ -50,6 +50,13 @@ export function convexDb(db: Reader | Writer): Db {
         .withIndex("by_hash", (q) => q.eq("hash", hash))
         .first();
       return row ? (strip(row) as unknown as Tables["tokens"]) : null;
+    },
+    async findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string) {
+      const rows = await db
+        .query(table)
+        .withIndex(`by_${String(field)}`, (q) => q.eq(field as string, value))
+        .take(500);
+      return rows.map((r) => strip(r) as unknown as Tables[T]);
     },
   };
 }

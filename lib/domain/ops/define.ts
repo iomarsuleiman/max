@@ -8,6 +8,8 @@ export interface OpContext {
   ownerId: string;
   now: number;
   source: Source;
+  /** Who is acting when it isn't the owner (someone the page is shared with). */
+  actor?: { id: string; name: string; image: string | null };
 }
 
 export interface OpDef<I extends z.ZodType = z.ZodType, O = unknown> {

@@ -20,7 +20,15 @@ export interface Db {
   delete(table: TableName, id: string): Promise<void>;
   /** Unscoped lookup used only for credential resolution (token hash). */
   findTokenByHash(hash: string): Promise<Tables["tokens"] | null>;
+  /**
+   * Cross-account lookup for sharing only: shares by grantee or page, links by token or page,
+   * presence by page. Callers must check access before returning anything to a user.
+   */
+  findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string): Promise<Tables[T][]>;
 }
+
+export type CrossTable = "shares" | "shareLinks" | "presence";
+export type CrossField<T extends CrossTable> = T extends "shares" ? "granteeId" | "pageId" : T extends "shareLinks" ? "token" | "pageId" : "pageId";
 
 export type IndexedField<T extends TableName> = T extends "pages"
   ? "parentId" | "databaseId"
@@ -34,7 +42,9 @@ export type IndexedField<T extends TableName> = T extends "pages"
           ? "pageId"
           : T extends "comments"
             ? "pageId"
-            : never;
+            : T extends "shares" | "shareLinks" | "presence"
+              ? "pageId"
+              : never;
 
 export interface Storage {
   /** URL the browser can POST a file body to. */

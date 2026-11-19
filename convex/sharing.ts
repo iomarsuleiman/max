@@ -1,0 +1,83 @@
+import { mutationGeneric, queryGeneric, type GenericMutationCtx, type GenericDataModel } from "convex/server";
+import { ConvexError, v } from "convex/values";
+import { MaxError, serializeError } from "../lib/domain/errors";
+import { accessInfo, executeShared, heartbeat, present, sharedWithMe, type Actor } from "../lib/domain/sharing";
+import { convexDb, convexStorage } from "./convexDb";
+
+/**
+ * Sharing entry points. The caller is always the signed-in Clerk identity; what they may do on
+ * someone else's page is decided by lib/domain/sharing.ts from the share and link tables.
+ */
+
+type Identity = { subject: string; name?: string; givenName?: string; email?: string; pictureUrl?: string };
+
+async function actorOf(ctx: { auth: { getUserIdentity(): Promise<Identity | null> } }): Promise<Actor> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Sign in to open shared pages." });
+  const name = identity.name || identity.givenName || identity.email?.split("@")[0] || "Someone";
+  return { id: identity.subject, name: name.slice(0, 120), image: identity.pictureUrl ?? null };
+}
+
+async function guard<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof ConvexError) throw err;
+    const e = serializeError(err);
+    if (!(err instanceof MaxError)) console.error(JSON.stringify({ level: "error", where: "sharing", message: err instanceof Error ? err.message : String(err) }));
+    throw new ConvexError(e as never);
+  }
+}
+
+const scoped = { scopePageId: v.string(), op: v.string(), args: v.any(), linkToken: v.optional(v.union(v.string(), v.null())) };
+
+export const query = queryGeneric({
+  args: scoped,
+  handler: async (ctx, a) => {
+    const actor = await actorOf(ctx);
+    return guard(() => executeShared(a.op, a.args, { db: convexDb(ctx.db), storage: convexStorage(ctx.storage), actor, now: Date.now(), scopePageId: a.scopePageId, linkToken: a.linkToken }, "query"));
+  },
+});
+
+export const mutation = mutationGeneric({
+  args: scoped,
+  handler: async (ctx, a) => {
+    const actor = await actorOf(ctx);
+    return guard(() =>
+      executeShared(a.op, a.args, { db: convexDb((ctx as GenericMutationCtx<GenericDataModel>).db), storage: convexStorage(ctx.storage), actor, now: Date.now(), scopePageId: a.scopePageId, linkToken: a.linkToken }, "mutation"),
+    );
+  },
+});
+
+export const access = queryGeneric({
+  args: { pageId: v.string(), linkToken: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, a) => {
+    const actor = await actorOf(ctx);
+    return guard(() => accessInfo(convexDb(ctx.db), actor.id, a.pageId, a.linkToken));
+  },
+});
+
+export const withMe = queryGeneric({
+  args: {},
+  handler: async (ctx) => {
+    const actor = await actorOf(ctx);
+    return guard(() => sharedWithMe(convexDb(ctx.db), actor.id));
+  },
+});
+
+export const ping = mutationGeneric({
+  args: { pageId: v.string(), linkToken: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, a) => {
+    const actor = await actorOf(ctx);
+    return guard(() => heartbeat(convexDb(ctx.db), actor, a.pageId, Date.now(), a.linkToken));
+  },
+});
+
+export const here = queryGeneric({
+  args: { pageId: v.string(), linkToken: v.optional(v.union(v.string(), v.null())), at: v.number() },
+  handler: async (ctx, a) => {
+    const actor = await actorOf(ctx);
+    // `at` (rounded by the client) keeps the list fresh as people leave without a write.
+    return guard(() => present(convexDb(ctx.db), actor.id, a.pageId, a.at, a.linkToken));
+  },
+});

@@ -383,9 +383,49 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     source: v.string(),
+    authorId: v.optional(v.union(v.string(), v.null())),
+    authorName: v.optional(v.union(v.string(), v.null())),
+    authorImage: v.optional(v.union(v.string(), v.null())),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_pageId", ["ownerId", "pageId"]),
+  shares: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    granteeId: v.string(),
+    email: v.union(v.string(), v.null()),
+    name: v.union(v.string(), v.null()),
+    image: v.union(v.string(), v.null()),
+    level: v.union(v.literal("view"), v.literal("comment"), v.literal("edit"), v.literal("full_access")),
+    invitedBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_granteeId", ["granteeId"])
+    .index("by_pageId", ["pageId"]),
+  shareLinks: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    token: v.string(),
+    level: v.union(v.literal("view"), v.literal("comment"), v.literal("edit")),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_token", ["token"])
+    .index("by_pageId", ["pageId"]),
+  presence: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    accountId: v.string(),
+    name: v.string(),
+    image: v.union(v.string(), v.null()),
+    at: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"])
+    .index("by_pageId", ["pageId"]),
   versions: defineTable({
     ownerId: v.string(),
     pageId: v.string(),

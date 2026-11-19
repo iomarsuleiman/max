@@ -205,7 +205,7 @@ export function createMcpServer(ownerId: string) {
         resources: ["max://page/{id} (Markdown)"],
         idempotency: "Write tools accept idempotencyKey; repeats within 24 hours return the first result.",
         limits: LIMITS,
-        notAvailable: ["Access tokens and account deletion (manage in Max settings)", "Real-time collaboration or sharing (Max is a private workspace)"],
+        notAvailable: ["Access tokens and account deletion (manage in Max settings)", "Sharing pages with other people (only the owner can, from the Share menu in Max)"],
         errors: ["UNAUTHENTICATED", "NOT_FOUND", "VALIDATION", "CONFLICT", "LIMIT", "CONFIRMATION_REQUIRED", "READ_ONLY", "INTERNAL"],
       };
       return { content: [{ type: "text" as const, text: JSON.stringify(data) }], structuredContent: data };

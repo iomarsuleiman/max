@@ -452,6 +452,9 @@ async function removePageCompletely(ctx: OpContext, page: PageRow) {
   for (const d of docs) await ctx.db.delete("documents", d._id);
   for (const v of await ctx.db.list("versions", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("versions", v._id);
   for (const c of await ctx.db.list("comments", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("comments", c._id);
+  for (const s of await ctx.db.list("shares", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("shares", s._id);
+  for (const l of await ctx.db.list("shareLinks", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("shareLinks", l._id);
+  for (const p of await ctx.db.list("presence", ctx.ownerId, { field: "pageId", value: page._id })) await ctx.db.delete("presence", p._id);
   const assets = await ctx.db.list("assets", ctx.ownerId, { field: "pageId", value: page._id });
   for (const a of assets) {
     await ctx.storage?.remove(a.storageId).catch(() => undefined);

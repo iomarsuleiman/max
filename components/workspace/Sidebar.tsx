@@ -1,7 +1,7 @@
 "use client";
 
 import { pageHref, pageIdFromPath } from "@/lib/pageUrl";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -32,10 +32,11 @@ import {
 import { toast } from "sonner";
 import { IconButton, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Popover, Skeleton, cn } from "@/components/ui";
 import { LogoMark } from "@/components/brand/Logo";
+import { SharedSection } from "@/components/share/SharedSection";
 import { useOp, prefetchOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";
 import type { PageSummary, SettingsRow } from "@/lib/client/types";
-import { CLOUD } from "@/lib/config";
+import { CLOUD, SHARING_ENABLED } from "@/lib/config";
 import { notifyError, useWorkspace } from "./context";
 import { PageIcon } from "./PageIcon";
 import { PageMenu } from "./PageMenu";
@@ -102,6 +103,8 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
           <SortableContext items={shown} strategy={verticalListSortingStrategy}>
             {shown.map((id, i) => (
+              <Fragment key={id}>
+              {id === "pages" && SHARING_ENABLED && <SharedSection />}
               <SidebarSection
                 key={id}
                 id={id}
@@ -123,6 +126,7 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
                 {id === "recents" && <RecentsList />}
                 {id === "pages" && <PagesSection />}
               </SidebarSection>
+              </Fragment>
             ))}
           </SortableContext>
         </DndContext>

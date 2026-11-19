@@ -2,9 +2,21 @@
 
 Max 2.0 ships with every shared-workspace capability switched off. This runbook turns them on in production, in order. Run the commands from your laptop in the Max repository, signed in to Convex (`npx convex login`) and Vercel (`npx vercel login`).
 
+## Sharing pages: no flags needed
+
+Notion-style page sharing works in Max itself once the backend is deployed (step 1 below). Open any page, choose **Share** in the top bar, and:
+
+- invite people by email with **Full access**, **Can edit**, **Can comment** or **Can view** (they need a Max account; sub-pages are shared too);
+- change or remove someone's access from the same list;
+- set **General access** to "Anyone with the link" (view, comment or edit) and copy the link.
+
+People you share with find the page under **Shared** in their sidebar, see who else has it open, and comment with their name. Only you (or people with full access) can change sharing; assistants connected over MCP can't. For names and pictures to appear, the Convex JWT template in Clerk should include `name` and `picture` (Clerk's Convex template does by default).
+
+The rest of this runbook is about the separate Max 2.0 *workspace* features (teams, members, shared databases, automations), which stay behind flags.
+
 ## What you get today
 
-Turning the flags on enables the **shared-workspace backend** (workspaces, members, invitations, page sharing, shared databases, tasks, wiki, links, automations, meeting notes) and the **workspace switcher** in the sidebar with a preview page per workspace. The app does not yet have screens for creating workspaces, inviting people, sharing pages or co-editing: you create and manage workspaces with the `npx convex run` commands below until those screens are built. Personal pages, the editor and the MCP server keep working as before.
+Turning the flags on enables the **shared-workspace backend** (workspaces, members, invitations, page sharing, shared databases, tasks, wiki, links, automations, meeting notes) and the **workspace switcher** in the sidebar with a preview page per workspace. The app does not yet have screens for creating workspaces or managing members: you create and manage workspaces with the `npx convex run` commands below. Page sharing (above) does not need any of this. Personal pages, the editor and the MCP server keep working as before.
 
 ## 1. Deploy the backend
 

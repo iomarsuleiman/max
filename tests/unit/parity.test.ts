@@ -29,9 +29,10 @@ describe("UI ↔ MCP parity", () => {
     expect(missing).toEqual([]);
   });
 
-  it("every UI operation is exposed to MCP clients, except credential and account management", () => {
+  it("every UI operation is exposed to MCP clients, except credential, account and sharing management", () => {
     const uiOnly = [...used].filter((op) => registry.get(op)?.uiOnly).sort();
-    expect(uiOnly).toEqual(["account.deleteAllData", "audit.list", "tokens.create", "tokens.list", "tokens.revoke"]);
+    // Sharing gives other people access to your pages, so only you, in Max, can change it.
+    expect(uiOnly).toEqual(["account.deleteAllData", "audit.list", "shares.invite", "shares.list", "shares.remove", "shares.setLink", "shares.update", "tokens.create", "tokens.list", "tokens.revoke"]);
   });
 
   it("every operation has a description and input schema; destructive ones require confirm", () => {

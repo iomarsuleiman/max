@@ -51,7 +51,20 @@ export const commentsAdd = defineOp({
       const doc = (await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: pageId }))[0];
       if (!findBlock(parseContent(doc?.content ?? "[]"), blockId)) throw new MaxError("NOT_FOUND", "That block isn't on this page anymore.");
     }
-    const row = { ownerId: ctx.ownerId, pageId, blockId, body: text, resolvedAt: null, createdAt: ctx.now, updatedAt: ctx.now, source: ctx.source };
+    const row = {
+      ownerId: ctx.ownerId,
+      pageId,
+      blockId,
+      body: text,
+      resolvedAt: null,
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+      source: ctx.source,
+      // Comments by people the page is shared with carry their name; the owner's stay unsigned as before.
+      authorId: ctx.actor?.id ?? null,
+      authorName: ctx.actor?.name ?? null,
+      authorImage: ctx.actor?.image ?? null,
+    };
     const commentId = await ctx.db.insert("comments", row);
     return { comment: { _id: commentId, ...row } };
   },

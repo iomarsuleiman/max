@@ -1,4 +1,4 @@
-import type { Db, IndexedField, NewRow } from "./db";
+import type { CrossField, CrossTable, Db, IndexedField, NewRow } from "./db";
 import type { TableName, Tables } from "./types";
 
 type State = { [T in TableName]: Map<string, Tables[T]> };
@@ -13,6 +13,9 @@ const emptyState = (): State => ({
   idempotency: new Map(),
   versions: new Map(),
   comments: new Map(),
+  shares: new Map(),
+  shareLinks: new Map(),
+  presence: new Map(),
 });
 
 let counter = 0;
@@ -65,6 +68,14 @@ export class MemoryDb implements Db {
   async findTokenByHash(hash: string) {
     for (const t of this.state.tokens.values()) if (t.hash === hash) return clone(t);
     return null;
+  }
+
+  async findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string) {
+    const out: Tables[T][] = [];
+    for (const row of this.state[table].values() as IterableIterator<Tables[T]>) {
+      if ((row as unknown as Record<string, unknown>)[field as string] === value) out.push(clone(row));
+    }
+    return out;
   }
 
   /** Runs `fn`; on error, restores the state from before it started. */
