@@ -130,6 +130,7 @@ type SharingCall =
   | { fn: "here"; pageId: string; linkToken?: string | null; at: number }
   | { fn: "public"; token: string; scopePageId: string; op: string; args?: unknown }
   | { fn: "duplicate"; pageId: string; linkToken?: string | null }
+  | { fn: "join"; pageId: string; linkToken?: string | null }
   | { fn: "collab"; call: "join" | "pull" | "push" | "awareness" | "commit" | "leave"; args: Record<string, unknown>; linkToken?: string | null };
 
 /** The local twin of convex/sharing.ts. */
@@ -157,6 +158,7 @@ export async function runLocalSharing(call: SharingCall, actor: { id: string; na
   };
   if (call.fn === "ping") return write(() => sharing.heartbeat(s.db, actor, call.pageId, now, call.linkToken));
   if (call.fn === "duplicate") return write(() => sharing.duplicateShared(s.db, actor, call.pageId, now, call.linkToken));
+  if (call.fn === "join") return write(() => sharing.joinByLink(s.db, actor, call.pageId, now, call.linkToken));
   if (call.fn === "collab") {
     const collab = await import("@/lib/domain/collab");
     const c = { db: s.db, actor, now, linkToken: call.linkToken };

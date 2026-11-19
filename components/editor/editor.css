@@ -357,3 +357,6 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
  .lx-editor .bn-block-content[data-content-type="codeBlock"] .bn-inline-content { white-space: pre; overflow-wrap: normal; word-break: normal; }
  .lx-editor .bn-block-content[data-content-type="table"] .tableWrapper { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
 }
+/* With the phone keyboard open, leave room below the last line for the keyboard and formatting row. */
+[data-keyboard="open"] #page-scroll { padding-bottom: calc(var(--keyboard, 0px) + 72px); scroll-padding-bottom: calc(var(--keyboard, 0px) + 72px); }
+@media (max-width: 380px) { .max-touch-formatting .bn-toolbar { overflow-x: auto; justify-content: flex-start; } }

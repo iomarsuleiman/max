@@ -42,7 +42,7 @@ export async function findPerson(email: string): Promise<Person> {
 }
 
 /** Notion's Share menu: invite people, set their access, and choose who else can open the link. */
-export function ShareMenu({ page }: { page: { _id: string; title: string; isTemplate?: boolean } }) {
+export function ShareMenu({ page }: { page: { _id: string; title: string; isTemplate?: boolean; teamspace?: boolean } }) {
   const access = usePageAccess();
   const manage = can(access, "full_access");
   const [open, setOpen] = useState(false);
@@ -85,7 +85,7 @@ function SharedWithYou({ page }: { page: { _id: string; title: string } }) {
   );
 }
 
-function ManageShares({ page }: { page: { _id: string; title: string; isTemplate?: boolean } }) {
+function ManageShares({ page }: { page: { _id: string; title: string; isTemplate?: boolean; teamspace?: boolean } }) {
   const ws = useWorkspace();
   const access = usePageAccess();
   const q = useOp<ShareList>("shares.list", { pageId: page._id });
@@ -201,7 +201,9 @@ function ManageShares({ page }: { page: { _id: string; title: string; isTemplate
                   ? `Set on “${pageTitle(link.fromTitle)}”.`
                   : link.public
                     ? "Published: anyone with the link can read it, no account needed."
-                    : "Anyone signed in to Max with the link can open it."
+                    : page.teamspace
+                      ? "Anyone signed in to Max with the link can open it and join the teamspace."
+                      : "Anyone signed in to Max with the link can open it and add it to their sidebar."
                 : "Only people listed above can open this page."}
             </p>
           </div>
@@ -224,8 +226,8 @@ function ManageShares({ page }: { page: { _id: string; title: string; isTemplate
           <ChevronDown className="size-3.5 -rotate-90" aria-hidden />
           Sub-pages are shared too
         </span>
-        <Button size="sm" variant="secondary" icon={<Link2 className="size-3.5" />} onClick={() => copy(url, link?.public ? "Link copied. Anyone with it can read the page." : link ? "Link copied. Anyone signed in with it can open the page." : "Link copied. Only people with access can open it.")}>
-          Copy link
+        <Button size="sm" variant="secondary" icon={<Link2 className="size-3.5" />} onClick={() => copy(url, link?.public ? "Link copied. Anyone with it can read the page." : link ? (page.teamspace ? "Invite link copied. Anyone signed in with it can join." : "Link copied. Anyone signed in with it can open the page.") : "Link copied. Only people with access can open it.")}>
+          {link && !link.public ? "Copy invite link" : "Copy link"}
         </Button>
       </div>
     </div>

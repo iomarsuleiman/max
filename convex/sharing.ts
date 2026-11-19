@@ -1,7 +1,7 @@
 import { mutationGeneric, queryGeneric, type GenericMutationCtx, type GenericDataModel } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { MaxError, serializeError } from "../lib/domain/errors";
-import { ANONYMOUS, accessInfo, duplicateShared, executeShared, heartbeat, present, sharedWithMe, type Actor } from "../lib/domain/sharing";
+import { ANONYMOUS, accessInfo, duplicateShared, executeShared, heartbeat, joinByLink, present, sharedWithMe, type Actor } from "../lib/domain/sharing";
 import { convexDb, convexStorage } from "./convexDb";
 
 /**
@@ -97,5 +97,14 @@ export const duplicate = mutationGeneric({
   handler: async (ctx, a) => {
     const actor = await actorOf(ctx);
     return guard(() => duplicateShared(convexDb((ctx as GenericMutationCtx<GenericDataModel>).db), actor, a.pageId, Date.now(), a.linkToken));
+  },
+});
+
+/** Accepts a link as an invitation: the page (or teamspace) joins the caller's sidebar. */
+export const join = mutationGeneric({
+  args: { pageId: v.string(), linkToken: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, a) => {
+    const actor = await actorOf(ctx);
+    return guard(() => joinByLink(convexDb((ctx as GenericMutationCtx<GenericDataModel>).db), actor, a.pageId, Date.now(), a.linkToken));
   },
 });

@@ -11,6 +11,8 @@ export interface PageAccess {
   you?: string;
   /** The page owner's display name, on pages shared with you. */
   ownerName?: string | null;
+  /** Visiting through a link: the page (or teamspace) you can join, so it stays in your sidebar. */
+  invite?: { pageId: string; title: string; icon: string | null; teamspace: boolean } | null;
 }
 
 const OWNER: PageAccess = { level: "owner", shared: false };

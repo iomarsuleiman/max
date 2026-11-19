@@ -3,7 +3,7 @@
 import { pageHref } from "@/lib/pageUrl";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronsRight, Menu as MenuIcon } from "lucide-react";
+import { ChevronsRight, Menu as MenuIcon, SquarePen } from "lucide-react";
 import { IconButton, Tooltip, cn } from "@/components/ui";
 import { pageTitle } from "@/lib/client/format";
 import { useWorkspace } from "./context";
@@ -56,6 +56,10 @@ export function Topbar({ crumbs, children, className }: { crumbs: Crumb[]; child
         </ol>
       </nav>
       <div className="flex shrink-0 items-center gap-1">{children}</div>
+      {/* Phones: a new page is one tap away, without opening the menu. */}
+      <IconButton label="New page" size="md" className="md:hidden" onClick={() => void ws.createPage()}>
+        <SquarePen className="size-4" />
+      </IconButton>
     </header>
   );
 }

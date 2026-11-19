@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { setup } from "./harness";
-import { ANONYMOUS, accessInfo, duplicateShared, executeShared, heartbeat, present, sharedWithMe } from "@/lib/domain/sharing";
+import { ANONYMOUS, accessInfo, joinByLink, duplicateShared, executeShared, heartbeat, present, sharedWithMe } from "@/lib/domain/sharing";
 
 const bob = { id: "user_bob", name: "Bob", image: null };
 const cara = { id: "user_cara", name: "Cara", image: null };
@@ -181,5 +181,25 @@ describe("page sharing", () => {
     const tree = await alice<{ pages: { title: string; teamspace?: boolean }[] }>("pages.tree", {});
     expect(tree.pages.find((p) => p.title === "Family")?.teamspace).toBe(true);
     expect(tree.pages.map((p) => p.title)).toEqual(expect.arrayContaining(["Groceries this week", "Holiday plans"]));
+  });
+
+  it("turns a link into an invitation: joining keeps the page (or teamspace) in your sidebar", async () => {
+    const { h, alice, root, child } = await world();
+    const { page: team } = await alice<{ page: { _id: string } }>("pages.create", { title: "Book club", teamspace: true });
+    await alice("shares.setLink", { pageId: team._id, level: "edit" });
+    // Visiting through the link offers to join; nothing is in the sidebar yet.
+    const info = await accessInfo(h.db, cara.id, team._id);
+    expect(info.invite).toMatchObject({ pageId: team._id, title: "Book club", teamspace: true });
+    expect(await sharedWithMe(h.db, cara.id)).toEqual([]);
+    expect(await joinByLink(h.db, cara, team._id, Date.now())).toMatchObject({ joined: true, teamspace: true });
+    expect(await sharedWithMe(h.db, cara.id)).toEqual([expect.objectContaining({ title: "Book club", teamspace: true, level: "edit" })]);
+    expect((await accessInfo(h.db, cara.id, team._id)).invite).toBeNull();
+    // Joining twice changes nothing; turning the link off doesn't remove a member who joined.
+    expect(await joinByLink(h.db, cara, team._id, Date.now())).toMatchObject({ joined: false });
+    await alice("shares.setLink", { pageId: team._id, level: null });
+    expect((await accessInfo(h.db, cara.id, team._id)).level).toBe("edit");
+    // No link, no joining.
+    await expect(joinByLink(h.db, cara, child._id, Date.now())).rejects.toThrow();
+    void root;
   });
 });

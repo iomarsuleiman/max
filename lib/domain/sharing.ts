@@ -218,7 +218,48 @@ function trimBreadcrumbs(result: unknown, scope: Access) {
 export async function accessInfo(db: Db, callerId: string, pageId: string, linkToken?: string | null) {
   const a = await resolveAccess(db, callerId, pageId, linkToken);
   const owner = a.level === "owner" ? null : (await db.list("settings", a.ownerId))[0];
-  return { you: callerId, level: a.level, ownerId: a.ownerId, ownerName: owner?.displayName ?? null, rootId: a.rootId, pageId: a.page._id, title: a.page.title, icon: a.page.icon, kind: a.page.kind };
+  // Someone visiting through a link (no share of their own) can join: the page, or the teamspace it
+  // belongs to, then stays in their sidebar like an invitation.
+  let invite: { pageId: string; title: string; icon: string | null; teamspace: boolean } | null = null;
+  if (a.level !== "owner" && callerId !== ANONYMOUS) {
+    const ancestors = await chain(db, a.page);
+    const ids = new Set(ancestors.map((p) => p._id));
+    const joined = (await db.findBy("shares", "granteeId", callerId)).some((s) => s.ownerId === a.ownerId && ids.has(s.pageId));
+    if (!joined) {
+      const link = await nearestLink(db, ancestors);
+      const root = link && ancestors.find((p) => p._id === link.pageId);
+      if (root) invite = { pageId: root._id, title: root.title, icon: root.icon, teamspace: !!root.teamspace };
+    }
+  }
+  return { you: callerId, level: a.level, ownerId: a.ownerId, ownerName: owner?.displayName ?? null, rootId: a.rootId, pageId: a.page._id, title: a.page.title, icon: a.page.icon, kind: a.page.kind, invite };
+}
+
+/** The link nearest a page among its ancestors (the page itself first). */
+async function nearestLink(db: Db, ancestors: PageRow[]) {
+  for (const p of ancestors) {
+    const link = (await db.findBy("shareLinks", "pageId", p._id)).find((l) => l.ownerId === p.ownerId);
+    if (link) return link;
+  }
+  return null;
+}
+
+/**
+ * Accepts a link as an invitation: the caller gets their own share (at the link's level) on the page
+ * the link was made for, so it stays in their sidebar (under Teamspaces for a teamspace) even if the
+ * link is turned off later. The owner sees them in the Share menu and can change or remove them.
+ */
+export async function joinByLink(db: Db, actor: Actor, pageId: string, now: number, linkToken?: string | null) {
+  if (actor.id === ANONYMOUS) throw new MaxError("UNAUTHENTICATED", "Sign in to Max to join.");
+  const a = await resolveAccess(db, actor.id, pageId, linkToken);
+  if (a.level === "owner") throw new MaxError("VALIDATION", "This page is already yours.");
+  const ancestors = await chain(db, a.page);
+  const link = await nearestLink(db, ancestors);
+  if (!link) throw new MaxError("FORBIDDEN", "This page isn't open to people with the link.");
+  const existing = (await db.findBy("shares", "granteeId", actor.id)).find((s) => s.ownerId === link.ownerId && s.pageId === link.pageId);
+  const root = ancestors.find((p) => p._id === link.pageId)!;
+  if (existing) return { pageId: root._id, title: root.title, teamspace: !!root.teamspace, joined: false };
+  await db.insert("shares", { ownerId: link.ownerId, pageId: link.pageId, granteeId: actor.id, email: null, name: actor.name, image: actor.image, level: link.public ? "view" : link.level, invitedBy: "link", createdAt: now });
+  return { pageId: root._id, title: root.title, teamspace: !!root.teamspace, joined: true };
 }
 
 /** Pages other people shared with the caller (the share roots), newest first. */
