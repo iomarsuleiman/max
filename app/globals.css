@@ -291,12 +291,13 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 }
 
 /* Membership cards stay a keepsake size, even on narrow screens. */
-.profile-card { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 30%; width: 100%; max-width: 268px; margin: auto; perspective: 900px; }
-.profile-card-flip { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 16px; transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform 500ms cubic-bezier(.2,.8,.2,1); outline-offset: 4px; }
+.profile-card { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 30%; position: relative; width: 100%; max-width: 268px; margin: auto; perspective: 900px; }
+.profile-card-flip { position: relative; display: block; width: 100%; border-radius: 16px; transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform 500ms cubic-bezier(.2,.8,.2,1); outline-offset: 4px; }
 .profile-card[data-active] .profile-card-flip { transition: transform 120ms ease-out; }
 .profile-card-inner { display: grid; transform-style: preserve-3d; transition: transform 700ms cubic-bezier(.3,1.3,.5,1); }
 .profile-card-flip[data-flipped] .profile-card-inner { transform: rotateY(180deg); }
-.profile-card-flip:focus-visible { outline: 2px solid var(--accent); }
+.profile-card-hit { position: absolute; inset: 0; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 16px; }
+.profile-card-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .profile-card-face { grid-area: 1 / 1; display: block; overflow: hidden; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 22px 40px -12px rgb(0 0 0 / .28), 0 4px 10px rgb(0 0 0 / .08); }
 .card-hand { font-family: var(--font-hand), "Segoe Script", "Bradley Hand", cursive; }
 .profile-card-face > svg { display: block; width: 100%; height: auto; }

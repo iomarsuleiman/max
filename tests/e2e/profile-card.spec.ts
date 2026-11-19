@@ -40,6 +40,7 @@ test("profile card previews, saves and persists across reload", async ({ page })
   await settings.getByRole("button", { name: "Show front" }).click();
   await page.reload();
   await expect(settings.getByLabel("Name", { exact: true })).toHaveValue("عمر Omar");
+  await expect(preview).toContainText(/NO\. \d{6}/);
   expect(
     await preview
       .locator("svg")

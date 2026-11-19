@@ -69,20 +69,26 @@ export function ProfileCard({ card }: { card: Card }) {
         onPointerLeave={reset}
         onPointerCancel={reset}
       >
+        <div className="profile-card-flip" data-flipped={flipped || undefined}>
+          <span className="profile-card-inner">
+            <span className="profile-card-face" aria-hidden dangerouslySetInnerHTML={{ __html: front.svg }} />
+            <span className="profile-card-face profile-card-back" aria-hidden dangerouslySetInnerHTML={{ __html: back }} />
+            <span className="profile-card-glare" aria-hidden />
+          </span>
+        </div>
+        {/* An empty button over the card, so its name isn't mixed with the artwork's text. */}
         <button
           type="button"
-          className="profile-card-flip"
-          data-flipped={flipped || undefined}
+          className="profile-card-hit"
           aria-pressed={flipped}
           aria-label={flipped ? "Show the front of the card" : "Show the back of the card"}
           onClick={() => setFlipped((f) => !f)}
-        >
-          <span className="profile-card-inner">
-            <span className="profile-card-face" aria-hidden={flipped} dangerouslySetInnerHTML={{ __html: front.svg }} />
-            <span className="profile-card-face profile-card-back" aria-hidden={!flipped} dangerouslySetInnerHTML={{ __html: back }} />
-            <span className="profile-card-glare" aria-hidden />
-          </span>
-        </button>
+        />
+        <p className="sr-only" aria-live="polite">
+          {flipped
+            ? `Back: member ${card.memberNumber ? `number ${card.memberNumber}` : "number pending"}, joined Max${card.createdAt ? ` on ${new Date(card.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}` : ""}, with a QR code that invites people to Max.`
+            : `Front: ${named.name}${card.subtitle ? `, ${card.subtitle}` : ""}.`}
+        </p>
       </article>
       <div className="flex w-full flex-wrap justify-center gap-2 pt-1">
         <Button size="sm" variant="ghost" icon={<RotateCw className="size-3.5" />} onClick={() => setFlipped((f) => !f)}>
