@@ -8,9 +8,9 @@ Notion-style page sharing works in Max itself once the backend is deployed (step
 
 - invite people by email with **Full access**, **Can edit**, **Can comment** or **Can view** (they need a Max account; sub-pages are shared too);
 - change or remove someone's access from the same list;
-- set **General access** to "Anyone with the link" (view, comment or edit) and copy the link.
+- set **General access** to "Anyone in Max with the link" (view, comment or edit), or "Anyone on the web with the link" to publish it read-only at `/s/…` for people without an account, and copy the link.
 
-People you share with find the page under **Shared** in their sidebar, see who else has it open, and comment with their name. Only you (or people with full access) can change sharing; assistants connected over MCP can't. For names and pictures to appear, the Convex JWT template in Clerk should include `name` and `picture` (Clerk's Convex template does by default).
+People you share with find the page under **Shared** in their sidebar, see who else has it open, and comment with their name. Shared pages are edited live: everyone types in the same page at once and sees each other's named cursors, and Max saves the merged page every second or so. If an assistant or a history restore changes the page meanwhile, everyone's editor reloads with the new content. Anyone a page is shared with (or who has a published link) can **Duplicate** it into their own workspace. Only you (or people with full access) can change sharing. Assistants connected over MCP can too, with `shares_list`, `shares_inviteByEmail`, `shares_update`, `shares_remove` and `shares_setLink`. For names and pictures to appear, the Convex JWT template in Clerk should include `name` and `picture` (Clerk's Convex template does by default).
 
 The rest of this runbook is about the separate Max 2.0 *workspace* features (teams, members, shared databases, automations), which stay behind flags.
 

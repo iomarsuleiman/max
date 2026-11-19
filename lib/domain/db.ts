@@ -25,10 +25,18 @@ export interface Db {
    * presence by page. Callers must check access before returning anything to a user.
    */
   findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string): Promise<Tables[T][]>;
+  /** A live room's updates after `afterSeq`, oldest first (lib/domain/collab.ts). */
+  updatesAfter(roomId: string, afterSeq: number, limit: number): Promise<Tables["collabUpdates"][]>;
 }
 
-export type CrossTable = "shares" | "shareLinks" | "presence";
-export type CrossField<T extends CrossTable> = T extends "shares" ? "granteeId" | "pageId" : T extends "shareLinks" ? "token" | "pageId" : "pageId";
+export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness";
+export type CrossField<T extends CrossTable> = T extends "shares"
+  ? "granteeId" | "pageId"
+  : T extends "shareLinks"
+    ? "token" | "pageId"
+    : T extends "collabUpdates"
+      ? "roomId"
+      : "pageId";
 
 export type IndexedField<T extends TableName> = T extends "pages"
   ? "parentId" | "databaseId"
@@ -42,7 +50,7 @@ export type IndexedField<T extends TableName> = T extends "pages"
           ? "pageId"
           : T extends "comments"
             ? "pageId"
-            : T extends "shares" | "shareLinks" | "presence"
+            : T extends "shares" | "shareLinks" | "presence" | "collabRooms" | "collabAwareness"
               ? "pageId"
               : never;
 

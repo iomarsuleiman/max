@@ -13,6 +13,8 @@ import { MaxError, notFound } from "./errors";
 import type { Db, Storage } from "./db";
 import { execute } from "./ops";
 import type { PageRow, ShareLevel, Source } from "./types";
+import { LIMITS, depthOf, descendants } from "./ops/helpers";
+import { compareRank, rankBetween } from "./rank";
 
 export const LEVELS: ShareLevel[] = ["view", "comment", "edit", "full_access"];
 const rank = (level: ShareLevel | "owner" | null) => (level === "owner" ? 99 : level ? LEVELS.indexOf(level) : -1);
@@ -51,10 +53,14 @@ async function chain(db: Db, page: PageRow): Promise<PageRow[]> {
 }
 
 /** What `callerId` may do on `pageId`. Trashed pages aren't reachable through shares. */
+/** Visitors without an account (pages published to the web) act as this id. */
+export const ANONYMOUS = "anon";
+
 export async function resolveAccess(db: Db, callerId: string, pageId: string, linkToken?: string | null): Promise<Access> {
   const page = await db.get("pages", pageId);
   if (!page) throw notFound();
-  if (page.ownerId === callerId) return { level: "owner", ownerId: page.ownerId, page, rootId: null };
+  const anonymous = callerId === ANONYMOUS;
+  if (!anonymous && page.ownerId === callerId) return { level: "owner", ownerId: page.ownerId, page, rootId: null };
   if (page.archivedAt) throw notFound();
   const ancestors = await chain(db, page);
   const ids = new Set(ancestors.map((p) => p._id));
@@ -65,12 +71,16 @@ export async function resolveAccess(db: Db, callerId: string, pageId: string, li
     level = best(level, lvl);
     if (rootId === null || depth(at) > depth(rootId)) rootId = at;
   };
-  for (const share of await db.findBy("shares", "granteeId", callerId)) {
-    if (share.ownerId === page.ownerId && ids.has(share.pageId)) consider(share.level, share.pageId);
+  if (!anonymous) {
+    for (const share of await db.findBy("shares", "granteeId", callerId)) {
+      if (share.ownerId === page.ownerId && ids.has(share.pageId)) consider(share.level, share.pageId);
+    }
   }
   if (linkToken) {
     for (const link of await db.findBy("shareLinks", "token", linkToken)) {
-      if (link.ownerId === page.ownerId && ids.has(link.pageId)) consider(link.level, link.pageId);
+      // Visitors without an account only get in through links published to the web, and only to view.
+      if (anonymous && !link.public) continue;
+      if (link.ownerId === page.ownerId && ids.has(link.pageId)) consider(anonymous ? "view" : link.level, link.pageId);
     }
   }
   if (!level) throw notFound();
@@ -131,6 +141,9 @@ const POLICY: Record<string, { min: ShareLevel; targets: Targets }> = {
 
 export const SHAREABLE_OPS = Object.freeze(Object.keys(POLICY));
 
+/** What a visitor without an account may read on a page published to the web. No comments or history. */
+const PUBLIC_OPS = new Set(["pages.get", "pages.children", "documents.get", "databases.get", "databases.query", "assets.getUrl"]);
+
 export interface SharedContext {
   db: Db;
   storage: Storage | null;
@@ -146,6 +159,7 @@ export interface SharedContext {
 export async function executeShared(op: string, rawArgs: unknown, ctx: SharedContext, kind?: "query" | "mutation") {
   const policy = POLICY[op];
   if (!policy) throw new MaxError("FORBIDDEN", "That isn't available on a shared page.");
+  if (ctx.actor.id === ANONYMOUS && (!PUBLIC_OPS.has(op) || kind === "mutation")) throw new MaxError("FORBIDDEN", "That isn't available on a published page.");
   const args = (rawArgs ?? {}) as Record<string, unknown>;
   const scope = await resolveAccess(ctx.db, ctx.actor.id, ctx.scopePageId, ctx.linkToken);
   if (!atLeast(scope.level, policy.min)) throw new MaxError("FORBIDDEN", `You need “${LEVEL_LABEL[policy.min]}” access to do that.`);
@@ -230,4 +244,86 @@ export async function present(db: Db, callerId: string, pageId: string, now: num
     .filter((r) => now - r.at < PRESENCE_TTL_MS)
     .map((r) => ({ accountId: r.accountId, name: r.name, image: r.image, at: r.at }));
   return { you: callerId, people };
+}
+
+/* ── Duplicate a shared or published page into your own workspace ─────────── */
+
+/**
+ * Copies a page you can open (and the sub-pages and rows inside it) into your workspace as a new
+ * top-level page, like Notion's "Duplicate" on shared and published pages. Links between the copied
+ * pages point at the copies; files stay where they are and are referenced, never deleted by you.
+ */
+export async function duplicateShared(db: Db, actor: Actor, pageId: string, now: number, linkToken?: string | null) {
+  if (actor.id === ANONYMOUS) throw new MaxError("UNAUTHENTICATED", "Sign in to Max to duplicate this page into your workspace.");
+  const access = await resolveAccess(db, actor.id, pageId, linkToken);
+  if (access.level === "owner") throw new MaxError("VALIDATION", "This page is already yours. Use Duplicate in its ⋯ menu.");
+  const source = access.page;
+  const ownerPages = await db.list("pages", access.ownerId);
+  const subtree = descendants(ownerPages, pageId).filter((p) => !p.archivedAt);
+  const mine = await db.list("pages", actor.id);
+  if (mine.length + subtree.length + 1 > LIMITS.pagesPerAccount) throw new MaxError("LIMIT", "Duplicating this would go past your page limit.");
+  const lastTop = mine.filter((p) => !p.parentId && !p.databaseId && !p.archivedAt && !p.isTemplate).sort((a, b) => compareRank(a.rank, b.rank)).at(-1);
+  const idMap = new Map<string, string>();
+  const copied: { from: PageRow; to: string }[] = [];
+  const copy = async (from: PageRow, overrides: Partial<PageRow>) => {
+    const { _id, ...rest } = from;
+    const to = await db.insert("pages", {
+      ...rest,
+      ownerId: actor.id,
+      favoriteRank: null,
+      lastOpenedAt: null,
+      archivedAt: null,
+      archivedRootId: null,
+      isTemplate: false,
+      locked: false,
+      createdAt: now,
+      updatedAt: now,
+      ...overrides,
+    } as never);
+    idMap.set(_id, to);
+    copied.push({ from, to });
+    return to;
+  };
+  // A database row copied on its own becomes an ordinary page (its property values stay with the database).
+  const rootId = await copy(source, { parentId: null, databaseId: null, rank: rankBetween(lastTop?.rank ?? null, null), ...(source.databaseId ? { values: {} } : {}) });
+  for (const child of [...subtree].sort((a, b) => depthOf(ownerPages, a._id) - depthOf(ownerPages, b._id))) {
+    await copy(child, { parentId: child.parentId ? (idMap.get(child.parentId) ?? null) : null, databaseId: child.databaseId ? (idMap.get(child.databaseId) ?? null) : null });
+  }
+  // Point links, mentions and relations between copied pages at the copies.
+  const remap = (text: string) => {
+    let out = text;
+    for (const [from, to] of idMap) out = out.split(from).join(to);
+    return out;
+  };
+  const borrowed = new Map<string, string>();
+  const borrow = async (text: string) => {
+    let out = text;
+    for (const m of new Set(text.match(/max-asset:\/\/[A-Za-z0-9_]+/g) ?? [])) {
+      const assetId = m.slice("max-asset://".length);
+      let next = borrowed.get(assetId);
+      if (!next) {
+        const asset = await db.get("assets", assetId);
+        if (!asset || asset.ownerId !== access.ownerId) continue;
+        const { _id, ...rest } = asset;
+        next = await db.insert("assets", { ...rest, ownerId: actor.id, pageId: rest.pageId ? (idMap.get(rest.pageId) ?? null) : null, borrowed: true, createdAt: now });
+        borrowed.set(assetId, next);
+      }
+      out = out.split(m).join(`max-asset://${next}`);
+    }
+    return out;
+  };
+  for (const { from, to } of copied) {
+    const doc = (await db.list("documents", access.ownerId, { field: "pageId", value: from._id }))[0];
+    if (doc) {
+      const { _id, ...rest } = doc;
+      await db.insert("documents", { ...rest, ownerId: actor.id, pageId: to, content: await borrow(remap(rest.content)), revision: 1, updatedAt: now });
+    }
+    const patch: Partial<PageRow> = {};
+    if (from.values) patch.values = JSON.parse(remap(JSON.stringify(from.values)));
+    if (from.icon?.startsWith("max-asset://")) patch.icon = await borrow(from.icon);
+    if (from.cover?.startsWith("max-asset://")) patch.cover = await borrow(from.cover);
+    if (from.properties) patch.properties = JSON.parse(remap(JSON.stringify(from.properties)));
+    if (Object.keys(patch).length) await db.patch("pages", to, patch as never);
+  }
+  return { id: rootId, title: source.title, copied: idMap.size };
 }

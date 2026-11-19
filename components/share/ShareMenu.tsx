@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ChevronDown, Globe, Link2, Lock, UserPlus } from "lucide-react";
+import { ChevronDown, Globe, Link2, Lock, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Popover, Select, Spinner, cn } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";
-import { pageHref } from "@/lib/pageUrl";
+import { pageHref, publicHref } from "@/lib/pageUrl";
 import type { ShareLevel, ShareRow } from "@/lib/domain/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { Avatar } from "@/components/workspace/Sidebar";
@@ -24,7 +24,7 @@ interface ShareList {
   ownerId: string;
   direct: ShareRow[];
   inherited: (ShareRow & { fromTitle: string })[];
-  link: { token: string; level: ShareLevel; pageId: string; fromTitle: string | null } | null;
+  link: { token: string; level: ShareLevel; public: boolean; pageId: string; fromTitle: string | null } | null;
 }
 
 interface Person {
@@ -113,10 +113,12 @@ function ManageShares({ page }: { page: { _id: string; title: string; isTemplate
   };
   const change = (share: ShareRow, next: ShareLevel | "remove") =>
     (next === "remove" ? ws.call("shares.remove", { id: share._id }) : ws.call("shares.update", { id: share._id, level: next })).catch((err) => notifyError(err));
-  const setLink = (next: ShareLevel | null) => ws.call<{ link: { token: string } | null }>("shares.setLink", { pageId: page._id, level: next }).catch((err) => notifyError(err));
+  const setLink = (next: ShareLevel | null, web = false) => ws.call<{ link: { token: string } | null }>("shares.setLink", { pageId: page._id, level: next, web }).catch((err) => notifyError(err));
   const link = q.data?.link ?? null;
   const linkHere = link && !link.fromTitle;
-  const url = `${typeof location === "undefined" ? "" : location.origin}${pageHref(page._id, page.title)}${link ? `?share=${link.token}` : ""}`;
+  const origin = typeof location === "undefined" ? "" : location.origin;
+  // Published pages open at /s/<link>/<page> for anyone; other links open the page in Max.
+  const url = link?.public ? `${origin}${publicHref(link.token, page._id, page.title)}` : `${origin}${pageHref(page._id, page.title)}${link ? `?share=${link.token}` : ""}`;
   const levels = access.level === "owner" ? LEVEL_OPTIONS : LEVEL_OPTIONS.filter((o) => o.value !== "full_access" || access.level === "full_access");
 
   if (page.isTemplate) return <p className="p-4 text-[13.5px] text-fg-2">Templates can't be shared. Share a page made from the template instead.</p>;
@@ -177,30 +179,34 @@ function ManageShares({ page }: { page: { _id: string; title: string; isTemplate
       <div className="border-t border-line p-3">
         <p className="mb-2 text-[12px] font-medium text-fg-3">General access</p>
         <div className="flex items-center gap-2.5">
-          <span className={cn("grid size-8 shrink-0 place-items-center rounded-md", link ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-fg-2")}>{link ? <Globe className="size-4" /> : <Lock className="size-4" />}</span>
+          <span className={cn("grid size-8 shrink-0 place-items-center rounded-md", link ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-fg-2")}>{link?.public ? <Globe className="size-4" /> : link ? <Users className="size-4" /> : <Lock className="size-4" />}</span>
           <div className="min-w-0 flex-1">
             <Select
               label="Who can open the link"
               size="sm"
               variant="ghost"
               className="-ms-2"
-              value={link ? "link" : "restricted"}
-              onChange={(v) => void setLink(v === "link" ? "view" : null)}
+              value={link?.public ? "web" : link ? "link" : "restricted"}
+              onChange={(v) => void (v === "restricted" ? setLink(null) : setLink("view", v === "web"))}
               disabled={!!link && !linkHere}
               options={[
                 { value: "restricted", label: "Only people invited" },
-                { value: "link", label: "Anyone with the link" },
+                { value: "link", label: "Anyone in Max with the link" },
+                { value: "web", label: "Anyone on the web with the link" },
               ]}
             />
             <p className="text-[12px] text-fg-3">
               {link
                 ? link.fromTitle
-                  ? `Set on “${pageTitle(link.fromTitle)}”. Signed-in people with the link can ${LABEL[link.level].toLowerCase().replace("can ", "")}.`
-                  : "Anyone signed in to Max with the link can open it."
+                  ? `Set on “${pageTitle(link.fromTitle)}”.`
+                  : link.public
+                    ? "Published: anyone with the link can read it, no account needed."
+                    : "Anyone signed in to Max with the link can open it."
                 : "Only people listed above can open this page."}
             </p>
           </div>
-          {linkHere && (
+          {linkHere && link.public && <span className="px-2 text-[12.5px] text-fg-3">Can view</span>}
+          {linkHere && !link.public && (
             <Select
               label="Link access"
               size="sm"
@@ -218,7 +224,7 @@ function ManageShares({ page }: { page: { _id: string; title: string; isTemplate
           <ChevronDown className="size-3.5 -rotate-90" aria-hidden />
           Sub-pages are shared too
         </span>
-        <Button size="sm" variant="secondary" icon={<Link2 className="size-3.5" />} onClick={() => copy(url, link ? "Link copied. Anyone signed in with it can open the page." : "Link copied. Only people with access can open it.")}>
+        <Button size="sm" variant="secondary" icon={<Link2 className="size-3.5" />} onClick={() => copy(url, link?.public ? "Link copied. Anyone with it can read the page." : link ? "Link copied. Anyone signed in with it can open the page." : "Link copied. Only people with access can open it.")}>
           Copy link
         </Button>
       </div>

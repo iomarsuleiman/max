@@ -16,6 +16,9 @@ const emptyState = (): State => ({
   shares: new Map(),
   shareLinks: new Map(),
   presence: new Map(),
+  collabRooms: new Map(),
+  collabUpdates: new Map(),
+  collabAwareness: new Map(),
 });
 
 let counter = 0;
@@ -68,6 +71,12 @@ export class MemoryDb implements Db {
   async findTokenByHash(hash: string) {
     for (const t of this.state.tokens.values()) if (t.hash === hash) return clone(t);
     return null;
+  }
+
+  async updatesAfter(roomId: string, afterSeq: number, limit: number) {
+    const out: Tables["collabUpdates"][] = [];
+    for (const row of this.state.collabUpdates.values()) if (row.roomId === roomId && row.seq > afterSeq) out.push(clone(row));
+    return out.sort((a, b) => a.seq - b.seq).slice(0, limit);
   }
 
   async findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string) {

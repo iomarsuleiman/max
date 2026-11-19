@@ -209,14 +209,14 @@ export const accountDeleteAllData = defineOp({
   input: z.object({ confirm }),
   async run(ctx) {
     let removed = 0;
-    for (const table of ["documents", "versions", "comments", "shares", "shareLinks", "presence", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
+    for (const table of ["documents", "versions", "comments", "shares", "shareLinks", "presence", "collabUpdates", "collabAwareness", "collabRooms", "pages", "settings", "tokens", "audit", "idempotency"] as const) {
       for (const row of await ctx.db.list(table, ctx.ownerId)) {
         await ctx.db.delete(table, row._id);
         removed++;
       }
     }
     for (const asset of await ctx.db.list("assets", ctx.ownerId)) {
-      await ctx.storage?.remove(asset.storageId).catch(() => undefined);
+      if (!asset.borrowed) await ctx.storage?.remove(asset.storageId).catch(() => undefined);
       await ctx.db.delete("assets", asset._id);
       removed++;
     }
@@ -373,7 +373,7 @@ export const assetsRemove = defineOp({
   async run(ctx, { id: assetId }) {
     const asset = await ctx.db.get("assets", assetId);
     if (!asset || asset.ownerId !== ctx.ownerId) throw new MaxError("NOT_FOUND", "That file doesn't exist.");
-    await ctx.storage?.remove(asset.storageId).catch(() => undefined);
+    if (!asset.borrowed) await ctx.storage?.remove(asset.storageId).catch(() => undefined);
     await ctx.db.delete("assets", assetId);
     return { deleted: true };
   },

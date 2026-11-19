@@ -32,7 +32,6 @@ function newToken() {
 export const sharesList = defineOp({
   name: "shares.list",
   kind: "query",
-  uiOnly: true,
   title: "List who a page is shared with",
   description: "People with access to a page: shared directly, or through a page above it, plus the link setting.",
   input: z.object({ pageId: id }),
@@ -46,11 +45,11 @@ export const sharesList = defineOp({
         if (!direct.some((d) => d.granteeId === s.granteeId) && !inherited.some((i) => i.granteeId === s.granteeId)) inherited.push({ ...s, fromTitle: ancestor.title });
       }
     }
-    let link: { token: string; level: ShareLevel; pageId: string; fromTitle: string | null } | null = null;
+    let link: { token: string; level: ShareLevel; public: boolean; pageId: string; fromTitle: string | null } | null = null;
     for (const [i, p] of pages.entries()) {
       const row = (await ctx.db.list("shareLinks", ctx.ownerId, { field: "pageId", value: p._id }))[0];
       if (row) {
-        link = { token: row.token, level: row.level, pageId: p._id, fromTitle: i === 0 ? null : p.title };
+        link = { token: row.token, level: row.level, public: !!row.public, pageId: p._id, fromTitle: i === 0 ? null : p.title };
         break;
       }
     }
@@ -61,9 +60,8 @@ export const sharesList = defineOp({
 export const sharesInvite = defineOp({
   name: "shares.invite",
   kind: "mutation",
-  uiOnly: true,
   title: "Share a page with someone",
-  description: "Gives one person access to a page and everything inside it. Inviting someone again changes their level.",
+  description: "Gives one person (by Max account id, as shares.list shows) access to a page and everything inside it. Inviting someone again changes their level. To invite by email, use shares_inviteByEmail.",
   input: z.object({ pageId: id, granteeId: person, email: z.string().trim().max(320).nullish(), name: z.string().trim().max(200).nullish(), image: z.string().url().max(2048).nullish(), level }),
   async run(ctx, { pageId, granteeId, email, name, image, level: lvl }) {
     const page = await requirePage(ctx, pageId);
@@ -83,7 +81,6 @@ export const sharesInvite = defineOp({
 export const sharesUpdate = defineOp({
   name: "shares.update",
   kind: "mutation",
-  uiOnly: true,
   title: "Change someone's access",
   description: "Changes the access level of one share.",
   input: z.object({ id, level }),
@@ -98,7 +95,6 @@ export const sharesUpdate = defineOp({
 export const sharesRemove = defineOp({
   name: "shares.remove",
   kind: "mutation",
-  uiOnly: true,
   title: "Remove someone's access",
   description: "Stops sharing a page with one person. Their comments stay.",
   input: z.object({ id }),
@@ -113,23 +109,26 @@ export const sharesRemove = defineOp({
 export const sharesSetLink = defineOp({
   name: "shares.setLink",
   kind: "mutation",
-  uiOnly: true,
   title: "Set link access",
-  description: "Lets anyone signed in who has the link view, comment or edit (null turns link access off).",
-  input: z.object({ pageId: id, level: linkLevel.nullable() }),
-  async run(ctx, { pageId, level: lvl }) {
-    await requirePage(ctx, pageId);
+  description:
+    "Sets who can open a page with its link: anyone signed in to Max (view, comment or edit), or, with web: true, anyone on the web without an account (view only, published). Level null turns link access off.",
+  input: z.object({ pageId: id, level: linkLevel.nullable(), web: z.boolean().optional() }),
+  async run(ctx, { pageId, level: lvl, web = false }) {
+    const page = await requirePage(ctx, pageId);
+    if (web && page.isTemplate) throw new MaxError("VALIDATION", "Templates can't be published.");
     const row = (await ctx.db.list("shareLinks", ctx.ownerId, { field: "pageId", value: pageId }))[0];
     if (lvl === null) {
       if (row) await ctx.db.delete("shareLinks", row._id);
       return { link: null };
     }
+    // Publishing to the web is view-only: visitors have no account to comment or edit as.
+    const level = web ? "view" : lvl;
     if (row) {
-      await ctx.db.patch("shareLinks", row._id, { level: lvl });
-      return { link: { token: row.token, level: lvl } };
+      await ctx.db.patch("shareLinks", row._id, { level, public: web });
+      return { link: { token: row.token, level, public: web } };
     }
     const token = newToken();
-    await ctx.db.insert("shareLinks", { ownerId: ctx.ownerId, pageId, token, level: lvl, createdAt: ctx.now });
-    return { link: { token, level: lvl } };
+    await ctx.db.insert("shareLinks", { ownerId: ctx.ownerId, pageId, token, level, public: web, createdAt: ctx.now });
+    return { link: { token, level, public: web } };
   },
 });

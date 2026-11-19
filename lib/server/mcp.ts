@@ -40,7 +40,7 @@ function toolError(err: unknown) {
 }
 
 /** Extra tools composed from domain operations (they need the server's network or Node APIs). */
-export const EXTRA_TOOLS = ["assets_upload", "import_html", "max_capabilities", "profileCard_exportPng", ...NOTION_MCP_TOOLS.map((tool) => tool.name)];
+export const EXTRA_TOOLS = ["assets_upload", "import_html", "max_capabilities", "profileCard_exportPng", "shares_inviteByEmail", ...NOTION_MCP_TOOLS.map((tool) => tool.name)];
 
 export function createMcpServer(ownerId: string) {
   const server = new McpServer({ name: "max", version: VERSION, title: "Max", websiteUrl: APP_URL }, { instructions: INSTRUCTIONS });
@@ -62,6 +62,29 @@ export function createMcpServer(ownerId: string) {
           content: [{ type: "image" as const, data: png.toString("base64"), mimeType: "image/png" }],
           structuredContent: { filename: "max-workspace-card.png", mimeType: "image/png", width: exported.width * 3, height: exported.height * 3 },
         };
+      } catch (err) {
+        return toolError(err);
+      }
+    },
+  );
+  server.registerTool(
+    "shares_inviteByEmail",
+    {
+      title: "Share a page with someone by email",
+      description:
+        "Shares a page (and everything inside it) with the Max account that has this exact email, at view, comment, edit or full_access. Ask the user before sharing: it gives another person access to their page. The person needs a Max account.",
+      inputSchema: z.object({
+        pageId: z.string().min(1).max(64),
+        email: z.string().email().max(320),
+        level: z.enum(["view", "comment", "edit", "full_access"]),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ pageId, email, level }) => {
+      try {
+        const { findPersonByEmail } = await import("./people");
+        const person = await findPersonByEmail(email, ownerId);
+        return toolResult(await runForOwner(ownerId, "shares.invite", { pageId, granteeId: person.id, email: person.email, name: person.name, image: person.image, level }));
       } catch (err) {
         return toolError(err);
       }
@@ -200,12 +223,13 @@ export function createMcpServer(ownerId: string) {
           { name: "import_html", kind: "write", needsConfirm: false, title: "Import HTML as a page" },
           { name: "max_capabilities", kind: "read", needsConfirm: false, title: "What Max can do" },
           { name: "profileCard_exportPng", kind: "read", needsConfirm: false, title: "Download my workspace card as PNG" },
+          { name: "shares_inviteByEmail", kind: "write", needsConfirm: false, title: "Share a page with someone by email" },
           ...NOTION_MCP_TOOLS.map((tool) => ({ name: tool.name, kind: tool.readOnly ? "read" : "write", needsConfirm: false, title: tool.title })),
         ],
         resources: ["max://page/{id} (Markdown)"],
         idempotency: "Write tools accept idempotencyKey; repeats within 24 hours return the first result.",
         limits: LIMITS,
-        notAvailable: ["Access tokens and account deletion (manage in Max settings)", "Sharing pages with other people (only the owner can, from the Share menu in Max)"],
+        notAvailable: ["Access tokens and account deletion (manage in Max settings)", "Live co-editing (open the page in Max to type together)"],
         errors: ["UNAUTHENTICATED", "NOT_FOUND", "VALIDATION", "CONFLICT", "LIMIT", "CONFIRMATION_REQUIRED", "READ_ONLY", "INTERNAL"],
       };
       return { content: [{ type: "text" as const, text: JSON.stringify(data) }], structuredContent: data };

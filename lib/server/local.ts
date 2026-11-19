@@ -127,7 +127,10 @@ type SharingCall =
   | { fn: "access"; pageId: string; linkToken?: string | null }
   | { fn: "withMe" }
   | { fn: "ping"; pageId: string; linkToken?: string | null }
-  | { fn: "here"; pageId: string; linkToken?: string | null; at: number };
+  | { fn: "here"; pageId: string; linkToken?: string | null; at: number }
+  | { fn: "public"; token: string; scopePageId: string; op: string; args?: unknown }
+  | { fn: "duplicate"; pageId: string; linkToken?: string | null }
+  | { fn: "collab"; call: "join" | "pull" | "push" | "awareness" | "commit" | "leave"; args: Record<string, unknown>; linkToken?: string | null };
 
 /** The local twin of convex/sharing.ts. */
 export async function runLocalSharing(call: SharingCall, actor: { id: string; name: string; image: null }) {
@@ -138,6 +141,10 @@ export async function runLocalSharing(call: SharingCall, actor: { id: string; na
   if (call.fn === "access") return sharing.accessInfo(s.db, actor.id, call.pageId, call.linkToken);
   if (call.fn === "withMe") return sharing.sharedWithMe(s.db, actor.id);
   if (call.fn === "here") return sharing.present(s.db, actor.id, call.pageId, call.at, call.linkToken);
+  if (call.fn === "public") {
+    const visitor = { id: sharing.ANONYMOUS, name: "Visitor", image: null };
+    return sharing.executeShared(call.op, call.args, { db: s.db, storage: localStorageAdapter, actor: visitor, now, scopePageId: call.scopePageId, linkToken: call.token }, "query");
+  }
   const write = async (fn: () => Promise<unknown>) => {
     const run = s.lock.then(async () => {
       const result = await s.db.transaction(fn);
@@ -149,6 +156,20 @@ export async function runLocalSharing(call: SharingCall, actor: { id: string; na
     return run;
   };
   if (call.fn === "ping") return write(() => sharing.heartbeat(s.db, actor, call.pageId, now, call.linkToken));
+  if (call.fn === "duplicate") return write(() => sharing.duplicateShared(s.db, actor, call.pageId, now, call.linkToken));
+  if (call.fn === "collab") {
+    const collab = await import("@/lib/domain/collab");
+    const c = { db: s.db, actor, now, linkToken: call.linkToken };
+    const a = call.args as never as { pageId: string; roomId: string; clientId: string; afterSeq: number; epoch: number; data: string; seedRevision?: number; blocks: unknown[]; state?: string; upTo?: number };
+    if (call.call === "pull") return collab.pullRoom(c, String(a.roomId), Number(a.afterSeq));
+    return write(() => {
+      if (call.call === "join") return collab.joinRoom(c, String(a.pageId), String(a.clientId));
+      if (call.call === "push") return collab.pushRoom(c, a);
+      if (call.call === "awareness") return collab.setAwareness(c, a);
+      if (call.call === "commit") return collab.commitRoom({ ...c, storage: localStorageAdapter }, a);
+      return collab.leaveRoom(c, String(a.roomId), String(a.clientId));
+    });
+  }
   const ctx = { db: s.db, storage: localStorageAdapter, actor, now, scopePageId: call.scopePageId, linkToken: call.linkToken };
   if (call.fn === "query") return sharing.executeShared(call.op, call.args, ctx, "query");
   return write(() => sharing.executeShared(call.op, call.args, ctx, "mutation"));

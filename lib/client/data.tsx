@@ -21,6 +21,8 @@ type Args = Record<string, unknown>;
 export interface ShareScopeValue {
   pageId: string;
   linkToken: string | null;
+  /** A page published to the web, read by a visitor without an account. */
+  anonymous?: boolean;
 }
 const ShareScopeContext = createContext<ShareScopeValue | null>(null);
 export function ShareScope({ value, children }: { value: ShareScopeValue | null; children: ReactNode }) {
@@ -28,7 +30,7 @@ export function ShareScope({ value, children }: { value: ShareScopeValue | null;
 }
 export const useShareScope = () => useContext(ShareScopeContext);
 
-const keyOf = (op: string, args: Args, scope?: ShareScopeValue | null) => `${scope ? `shared:${scope.pageId}:${scope.linkToken ?? ""}:` : ""}${op}:${JSON.stringify(args)}`;
+const keyOf = (op: string, args: Args, scope?: ShareScopeValue | null) => `${scope ? `shared:${scope.anonymous ? "web:" : ""}${scope.pageId}:${scope.linkToken ?? ""}:` : ""}${op}:${JSON.stringify(args)}`;
 
 /* ── Local mode: a small subscription cache over /api/local/ops ───────────── */
 
@@ -49,7 +51,9 @@ interface Entry {
 const cache = new Map<string, Entry>();
 
 async function post(op: string, args: Args, kind: "query" | "mutation", scope?: ShareScopeValue | null) {
-  const res = scope
+  const res = scope?.anonymous
+    ? await fetch("/api/local/sharing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fn: "public", token: scope.linkToken, scopePageId: scope.pageId, op, args }) })
+    : scope
     ? await fetch("/api/local/sharing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fn: kind, scopePageId: scope.pageId, linkToken: scope.linkToken, op, args }) })
     : await fetch("/api/local/ops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op, args, kind }) });
   let body: { result?: unknown; error?: { code: string; message: string } };
@@ -180,12 +184,13 @@ function useReadLocal() {
 function useOpCloud<T>(op: string, args: Args | "skip"): QueryState<T> {
   const scope = useShareScope();
   const argKey = args === "skip" ? "skip" : JSON.stringify(args);
-  const scopeKey = scope ? `${scope.pageId}:${scope.linkToken ?? ""}` : "";
+  const scopeKey = scope ? `${scope.anonymous ? "web" : "in"}:${scope.pageId}:${scope.linkToken ?? ""}` : "";
   const queries = useMemo(() => {
     if (argKey === "skip") return {};
     const parsed = JSON.parse(argKey);
     if (!scopeKey) return { q: { query: anyApi.ops.query, args: { op, args: parsed } } };
-    const [scopePageId, linkToken] = scopeKey.split(":");
+    const [mode, scopePageId, linkToken] = scopeKey.split(":");
+    if (mode === "web") return { q: { query: anyApi.sharing.publicQuery, args: { token: linkToken, scopePageId, op, args: parsed } } };
     return { q: { query: anyApi.sharing.query, args: { scopePageId, op, args: parsed, linkToken: linkToken || null } } };
   }, [op, argKey, scopeKey]);
   const result = useQueries(queries as never) as { q?: unknown };
@@ -220,6 +225,7 @@ function useReadCloud() {
   return useCallback(
     async <T,>(op: string, args: Args = {}): Promise<T> => {
       try {
+        if (scope?.anonymous) return (await convex.query(anyApi.sharing.publicQuery, { token: scope.linkToken, scopePageId: scope.pageId, op, args })) as T;
         if (scope) return (await convex.query(anyApi.sharing.query, { scopePageId: scope.pageId, linkToken: scope.linkToken, op, args })) as T;
         return (await convex.query(anyApi.ops.query, { op, args })) as T;
       } catch (err) {
@@ -306,6 +312,31 @@ function usePresencePingLocal() {
   }, []);
 }
 
+function useDuplicateSharedCloud() {
+  const convex = useConvex();
+  return useCallback(
+    async (pageId: string, linkToken: string | null) => {
+      try {
+        return (await convex.mutation(anyApi.sharing.duplicate, { pageId, linkToken })) as { id: string; title: string; copied: number };
+      } catch (err) {
+        throw toOpError(err);
+      }
+    },
+    [convex],
+  );
+}
+
+function useDuplicateSharedLocal() {
+  return useCallback(async (pageId: string, linkToken: string | null) => {
+    const result = (await postSharing({ fn: "duplicate", pageId, linkToken })) as { id: string; title: string; copied: number };
+    await invalidateLocal();
+    return result;
+  }, []);
+}
+
+/** Copies a page shared with you (or published) into your own workspace. */
+export const useDuplicateShared: () => (pageId: string, linkToken: string | null) => Promise<{ id: string; title: string; copied: number }> = CLOUD ? useDuplicateSharedCloud : useDuplicateSharedLocal;
+
 /** Tells everyone else on the page you're here (heartbeat). */
 export const usePresencePing: () => (pageId: string, linkToken: string | null) => Promise<void> = CLOUD ? usePresencePingCloud : usePresencePingLocal;
 
@@ -345,3 +376,115 @@ export function useLocalLiveUpdates() {
     };
   }, []);
 }
+
+/* ── Live co-editing transport (lib/domain/collab.ts) ───────────────────────── */
+
+export interface CollabJoin {
+  roomId: string;
+  epoch: number;
+  ready: boolean;
+  seed: boolean;
+  revision: number;
+  canEdit: boolean;
+}
+export interface CollabPull {
+  epoch: number;
+  ready: boolean;
+  head: number;
+  updates: { seq: number; data: string }[];
+  awareness: { clientId: string; data: string; at: number }[];
+}
+export interface CollabTransport {
+  join(a: { pageId: string; clientId: string }): Promise<CollabJoin>;
+  pull(a: { roomId: string; afterSeq: number }): Promise<CollabPull>;
+  push(a: { roomId: string; epoch: number; clientId: string; data: string; seedRevision?: number }): Promise<{ seq: number }>;
+  awareness(a: { roomId: string; epoch: number; clientId: string; data: string }): Promise<unknown>;
+  commit(a: { roomId: string; epoch: number; clientId: string; blocks: unknown[]; state?: string; upTo?: number }): Promise<{ revision: number; compacted: boolean }>;
+  leave(a: { roomId: string; clientId: string }): Promise<unknown>;
+  /** Calls `onData` whenever the room has updates after `afterSeq()` or cursors change. */
+  watch(roomId: string, afterSeq: () => number, onData: (r: CollabPull) => void, onError: (e: OpError) => void): () => void;
+}
+
+function useCollabTransportCloud(linkToken: string | null): CollabTransport {
+  const convex = useConvex();
+  return useMemo(() => {
+    const m = <T,>(fn: string, a: Record<string, unknown>) => convex.mutation(anyApi.collab[fn], { ...a, linkToken }).catch((e) => Promise.reject(toOpError(e))) as Promise<T>;
+    return {
+      join: (a) => m("join", a),
+      pull: (a) => convex.query(anyApi.collab.pull, { ...a, linkToken }).catch((e) => Promise.reject(toOpError(e))) as Promise<CollabPull>,
+      push: (a) => m("push", a),
+      awareness: (a) => m("awareness", a),
+      commit: (a) => m("commit", a),
+      leave: (a) => m("leave", a),
+      watch(roomId, afterSeq, onData, onError) {
+        // A reactive subscription from the last update we have; moved forward as updates arrive.
+        let stop = () => {};
+        let closed = false;
+        let at = -1;
+        const subscribe = () => {
+          if (closed) return;
+          at = afterSeq();
+          const watch = convex.watchQuery(anyApi.collab.pull, { roomId, afterSeq: at, linkToken });
+          const deliver = () => {
+            let r: CollabPull | undefined;
+            try {
+              r = watch.localQueryResult() as CollabPull | undefined;
+            } catch (err) {
+              onError(toOpError(err));
+              return;
+            }
+            if (!r) return;
+            onData(r);
+            if (afterSeq() !== at) {
+              stop();
+              subscribe();
+            }
+          };
+          stop = watch.onUpdate(deliver);
+          deliver();
+        };
+        subscribe();
+        return () => {
+          closed = true;
+          stop();
+        };
+      },
+    };
+  }, [convex, linkToken]);
+}
+
+function useCollabTransportLocal(linkToken: string | null): CollabTransport {
+  return useMemo(() => {
+    const call = <T,>(c: string, args: Record<string, unknown>) => postSharing({ fn: "collab", call: c, args, linkToken }) as Promise<T>;
+    return {
+      join: (a) => call("join", a),
+      pull: (a) => call("pull", a),
+      push: (a) => call("push", a),
+      awareness: (a) => call("awareness", a),
+      commit: (a) => call("commit", a),
+      leave: (a) => call("leave", a),
+      watch(roomId, afterSeq, onData, onError) {
+        // Local mode polls; it exists for trying sharing on one machine and for tests.
+        let closed = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const tick = async () => {
+          try {
+            const r = await call<CollabPull>("pull", { roomId, afterSeq: afterSeq() });
+            if (!closed) onData(r);
+          } catch (err) {
+            if (!closed) onError(err as OpError);
+          }
+          if (!closed) timer = setTimeout(tick, 250);
+        };
+        void tick();
+        return () => {
+          closed = true;
+          clearTimeout(timer);
+        };
+      },
+    };
+  }, [linkToken]);
+}
+
+/** Talks to a shared page's live room. */
+export const useCollabTransport: (linkToken: string | null) => CollabTransport = CLOUD ? useCollabTransportCloud : useCollabTransportLocal;

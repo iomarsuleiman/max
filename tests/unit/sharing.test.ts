@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { setup } from "./harness";
-import { accessInfo, executeShared, heartbeat, present, sharedWithMe } from "@/lib/domain/sharing";
+import { ANONYMOUS, accessInfo, duplicateShared, executeShared, heartbeat, present, sharedWithMe } from "@/lib/domain/sharing";
 
 const bob = { id: "user_bob", name: "Bob", image: null };
 const cara = { id: "user_cara", name: "Cara", image: null };
@@ -106,5 +106,48 @@ describe("page sharing", () => {
     expect((await present(h.db, bob.id, root._id, now + 1000)).people.map((p) => p.name).sort()).toEqual(["Alice", "Bob"]);
     expect((await present(h.db, bob.id, root._id, now + 60_000)).people).toEqual([]);
     await expect(heartbeat(h.db, cara, root._id, now)).rejects.toThrow();
+  });
+
+  it("publishes to the web: visitors without an account can read, nothing more", async () => {
+    const { alice, root, child, secret, as } = await world();
+    const visitor = { id: ANONYMOUS, name: "Visitor", image: null };
+    const { link } = await alice<{ link: { token: string } }>("shares.setLink", { pageId: root._id, level: "edit" });
+    // A link for signed-in people doesn't let visitors in.
+    await expect(as(visitor, child._id, link.token)("documents.get", { pageId: child._id })).rejects.toThrow();
+    await alice("shares.setLink", { pageId: root._id, level: "edit", web: true });
+    const doc = await as(visitor, child._id, link.token)<{ blocks: unknown[] }>("documents.get", { pageId: child._id });
+    expect(JSON.stringify(doc.blocks)).toContain("Ship it");
+    await expect(as(visitor, child._id, link.token)("comments.list", { pageId: child._id })).rejects.toThrow(/published page/);
+    await expect(as(visitor, child._id, link.token)("pages.update", { id: child._id, title: "x" })).rejects.toThrow();
+    await expect(as(visitor, secret._id, link.token)("documents.get", { pageId: secret._id })).rejects.toThrow();
+    // Publishing is view-only, even for people signed in with the link.
+    expect((await alice<{ link: { level: string; public: boolean } }>("shares.list", { pageId: root._id })).link).toMatchObject({ level: "view", public: true });
+  });
+
+  it("duplicates a shared page into your own workspace with its sub-pages and links", async () => {
+    const { h, alice, root, child, as } = await world();
+    await alice("documents.writeMarkdown", { pageId: root._id, markdown: `See [Milestones](/p/${child._id})` });
+    const { storageId } = { storageId: "file1" };
+    const asset = await h.db.insert("assets", { ownerId: "user_alice", pageId: root._id, storageId, name: "a.png", type: "image/png", size: 1, alt: "", createdAt: 1 });
+    await alice("pages.update", { id: root._id, cover: `max-asset://${asset}` });
+    await alice("shares.invite", { pageId: root._id, granteeId: bob.id, level: "view" });
+    const res = await h.db.transaction(() => duplicateShared(h.db, bob, root._id, Date.now()));
+    expect(res.copied).toBe(2);
+    const bobCall = h.as(bob.id);
+    const tree = await bobCall<{ pages: { _id: string; title: string; parentId: string | null }[] }>("pages.tree");
+    const copyRoot = tree.pages.find((p) => p._id === res.id)!;
+    const copyChild = tree.pages.find((p) => p.parentId === res.id)!;
+    expect(copyRoot.title).toBe("Team plan");
+    expect(copyChild.title).toBe("Milestones");
+    const md = await bobCall<{ markdown: string }>("documents.get", { pageId: res.id, format: "markdown" });
+    expect(md.markdown).toContain(copyChild._id);
+    expect(md.markdown).not.toContain(child._id);
+    const page = await bobCall<{ page: { cover: string } }>("pages.get", { id: res.id });
+    const borrowed = await h.db.get("assets", page.page.cover.slice("max-asset://".length));
+    expect(borrowed).toMatchObject({ ownerId: bob.id, storageId, borrowed: true });
+    // Alice's originals are untouched, and the copy isn't shared with anyone.
+    expect((await alice<{ page: { title: string } }>("pages.get", { id: root._id })).page.title).toBe("Team plan");
+    await expect(as(cara, res.id)("documents.get", { pageId: res.id })).rejects.toThrow();
+    await expect(h.db.transaction(() => duplicateShared(h.db, { id: ANONYMOUS, name: "Visitor", image: null }, root._id, Date.now()))).rejects.toThrow(/Sign in/);
   });
 });

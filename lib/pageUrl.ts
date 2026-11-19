@@ -27,6 +27,11 @@ export function pageHref(id: string, title?: string | null): string {
   return title === undefined ? `/p/${id}` : `/p/${encodeURI(pageSlug(title))}-${id}`;
 }
 
+/** A page published to the web: /s/<link>/<title-words>-<id>, readable without an account. */
+export function publicHref(token: string, id: string, title?: string | null): string {
+  return `/s/${token}/${encodeURI(pageSlug(title))}-${id}`;
+}
+
 /** The page id in a /p/ route segment, with or without the title words. */
 export function pageIdFromParam(segment: string): string {
   const decoded = (() => {

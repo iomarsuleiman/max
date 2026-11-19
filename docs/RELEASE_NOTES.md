@@ -4,7 +4,7 @@ Max 2.0 lays the groundwork for shared workspaces and teams while keeping the pr
 
 ## What changes for you today
 
-- Notion-style sharing: a Share menu on every page (invite by email with full access, edit, comment or view; remove people; anyone-with-the-link), a Shared section in the sidebar, comments signed by their authors, live updates and avatars of who else is on the page. See [MAX_2_GO_LIVE.md](MAX_2_GO_LIVE.md).
+- Notion-style sharing: a Share menu on every page (invite by email with full access, edit, comment or view; remove people; anyone-with-the-link), a Shared section in the sidebar, comments signed by their authors, live co-editing with named cursors, publishing to the web, duplicating shared pages into your workspace, sharing tools for assistants, and avatars of who else is on the page. See [MAX_2_GO_LIVE.md](MAX_2_GO_LIVE.md).
 - A redesigned landing: the butterfly now flaps its wings (on arrival, hover, tap or the keyboard, and stays still with reduced motion), a matching paper grain in dark mode, a whole-screenshot product walkthrough on phones, and a new sample workspace in the screenshots.
 - Multi-tab safety and recovery: one tab edits a page at a time, partitions recover cleanly, and Arabic input methods are protected while composing.
 - Sturdier offline saving, server checkpoints and cloud recovery groundwork.

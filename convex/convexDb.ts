@@ -51,6 +51,14 @@ export function convexDb(db: Reader | Writer): Db {
         .first();
       return row ? (strip(row) as unknown as Tables["tokens"]) : null;
     },
+    async updatesAfter(roomId: string, afterSeq: number, limit: number) {
+      const rows = await db
+        .query("collabUpdates")
+        // The adapter's db isn't typed by the schema, so the range builder is typed loosely.
+        .withIndex("by_roomId", (q) => (q.eq("roomId", roomId) as unknown as { gt(f: string, v: number): typeof q }).gt("seq", afterSeq))
+        .take(limit);
+      return rows.map((r) => strip(r) as unknown as Tables["collabUpdates"]);
+    },
     async findBy<T extends CrossTable>(table: T, field: CrossField<T>, value: string) {
       const rows = await db
         .query(table)
