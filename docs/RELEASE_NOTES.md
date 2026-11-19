@@ -23,6 +23,8 @@ Every shared-workspace capability is behind its own server flag (`MAX_V2_*`), an
 
 ## Before turning shared features on
 
+The full command list is in [MAX_2_GO_LIVE.md](MAX_2_GO_LIVE.md).
+
 1. Deploy the Convex backend (`pnpm convex:deploy`); the new tables are additive.
 2. Work through the gates in [MAX_2_PR44_RELEASE_READINESS.md](MAX_2_PR44_RELEASE_READINESS.md) that need real accounts, devices or an external review.
 3. Enable flags one area at a time.
