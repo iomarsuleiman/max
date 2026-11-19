@@ -10,6 +10,8 @@ import { CLOUD } from "@/lib/config";
 import { isWorkspacePreviewRoute } from "@/lib/domain/workspaceNavigationState";
 import { LogoMark } from "@/components/brand/Logo";
 import { cardPalette } from "@/lib/domain/profileCard";
+import { setDatePrefs } from "@/lib/client/datePrefs";
+import { applySpace, clearSpace } from "@/lib/client/space";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
@@ -148,8 +150,13 @@ function WorkspacePreviewFrame({ children }: { children: ReactNode }) {
 }
 
 /** Tints your space with your membership card's colors (Arc-style), remembered for the next visit. */
-function useSpaceTint(theme: string | undefined) {
+function useSpaceTint(theme: string | undefined, custom: { colors: string[]; grain: number; intensity: number } | null) {
   useEffect(() => {
+    if (custom) {
+      applySpace(custom);
+      return;
+    }
+    clearSpace();
     let t = theme;
     try {
       if (t) localStorage.setItem("max:space-tint", t);
@@ -160,12 +167,30 @@ function useSpaceTint(theme: string | undefined) {
     const palette = cardPalette(t ?? "sunset");
     document.documentElement.style.setProperty("--tint-1", palette.first);
     document.documentElement.style.setProperty("--tint-2", palette.second);
-  }, [theme]);
+  }, [theme, custom]);
 }
+
 
 function Frame({ children }: { children: ReactNode }) {
   const ws = useWorkspace();
-  useSpaceTint((ws.settings?.profileCard as { theme?: string } | undefined)?.theme);
+  const s = ws.settings;
+  // Your space takes your card's colors unless you picked a palette or made your own in Preferences.
+  useSpaceTint(s?.spaceColor && s.spaceColor !== "card" ? s.spaceColor : (s?.profileCard as { theme?: string } | undefined)?.theme, s?.space ?? null);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (s?.accent && s.accent !== "blue") root.dataset.accent = s.accent;
+    else delete root.dataset.accent;
+  }, [s?.accent]);
+  setDatePrefs({ dateFormat: s?.dateFormat, timeFormat: s?.timeFormat, weekStart: s?.weekStart });
+  // Get the emoji list ready while nothing else is happening, so the icon picker opens instantly.
+  useEffect(() => {
+    const idle = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    const run = () => void import("@/components/page/IconPicker").then((m) => m.preloadEmojiData()).catch(() => undefined);
+    const id = idle ? idle(run, { timeout: 6000 }) : window.setTimeout(run, 3000);
+    return () => {
+      if (!idle) window.clearTimeout(id);
+    };
+  }, []);
   const pathname = usePathname();
   const preview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   return (

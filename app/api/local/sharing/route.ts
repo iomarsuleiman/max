@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
   }
-  if (!body || !["query", "mutation", "access", "withMe", "ping", "here", "public", "duplicate", "collab", "join"].includes(body.fn)) return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
+  if (!body || !["query", "mutation", "access", "withMe", "ping", "here", "public", "duplicate", "collab", "join", "leave"].includes(body.fn)) return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
   try {
     const result = await runLocalSharing(body, localActor(request));
     return NextResponse.json({ result: result ?? null });

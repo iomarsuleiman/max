@@ -51,6 +51,15 @@ const settingsPatch = z.object({
   profileCard: profileCardSchema.nullable().optional(),
   profileCardOnboarded: z.boolean().optional(),
   inviteNote: z.string().trim().max(240).nullable().optional(),
+  accent: z.enum(["blue", "purple", "pink", "red", "orange", "green", "teal", "graphite"]).optional(),
+  spaceColor: z.enum(["card", "ocean", "sage", "clay", "lilac", "sunset", "rose", "mint", "amber", "midnight", "lagoon", "plum", "citrus"]).optional(),
+  space: z
+    .object({ colors: z.array(z.string().regex(/^#[0-9a-f]{6}$/i)).min(1).max(3), grain: z.number().min(0).max(100), intensity: z.number().min(0).max(100) })
+    .nullable()
+    .optional(),
+  dateFormat: z.enum(["medium", "us", "eu", "iso"]).optional(),
+  timeFormat: z.enum(["12h", "24h"]).optional(),
+  weekStart: z.enum(["monday", "sunday"]).optional(),
 });
 
 export const settingsGet = defineOp({

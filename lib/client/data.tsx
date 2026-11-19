@@ -359,6 +359,30 @@ function useJoinSharedLocal() {
 /** Accepts a link as an invitation: the page or teamspace joins your sidebar. */
 export const useJoinShared: () => (pageId: string, linkToken: string | null) => Promise<{ pageId: string; title: string; teamspace: boolean; joined: boolean }> = CLOUD ? useJoinSharedCloud : useJoinSharedLocal;
 
+function useLeaveSharedCloud() {
+  const convex = useConvex();
+  return useCallback(
+    async (pageId: string) => {
+      try {
+        await convex.mutation(anyApi.sharing.leave, { pageId });
+      } catch (err) {
+        throw toOpError(err);
+      }
+    },
+    [convex],
+  );
+}
+
+function useLeaveSharedLocal() {
+  return useCallback(async (pageId: string) => {
+    await postSharing({ fn: "leave", pageId });
+    await invalidateLocal();
+  }, []);
+}
+
+/** Leaves a page or teamspace someone shared with you. */
+export const useLeaveShared: () => (pageId: string) => Promise<void> = CLOUD ? useLeaveSharedCloud : useLeaveSharedLocal;
+
 /** Copies a page shared with you (or published) into your own workspace. */
 export const useDuplicateShared: () => (pageId: string, linkToken: string | null) => Promise<{ id: string; title: string; copied: number }> = CLOUD ? useDuplicateSharedCloud : useDuplicateSharedLocal;
 

@@ -6,11 +6,12 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { zipSync, strToU8 } from "fflate";
-import { ArrowDown, ArrowUp, Bot, Check, Copy, Database, Download, Globe, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Settings2, Trash2, Upload, User, Users, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, Check, Copy, Database, Download, Globe, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Search as SearchIcon, Settings2, Trash2, Upload, User, Users, UsersRound, X } from "lucide-react";
+import { DOODLE, Doodle } from "@/components/icons/Doodle";
 import { toast } from "sonner";
 import { Button, Field, IconButton, Input, Kbd, Notice, Segmented, Select, SettingRow, Skeleton, Switch, cn, confirmAction } from "@/components/ui";
 import { PageIcon } from "@/components/workspace/PageIcon";
-import { useOp, useRead, useSharing } from "@/lib/client/data";
+import { useLeaveShared, useOp, useRead, useSharing } from "@/lib/client/data";
 import { useRouter } from "next/navigation";
 import { pageHref, publicHref } from "@/lib/pageUrl";
 import { SHARING_ENABLED } from "@/lib/config";
@@ -24,22 +25,31 @@ import { SHORTCUTS } from "@/lib/client/shortcuts";
 import { NotionConnection } from "./NotionConnection";
 import { ProfileCardEditor } from "@/components/profile/ProfileCardEditor";
 import { INVITE_NOTE, MAX_NOTE_CHARS, writeNote } from "@/lib/welcomeNote";
+import { SpaceEditor } from "./SpaceEditor";
 
-const NAV: { id: SettingsSection; label: string; icon: ReactNode; group: "Account" | "Workspace" }[] = [
-  { id: "account", label: "My account", icon: <User />, group: "Account" },
-  { id: "preferences", label: "Preferences", icon: <Settings2 />, group: "Account" },
-  { id: "editor", label: "Editor", icon: <PenLine />, group: "Account" },
-  { id: "sidebar", label: "Sidebar", icon: <PanelLeft />, group: "Account" },
-  ...(SHARING_ENABLED ? [{ id: "sharing" as const, label: "Sharing", icon: <Users />, group: "Workspace" as const }] : []),
-  { id: "connections", label: "Connections", icon: <Bot />, group: "Workspace" },
-  { id: "data", label: "Data & export", icon: <Database />, group: "Workspace" },
-  { id: "shortcuts", label: "Keyboard shortcuts", icon: <Keyboard />, group: "Workspace" },
-  { id: "about", label: "About Max", icon: <Info />, group: "Workspace" },
+const NAV: { id: SettingsSection; label: string; icon: ReactNode; group: "Account" | "Workspace"; keywords: string }[] = [
+  { id: "account", label: "My account", icon: <Doodle icon={User} color={DOODLE.pink} size={15} />, group: "Account", keywords: "name email sign out delete account profile" },
+  { id: "preferences", label: "Preferences", icon: <Doodle icon={Settings2} color={DOODLE.amber} size={15} />, group: "Account", keywords: "theme dark light accent color space font density motion date time week clock full width" },
+  { id: "editor", label: "Editor", icon: <Doodle icon={PenLine} color={DOODLE.teal} size={15} />, group: "Account", keywords: "text direction spellcheck markdown shortcuts writing rtl arabic" },
+  { id: "sidebar", label: "Sidebar", icon: <Doodle icon={PanelLeft} color={DOODLE.violet} size={15} />, group: "Account", keywords: "sections order recents favorites" },
+  ...(SHARING_ENABLED
+    ? [
+        { id: "teamspaces" as const, label: "Teamspaces", icon: <Doodle icon={UsersRound} color={DOODLE.mint} size={15} />, group: "Workspace" as const, keywords: "workspace team members leave join" },
+        { id: "sharing" as const, label: "Sharing", icon: <Doodle icon={Users} color={DOODLE.blue} size={15} />, group: "Workspace" as const, keywords: "shared published link people access" },
+      ]
+    : []),
+  { id: "connections", label: "Connections", icon: <Doodle icon={Bot} color={DOODLE.orange} size={15} />, group: "Workspace", keywords: "assistant claude chatgpt mcp token notion import" },
+  { id: "data", label: "Data & export", icon: <Doodle icon={Database} color={DOODLE.sage} size={15} />, group: "Workspace", keywords: "export backup download import markdown json delete" },
+  { id: "shortcuts", label: "Keyboard shortcuts", icon: <Doodle icon={Keyboard} color={DOODLE.lilac} size={15} />, group: "Workspace", keywords: "keys hotkeys" },
+  { id: "about", label: "About Max", icon: <Doodle icon={Info} color={DOODLE.red} size={15} />, group: "Workspace", keywords: "card membership invite friends version privacy source" },
 ];
 
 export function SettingsDialog() {
   const ws = useWorkspace();
   const section = ws.settingsSection;
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const shown = q ? NAV.filter((n) => `${n.label} ${n.keywords}`.toLowerCase().includes(q)) : NAV;
   return (
     <D.Root open={!!section} onOpenChange={(o) => !o && ws.closeSettings()}>
       <D.Portal>
@@ -57,10 +67,11 @@ export function SettingsDialog() {
           <D.Title className="sr-only">Settings</D.Title>
           <D.Close asChild><IconButton label="Close settings" size="md" className="absolute end-2 top-2 z-10 bg-overlay md:hidden"><X className="size-5" /></IconButton></D.Close>
           <nav aria-label="Settings sections" className="max-space flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto px-2 py-3 max-md:w-full max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-line max-md:py-2 max-md:pe-14">
+            <SettingsSearch value={query} onChange={setQuery} />
             {(["Account", "Workspace"] as const).map((g) => (
               <div key={g} className="contents">
-                <p className="px-2 pb-1 pt-2 text-[11.5px] font-medium text-fg-3 first:pt-0 max-md:hidden">{g}</p>
-                {NAV.filter((n) => n.group === g).map((n) => (
+                {shown.some((n) => n.group === g) && <p className="px-2 pb-1 pt-2 text-[11.5px] font-medium text-fg-3 first:pt-0 max-md:hidden">{g}</p>}
+                {shown.filter((n) => n.group === g).map((n) => (
                   <button
                     key={n.id}
                     type="button"
@@ -85,6 +96,7 @@ export function SettingsDialog() {
             {section === "preferences" && <PreferencesSection />}
             {section === "editor" && <EditorSection />}
             {section === "sidebar" && <SidebarSection />}
+            {section === "teamspaces" && <TeamspacesSettings />}
             {section === "sharing" && <SharingSection />}
             {section === "connections" && <ConnectionsSection />}
             {section === "data" && <DataSection />}
@@ -106,12 +118,23 @@ function Heading({ title, description }: { title: string; description?: ReactNod
   );
 }
 
+/** A rounded group of settings (Arc-style cards), with its title above. */
 function Group({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <section className="mb-8">
-      {title && <h3 className="mb-1 text-[13px] font-medium text-fg-3">{title}</h3>}
-      <div className="divide-y divide-line">{children}</div>
+    <section className="mb-7">
+      {title && <h3 className="mb-2 px-1 text-[12.5px] font-medium text-fg-3">{title}</h3>}
+      <div className="settings-card divide-y divide-line">{children}</div>
     </section>
+  );
+}
+
+/** Finds a setting: matches section names and what's inside them ("dark", "export", "token"…). */
+function SettingsSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="mb-2 flex h-8 shrink-0 items-center gap-2 rounded-lg bg-overlay/70 px-2.5 text-[13px] shadow-[0_0_0_1px_var(--line)] focus-within:shadow-[0_0_0_1.5px_var(--accent)] max-md:hidden">
+      <SearchIcon className="size-3.5 text-fg-3" aria-hidden />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Search settings" aria-label="Search settings" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-fg-3" />
+    </label>
   );
 }
 
@@ -206,12 +229,50 @@ function AccountSection() {
 
 /* ── Preferences ─────────────────────────────────────────────────────────── */
 
+const ACCENTS = [
+  { value: "blue", label: "Blue", color: "oklch(0.55 0.12 250)" },
+  { value: "purple", label: "Purple", color: "oklch(0.55 0.12 300)" },
+  { value: "pink", label: "Pink", color: "oklch(0.58 0.14 350)" },
+  { value: "red", label: "Red", color: "oklch(0.56 0.16 27)" },
+  { value: "orange", label: "Orange", color: "oklch(0.64 0.14 50)" },
+  { value: "green", label: "Green", color: "oklch(0.55 0.11 155)" },
+  { value: "teal", label: "Teal", color: "oklch(0.56 0.09 195)" },
+  { value: "graphite", label: "Graphite", color: "oklch(0.45 0.01 260)" },
+];
+
+/** A row of color dots to pick from (Arc-style). */
+function Swatches({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string; color: string }[] }) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex max-w-[300px] flex-wrap gap-1.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          aria-label={o.label}
+          title={o.label}
+          onClick={() => onChange(o.value)}
+          className={cn("size-6 rounded-full shadow-[inset_0_0_0_1px_rgb(0_0_0/.12)] outline-offset-2 transition-transform hover:scale-110", value === o.value && "outline-2 outline-[var(--fg)] [outline-style:solid]")}
+          style={{ background: o.color }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function PreferencesSection() {
   const { s, set, ws } = useSettings();
   if (!s) return <Skeleton className="h-40" />;
   return (
     <>
       <Heading title="Preferences" description="Saved to your account and applied on every device." />
+      <Group title="Your space">
+        <div className="grid gap-2 py-4">
+          <p className="text-[12.5px] text-fg-3">Drag the dots to color your sidebar, pick a preset, and tune the grain and how strong the color is. It matches your membership card until you change it.</p>
+          <SpaceEditor />
+        </div>
+      </Group>
       <Group title="Appearance">
         <SettingRow title="Theme" description="Follow your device, or always use light or dark.">
           <Segmented label="Theme" value={s.theme} onChange={(v) => set("theme", v, "Theme saved")} options={[{ value: "system", label: "System" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }]} />
@@ -231,8 +292,33 @@ function PreferencesSection() {
         <SettingRow title="Density" description="Compact fits more on smaller screens.">
           <Segmented label="Density" value={s.density} onChange={(v) => set("density", v)} options={[{ value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" }]} />
         </SettingRow>
+        <SettingRow title="Accent color" description="Buttons, links, checkboxes and highlights.">
+          <Swatches label="Accent color" value={s.accent ?? "blue"} onChange={(v) => set("accent", v as SettingsRow["accent"], "Accent color saved")} options={ACCENTS} />
+        </SettingRow>
         <SettingRow title="Reduce motion" description="Turn off animations. “System” follows your device setting.">
           <Segmented label="Reduce motion" value={s.reduceMotion} onChange={(v) => set("reduceMotion", v)} options={[{ value: "system", label: "System" }, { value: "on", label: "Always" }]} />
+        </SettingRow>
+      </Group>
+      <Group title="Date & time">
+        <SettingRow title="Date format" description="How dates appear in pages, databases and history.">
+          <Select
+            label="Date format"
+            size="sm"
+            value={s.dateFormat ?? "medium"}
+            onChange={(v) => set("dateFormat", v as SettingsRow["dateFormat"], "Date format saved")}
+            options={[
+              { value: "medium", label: "Nov 19, 2026" },
+              { value: "us", label: "11/19/2026" },
+              { value: "eu", label: "19/11/2026" },
+              { value: "iso", label: "2026-11-19" },
+            ]}
+          />
+        </SettingRow>
+        <SettingRow title="Clock" description="12-hour (3:30 PM) or 24-hour (15:30).">
+          <Segmented label="Clock" value={s.timeFormat ?? "12h"} onChange={(v) => set("timeFormat", v, "Clock saved")} options={[{ value: "12h", label: "12-hour" }, { value: "24h", label: "24-hour" }]} />
+        </SettingRow>
+        <SettingRow title="First day of the week" description="Where calendar views start each week.">
+          <Segmented label="First day of the week" value={s.weekStart ?? "monday"} onChange={(v) => set("weekStart", v, "Saved")} options={[{ value: "monday", label: "Monday" }, { value: "sunday", label: "Sunday" }]} />
         </SettingRow>
       </Group>
       <Group title="Pages">
@@ -373,6 +459,83 @@ interface SharedPage {
   kind: string;
   people: { name: string | null; email: string | null; image: string | null; level: string }[];
   link: { level: string; public: boolean; token: string } | null;
+}
+
+/** Teamspaces you own (with their members) and teamspaces you're in (with a way to leave). */
+function TeamspacesSettings() {
+  const ws = useWorkspace();
+  const router = useRouter();
+  const mine = useOp<{ pages: SharedPage[] }>("shares.overview", {});
+  const withMe = useSharing<{ _id: string; title: string; icon: string | null; kind: string; level: string; ownerName: string | null; teamspace?: boolean }[]>("withMe", {});
+  const leave = useLeaveShared();
+  const ownTeams = (ws.tree ?? []).filter((p) => p.teamspace && !p.parentId);
+  const members = new Map((mine.data?.pages ?? []).map((p) => [p._id, p.people.length]));
+  const theirs = (withMe.data ?? []).filter((p) => p.teamspace);
+  const open = (id: string, title: string) => {
+    ws.closeSettings();
+    router.push(pageHref(id, title));
+  };
+  const row = "flex min-h-12 items-center gap-3 py-2";
+  return (
+    <>
+      <Heading title="Teamspaces" description="Shared spaces for a group. Everyone in a teamspace can open, edit and add pages to everything inside it." />
+      <Group title="Your teamspaces">
+        {ownTeams.length === 0 ? (
+          <p className="py-3 text-[13px] text-fg-3">You haven&apos;t made a teamspace yet. Use ＋ next to Teamspaces in the sidebar, or turn a top-level page into one from its ⋯ menu.</p>
+        ) : (
+          ownTeams.map((p) => (
+            <div key={p._id} className={row}>
+              <PageIcon icon={p.icon} kind={p.kind} size={18} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] text-fg">{pageTitle(p.title)}</p>
+                <p className="text-[12px] text-fg-3">{members.get(p._id) ? `${members.get(p._id)} ${members.get(p._id) === 1 ? "member" : "members"} besides you` : "Only you so far"}</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => open(p._id, p.title)}>
+                Manage
+              </Button>
+            </div>
+          ))
+        )}
+      </Group>
+      <Group title="Teamspaces you're in">
+        {!withMe.data ? (
+          <Skeleton className="my-3 h-10" />
+        ) : theirs.length === 0 ? (
+          <p className="py-3 text-[13px] text-fg-3">When someone adds you to a teamspace, or you join one through its invite link, it shows up here.</p>
+        ) : (
+          theirs.map((p) => (
+            <div key={p._id} className={row}>
+              <PageIcon icon={p.icon} kind={p.kind} size={18} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] text-fg">{pageTitle(p.title)}</p>
+                <p className="truncate text-[12px] text-fg-3">{[p.ownerName ? `From ${p.ownerName}` : null, ACCESS[p.level]].filter(Boolean).join(" · ")}</p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => open(p._id, p.title)}>
+                Open
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-danger hover:bg-danger-soft"
+                onClick={async () => {
+                  const ok = await confirmAction({ title: `Leave “${pageTitle(p.title)}”?`, body: <p>It leaves your sidebar. Someone in it can add you again, or you can rejoin through its invite link.</p>, confirmLabel: "Leave teamspace", tone: "danger" });
+                  if (!ok) return;
+                  try {
+                    await leave(p._id);
+                    toast.success(`Left ${pageTitle(p.title)}`);
+                  } catch (err) {
+                    notifyError(err, "Couldn't leave the teamspace.");
+                  }
+                }}
+              >
+                Leave
+              </Button>
+            </div>
+          ))
+        )}
+      </Group>
+    </>
+  );
 }
 
 /** Everything you share, everything shared with you, and what's published, in one place. */

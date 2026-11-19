@@ -8,6 +8,7 @@ import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useAuth } from "@clerk/nextjs";
 import { CLOUD, CONVEX_URL } from "@/lib/config";
+import { DoodleDefs } from "@/components/icons/Doodle";
 import { ConfirmHost } from "@/components/ui";
 
 const convex = CLOUD ? new ConvexReactClient(CONVEX_URL) : null;
@@ -31,6 +32,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const inner = (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="max:theme">
       <Tooltip.Provider delayDuration={400} skipDelayDuration={200}>
+        <DoodleDefs />
         {children}
         <ThemedToaster />
         <ConfirmHost />

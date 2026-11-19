@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDay, formatDayTime } from "@/lib/client/datePrefs";
+
 import {
   AlignLeft,
   AtSign,
@@ -66,5 +68,5 @@ export function formatNumber(n: number, prop: PropertyDef): string {
 export function formatDateValue(v: string): string {
   const d = new Date(v.length === 10 ? `${v}T00:00:00` : v);
   if (Number.isNaN(d.getTime())) return v;
-  return v.length > 10 ? d.toLocaleString("en", { dateStyle: "medium", timeStyle: "short" }) : d.toLocaleDateString("en", { dateStyle: "medium" });
+  return v.length > 10 ? formatDayTime(d) : formatDay(d);
 }

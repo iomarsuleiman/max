@@ -198,6 +198,15 @@ export interface SettingsRow {
   invitedBy?: string | null;
   /** This person's handwritten note for the people they invite. */
   inviteNote?: string | null;
+  /** The color of buttons, links and highlights. */
+  accent?: "blue" | "purple" | "pink" | "red" | "orange" | "green" | "teal" | "graphite";
+  /** The tint of the sidebar and backdrop: your card's colors, or a card palette of your choice. */
+  spaceColor?: string;
+  /** A custom space theme from the Space editor: 1–3 colors, grain and tint strength (0–100). */
+  space?: { colors: string[]; grain: number; intensity: number } | null;
+  dateFormat?: "medium" | "us" | "eu" | "iso";
+  timeFormat?: "12h" | "24h";
+  weekStart?: "monday" | "sunday";
   onboarded: boolean;
   updatedAt: number;
 }

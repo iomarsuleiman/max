@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { firstDayOfWeek } from "@/lib/client/datePrefs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -217,7 +218,8 @@ export function CalendarView({ onOpenRecord, properties, records, readOnly, onCr
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const days = useMemo(() => {
     const start = new Date(month);
-    start.setDate(1 - ((start.getDay() + 6) % 7));
+    // Weeks start on your chosen day (Settings → Preferences).
+    start.setDate(1 - ((start.getDay() - firstDayOfWeek() + 7) % 7));
     return Array.from({ length: 42 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
   }, [month]);
   if (!dateProp) {
@@ -259,7 +261,7 @@ export function CalendarView({ onOpenRecord, properties, records, readOnly, onCr
       </div>
       <div className="scroll-quiet overflow-x-auto px-4 sm:px-12">
         <div className="grid min-w-[700px] grid-cols-7 border-s border-t border-line text-[12.5px]">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          {(firstDayOfWeek() === 0 ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]).map((d) => (
             <div key={d} className="border-b border-e border-line px-2 py-1 text-fg-3">{d}</div>
           ))}
           {days.map((d) => {
