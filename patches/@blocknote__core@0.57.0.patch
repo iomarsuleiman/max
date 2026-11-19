@@ -1,0 +1,41 @@
+diff --git a/dist/blocks-BUX9dXi9.js b/dist/blocks-BUX9dXi9.js
+index 59212c3ff00f939b1816c5bd28a01df360031536..dafa9debbb4a4b0ce3bd499eea3a06f7d71f607f 100644
+--- a/dist/blocks-BUX9dXi9.js
++++ b/dist/blocks-BUX9dXi9.js
+@@ -802,6 +802,7 @@ var wt = (e) => (t, n) => y({
+ }), Tt = (e, t, n, r) => {
+ 	if (!(n in r)) throw Error(`Language ${n} is not supported.`);
+ 	let i = document.createElement("select");
++	i.setAttribute("aria-label", "Code language");
+ 	Object.entries(r).forEach(([e, { name: t }]) => {
+ 		let n = document.createElement("option");
+ 		n.value = e, n.text = t, i.appendChild(n);
+@@ -939,7 +940,9 @@ function Y(e, t, n = q) {
+ 	let r = document.createElement("div");
+ 	r.className = "bn-toggle-wrapper bn-toggle-frame";
+ 	let i = document.createElement("button");
+-	i.className = "bn-toggle-button", i.type = "button", i.setAttribute("aria-label", t.dictionary.toggle_blocks.toggle_button), i.innerHTML = Lt, i.addEventListener("mousedown", (e) => e.preventDefault());
++	i.className = "bn-toggle-button", i.type = "button", i.setAttribute("aria-label", t.dictionary.toggle_blocks.toggle_button), i.innerHTML = Lt, i.contentEditable = "false", i.addEventListener("mousedown", (e) => e.preventDefault()), i.addEventListener("keydown", (e) => {
++		(e.key === " " || e.key === "Enter") && e.stopPropagation();
++	});
+ 	let a = document.createElement("div");
+ 	a.className = "bn-toggle-slot";
+ 	let o = document.createElement("button");
+@@ -1305,7 +1308,7 @@ var Zt = k(() => ({
+ 	parseContent: ({ el: e, schema: t }) => X(e, t, "checkListItem"),
+ 	render(e, t) {
+ 		let n = document.createDocumentFragment(), r = document.createElement("input");
+-		r.type = "checkbox", r.checked = e.props.checked, e.props.checked && r.setAttribute("checked", ""), r.disabled = !t.isEditable, r.addEventListener("change", () => {
++		r.type = "checkbox", r.setAttribute("aria-label", "Done"), r.checked = e.props.checked, e.props.checked && r.setAttribute("checked", ""), r.disabled = !t.isEditable, r.addEventListener("change", () => {
+ 			t.isEditable && t.updateBlock(e, { props: { checked: !e.props.checked } });
+ 		});
+ 		let i = document.createElement("p"), a = document.createElement("div");
+@@ -1316,7 +1319,7 @@ var Zt = k(() => ({
+ 	},
+ 	toExternalHTML(e) {
+ 		let t = document.createElement("li"), n = document.createElement("input");
+-		n.type = "checkbox", n.checked = e.props.checked, e.props.checked && n.setAttribute("checked", "");
++		n.type = "checkbox", n.setAttribute("aria-label", "Done"), n.checked = e.props.checked, e.props.checked && n.setAttribute("checked", "");
+ 		let r = document.createElement("p");
+ 		return V(e.props, t), t.appendChild(n), t.appendChild(r), {
+ 			dom: t,

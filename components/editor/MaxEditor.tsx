@@ -12,8 +12,7 @@ import {
   useCreateBlockNote,
   useUIMode,
 } from "@blocknote/react";
-import { SuggestionMenu } from "@blocknote/core/extensions";
-import { SyntaxHighlightingExtension } from "@blocknote/core";
+import { SuggestionMenu, SyntaxHighlightingExtension } from "@blocknote/core/extensions";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/shadcn";
 import { CalendarDays, Plus, Ellipsis, Check, Undo2, Redo2, Copy, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
@@ -80,7 +79,7 @@ export default function MaxEditor(props: MaxEditorProps) {
     schema: maxSchema,
     // Shiki loads the first time a code block needs coloring, not with every page.
     extensions: [SyntaxHighlightingExtension({ createHighlighter: () => import("./shiki").then((m) => m.createHighlighter()) })],
-    dictionary: { ...locales.en, multi_column: multiColumnLocales.en } as never,
+    dictionary: { ...locales.en, multi_column: multiColumnLocales.en, toggle_blocks: { ...locales.en.toggle_blocks, toggle_button: "Toggle content" } } as never,
     domAttributes: { editor: { "aria-label": "Page content", "aria-multiline": "true" } },
     initialContent: languages.blocks.length ? (languages.blocks as never) : undefined,
     uploadFile: async (file: File) => {

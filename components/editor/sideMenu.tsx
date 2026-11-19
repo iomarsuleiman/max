@@ -3,7 +3,7 @@
 import { SideMenuExtension, SuggestionMenu } from "@blocknote/core/extensions";
 import {
   blockTypeSelectItems, BlockColorsItem, SideMenuController, TableColumnHeaderItem, TableRowHeaderItem,
-  useBlockNoteEditor, useComponentsContext, useDictionary, useExtension, useExtensionState, usePortalElement,
+  useBlockNoteEditor, useComponentsContext, useExtension, useExtensionState, usePortalElement,
 } from "@blocknote/react";
 import { ArrowDown, ArrowUp, Copy, CopyPlus, GripVertical, MessageSquare, Palette, Plus, Repeat2, Trash2 } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
@@ -249,11 +249,10 @@ const TURN_INTO = new Set(["paragraph", "heading", "quote", "bulletListItem", "n
 
 function TurnIntoItem({ label }: { label: string }) {
   const Components = useComponentsContext()!;
-  const dict = useDictionary();
   const portalElement = usePortalElement();
   const editor = useBlockNoteEditor() as unknown as MaxEditorType;
   const block = useExtensionState(SideMenuExtension, { editor: editor as never, selector: (state) => state?.block });
-  const items = useMemo(() => blockTypeSelectItems(dict).filter((item) => TURN_INTO.has(item.type) && !item.props?.isToggleable && Number(item.props?.level ?? 1) <= 3 && item.type in editor.schema.blockSchema), [dict, editor]);
+  const items = useMemo(() => blockTypeSelectItems(editor as never).filter((item) => TURN_INTO.has(item.type) && !item.props?.isToggleable && Number(item.props?.level ?? 1) <= 3 && item.type in editor.schema.blockSchema), [editor]);
   if (!block || !TURN_INTO.has(block.type)) return null;
   const current = (item: (typeof items)[number]) => item.type === block.type && Object.entries(item.props ?? {}).every(([k, v]) => k === "isToggleable" || (block.props as Record<string, unknown>)[k] === v);
   return (
