@@ -1,3 +1,34 @@
+# Max 2.0.0
+
+Max 2.0 lays the groundwork for shared workspaces and teams while keeping the private, single-owner Max you use today exactly as it is. All 44 planned milestones are merged.
+
+## What changes for you today
+
+- A redesigned landing: the butterfly now flaps its wings (on arrival, hover, tap or the keyboard, and stays still with reduced motion), a matching paper grain in dark mode, a whole-screenshot product walkthrough on phones, and a new sample workspace in the screenshots.
+- Multi-tab safety and recovery: one tab edits a page at a time, partitions recover cleanly, and Arabic input methods are protected while composing.
+- Sturdier offline saving, server checkpoints and cloud recovery groundwork.
+
+## Built in, switched off until you turn it on
+
+Every shared-workspace capability is behind its own server flag (`MAX_V2_*`), and each flag is off unless set to `true`. With all flags off, Max behaves like 1.x and the MCP server stays owner-only.
+
+- Workspaces with verified server-side authorization, management, invitations and scopes, and a navigation shell.
+- Real-time co-editing foundations: collaboration codec, authenticated BlockNote provider, durable offline edits, live authorization and lease fences.
+- Ephemeral presence, block-anchored comments with mentions, suggestions and change review, a private collaboration inbox and room activity.
+- Shared databases with row-level authorization, scoped tasks, assignees, projects and wiki records, task hierarchy and dependencies, permission-fenced task views, and wiki ownership, verification and expiry.
+- Guest and cross-workspace sharing, expiring link policies, revocation and default-deny access preflight.
+- Deterministic automation rules with dry runs and an inert run journal (no worker, schedule or network side effects).
+- Manual meeting notes, private reports and a privacy-safe report pack. Nothing is sent to ChatGPT or any other service automatically.
+- A release-readiness lock (`scripts/max-v2-release-readiness.mjs`) that keeps the live rollout gates pending until each is verified.
+
+## Before turning shared features on
+
+The full command list is in [MAX_2_GO_LIVE.md](MAX_2_GO_LIVE.md).
+
+1. Deploy the Convex backend (`pnpm convex:deploy`); the new tables are additive.
+2. Work through the gates in [MAX_2_PR44_RELEASE_READINESS.md](MAX_2_PR44_RELEASE_READINESS.md) that need real accounts, devices or an external review.
+3. Enable flags one area at a time.
+
 # Max 1.0.0
 
 Max brings private pages, rich documents, personal databases, and an MCP server into one workspace.

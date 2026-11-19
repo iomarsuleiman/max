@@ -17,17 +17,39 @@ try {
   };
   await op("account.init");
   await op("settings.update", { onboarded: true, profileCardOnboarded: true, displayName: "Avery", sidebarWidth: 248, profileCard: { name: "Avery", subtitle: "Curious explorer", bio: "", theme: "mint", pattern: "gradient", shape: "band" } });
-  const notes = ["Design journal", "A quieter workspace", "Field notes", "Things to make", "Reading shelf", "Small discoveries", "Weekend plans", "The garden", "A good routine", "Ideas worth keeping", "Places to go", "Next chapter"];
-  const icons = ["📔", "🌿", "🗒️", "🛠️", "📚", "✨", "☀️", "🌱", "☕", "💡", "🧭", "🪁"];
+  // Short, concrete sample pages: every title fits the sidebar without truncation.
+  const notes = [
+    ["Lisbon trip", "🧳"],
+    ["Reading list", "📚"],
+    ["Weekly plan", "🗓️"],
+    ["Recipes", "🍳"],
+    ["Garden", "🌱"],
+    ["Journal", "📔"],
+    ["Book notes", "📖"],
+    ["Gift ideas", "🎁"],
+    ["Workouts", "🏃"],
+    ["Side project", "🛠️"],
+  ];
+  const bodies = {
+    "Reading list": "Books for trains and slow evenings.\n\n- [x] The Book of Disquiet\n- [ ] A Little Life\n- [ ] Something with a map in the front",
+    "Weekly plan": "Three things that matter this week.\n\n- [x] Send the draft\n- [ ] Call Mum on Sunday\n- [ ] Water the basil",
+    Recipes: "What we keep cooking.\n\n- Lemon pasta, ten minutes\n- Shakshuka for Saturdays\n- Pastéis de nata, someday",
+    Garden: "What is growing, and what needs a hand.\n\n- Tomatoes on the balcony\n- Mint, out of control\n- Plant tulips in October",
+    Journal: "A line a day is enough.\n\n> Long walk by the river. Found the bakery again.",
+    "Book notes": "Lines worth keeping.\n\n> “I am the size of what I see.” Pessoa",
+    "Gift ideas": "Small things people mentioned once.\n\n- Sam: a film camera\n- Lea: anything with figs",
+    Workouts: "Easy, steady, three times a week.\n\n- Monday run, 5 km\n- Wednesday swim\n- Saturday long walk",
+    "Side project": "A tiny app for tracking plants.\n\n- [x] Sketch the screens\n- [ ] Pick a name",
+  };
   const pages = [];
-  for (const [index, title] of notes.entries()) pages.push((await op("pages.create", { title, icon: icons[index] })).page);
+  for (const [title, icon] of notes) pages.push((await op("pages.create", { title, icon })).page);
   await op("pages.setFavorite", { id: pages[0]._id, favorite: true });
-  await op("pages.setFavorite", { id: pages[4]._id, favorite: true });
+  await op("pages.setFavorite", { id: pages[1]._id, favorite: true });
   for (let index = 0; index < pages.length; index++) {
     const links = [pages[(index + 1) % pages.length], pages[(index + 3) % pages.length]].map((link) => `[${link.title}](/p/${link._id})`).join(" · ");
     const markdown = index === 0
-      ? `A place to collect what catches your eye. No need to have it all figured out.\n\n## Make a little room\n\nGood ideas rarely arrive in order. Keep a page open for the unexpected.\n\n- [x] Gather a few things that inspire you\n- [x] Find the thread between them\n- [ ] Make something small\n\n## Follow your curiosity\n\n${links}\n\n> Start anywhere. You can always move things around later.\n\n## On the horizon\n\nA weekend project, a book to finish, a new way of seeing an old idea.`
-      : `A few notes about ${pages[index].title.toLowerCase()}.\n\n## Worth remembering\n\nLeave room for something unexpected.\n\n${links}\n\n- A little progress every day\n- Keep the useful things close\n- Follow the next good question`;
+      ? `Four days in May. Slow mornings, long lunches, one good map.\n\n## Before we go\n\n- [x] Book the flat in Alfama\n- [x] Reserve dinner for Friday\n- [ ] Download offline maps\n\n## Day one\n\nTram 28 up to the castle, then pastéis de nata in Belém.\n\n${links}\n\n> Keep the best photos for the journal.\n\n## Still deciding\n\nFado on Friday, or a day trip to Sintra.`
+      : `${bodies[pages[index].title]}\n\nSee also: ${links}`;
     await op("documents.writeMarkdown", { pageId: pages[index]._id, markdown });
   }
   await mkdir("public/screenshots", { recursive: true });
@@ -56,7 +78,7 @@ try {
     await page.locator(".card-studio").scrollIntoViewIfNeeded();
     await capture("card", theme);
     await page.getByRole("button", { name: "Close settings", exact: true }).click();
-    await page.goto(`${base}/p/${pages[4]._id}`);
+    await page.goto(`${base}/p/${pages[1]._id}`);
     await page.locator(".bn-editor").waitFor();
     await capture("sidebar", theme);
   }

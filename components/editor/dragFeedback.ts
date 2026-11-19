@@ -184,7 +184,7 @@ export function blockDropTarget(editor: MaxEditorType, clientX: number, clientY:
   const upper = !content || clientY < content.top + content.height / 2;
   const block = editor.getBlock(id);
   if (!block) return undefined;
-  const firstChild = !upper && block.children.length && !outer.querySelector(":scope > .bn-block > .bn-block-content [data-show-children='false']") ? block.children[0] : undefined;
+  const firstChild = !upper && block.children.length && !outer.querySelector(":scope > .bn-block > .bn-block-content .bn-toggle-button[aria-expanded='false']") ? block.children[0] : undefined;
   const target = firstChild && !dragged.includes(firstChild.id) ? { id: firstChild.id, placement: "firstChild" as const } : { id, placement: upper ? ("before" as const) : ("after" as const) };
   const info = getNodeById(target.placement === "firstChild" ? target.id : id, editor.prosemirrorView.state.doc);
   if (!info) return undefined;
