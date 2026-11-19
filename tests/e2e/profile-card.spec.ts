@@ -15,7 +15,8 @@ test("the membership card lives in About: number, note on the back, artwork that
   await expect(preview).toContainText("عمر Omar");
   await expect(preview).toContainText(/NO\. \d{6}/);
   await expect(settings.getByText(/^No\. \d/)).toBeVisible();
-  await expect(settings.getByText(/^from The Max team/)).toBeVisible();
+  // No hints or labels around the card: it explains itself.
+  await expect(settings.getByText(/Hover the card|Read the note/)).toHaveCount(0);
 
   // Hovering turns it over to the handwritten note (no QR, no invitation text).
   await preview.hover();

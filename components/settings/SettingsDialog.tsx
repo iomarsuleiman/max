@@ -877,7 +877,7 @@ function AboutSection() {
   return (
     <>
       <Heading title="About Max" description="A calm, private home for your notes, pages and databases." />
-      <Group title="Your membership card">
+      <Group>
         <div className="py-3">{s ? <ProfileCardEditor /> : <Skeleton className="h-64" />}</div>
       </Group>
       <Group title="Invite friends">

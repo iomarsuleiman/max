@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { RotateCw, Smartphone } from "lucide-react";
 import type { ProfileCard as Card } from "@/lib/domain/profileCard";
 import { profileCardBackSvg, profileCardSvg } from "@/lib/client/profileCardExport";
-import { Button } from "@/components/ui";
 
 const subscribe = () => () => {};
 /** Only phones and tablets have a tilt sensor worth asking for (desktop Safari also exposes the API). */
@@ -26,6 +24,7 @@ function applyTilt(element: HTMLElement, x: number, y: number) {
 /**
  * The membership card: artwork on the front and a handwritten note on the back. Tilts toward the
  * pointer (or the phone); hovering turns it over to show the note, and a click or tap flips it.
+ * No labels or hints around it: the card explains itself.
  */
 export interface CardNote {
   text: string;
@@ -36,7 +35,7 @@ export function ProfileCard({ card, note }: { card: Card; note: CardNote }) {
   const id = useId();
   const tilt = useRef<HTMLElement>(null);
   const permissionRequired = useSyncExternalStore(subscribe, needsPermission, () => false);
-  const [permissionGranted, setPermissionGranted] = useState(false);
+  const permissionAsked = useRef(false);
   const [flipped, setFlipped] = useState(false);
   const named = { ...card, name: card.name.trim() || "Your name" };
   const front = profileCardSvg(named, id);
@@ -91,7 +90,14 @@ export function ProfileCard({ card, note }: { card: Card; note: CardNote }) {
           className="profile-card-hit"
           aria-pressed={flipped}
           aria-label={flipped ? "Show the front of the card" : "Show the back of the card"}
-          onClick={() => setFlipped((f) => !f)}
+          onClick={() => {
+            setFlipped((f) => !f);
+            // iPhones only allow tilt after a tap, so the first tap on the card asks for it.
+            if (permissionRequired && !permissionAsked.current && "requestPermission" in DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
+              permissionAsked.current = true;
+              DeviceOrientationEvent.requestPermission().catch(() => {});
+            }
+          }}
         />
         <p className="sr-only" aria-live="polite">
           {flipped
@@ -99,29 +105,6 @@ export function ProfileCard({ card, note }: { card: Card; note: CardNote }) {
             : `Front: ${named.name}${card.subtitle ? `, ${card.subtitle}` : ""}.`}
         </p>
       </article>
-      <div className="flex w-full flex-wrap justify-center gap-2 pt-1">
-        <Button size="sm" variant="ghost" icon={<RotateCw className="size-3.5" />} onClick={() => setFlipped((f) => !f)}>
-          {flipped ? "Show front" : "Read the note"}
-        </Button>
-        {permissionRequired && !permissionGranted && (
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={<Smartphone className="size-3.5" />}
-            onClick={async () => {
-              if ("requestPermission" in DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
-                try {
-                  setPermissionGranted((await DeviceOrientationEvent.requestPermission()) === "granted");
-                } catch {
-                  // Leave the control available if the browser cannot grant sensor access yet.
-                }
-              }
-            }}
-          >
-            Enable phone tilt
-          </Button>
-        )}
-      </div>
     </>
   );
 }

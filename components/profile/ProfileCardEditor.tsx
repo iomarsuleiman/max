@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, Shuffle } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui";
+import { IconButton } from "@/components/ui";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { defaultProfileCard, profileCardSchema, profileCardShapes, profileCardThemes, type ProfileCard as Card } from "@/lib/domain/profileCard";
 import { downloadProfileCardPng } from "@/lib/client/profileCardExport";
@@ -19,8 +19,8 @@ interface CardInfo {
 }
 
 /**
- * Your membership card, as it appears in About: the card (hover it to read the note on the back),
- * your member number and who the note is from. Changing the artwork saves it.
+ * Your membership card, as it appears in About: the card (its note is on the back), your member
+ * number and two quiet icon buttons. Changing the artwork saves it.
  */
 export function ProfileCardEditor() {
   const ws = useWorkspace();
@@ -36,8 +36,6 @@ export function ProfileCardEditor() {
   const saving = useRef<Promise<unknown> | null>(null);
   const shown: Card = { ...card, memberNumber: info.data?.memberNumber ?? undefined };
   const note: CardNote = info.data?.note ?? { text: "", from: "" };
-  const joined = info.data?.joinedAt ?? ws.settings?.joinedAt ?? null;
-  const when = joined ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(joined) : null;
 
   const change = () => {
     const themes = profileCardThemes.filter((t) => t !== card.theme);
@@ -56,18 +54,13 @@ export function ProfileCardEditor() {
       </div>
       <div className="card-about-info">
         <p className="card-about-number">{info.data?.memberNumber ? `No. ${info.data.memberNumber.toLocaleString("en-US")}` : "No. …"}</p>
-        <p className="text-fg-2 text-[13.5px]">{note.from ? `from ${note.from}${when ? `, ${when}` : ""}` : " "}</p>
-        <p className="text-fg-3 mt-3 max-w-[18rem] text-[12.5px] leading-relaxed">
-          {note.from ? (info.data?.note.invited ? `Hover the card to read ${note.from}'s note on the back.` : "Hover the card to read the note on the back.") : ""}
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" icon={<Shuffle className="size-3.5" />} onClick={change}>
-            Change artwork
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={<Download className="size-3.5" />}
+        <div className="mt-2 flex flex-wrap gap-1">
+          <IconButton label="Change artwork" size="md" onClick={change}>
+            <Shuffle className="size-4" />
+          </IconButton>
+          <IconButton
+            label="Download PNG"
+            size="md"
             onClick={async () => {
               try {
                 await saving.current;
@@ -78,8 +71,8 @@ export function ProfileCardEditor() {
               }
             }}
           >
-            Download PNG
-          </Button>
+            <Download className="size-4" />
+          </IconButton>
         </div>
       </div>
     </div>
