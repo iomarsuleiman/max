@@ -16,11 +16,12 @@ const IconPicker = dynamic(() => import("./IconPicker").then((m) => m.IconPicker
 const CoverPicker = dynamic(() => import("./CoverPicker").then((m) => m.CoverPicker), { ssr: false });
 
 export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: PageRow; readOnly: boolean; onEnter: () => void; widthClass: string }) {
-  const ws = useWorkspace();
+  const { call } = useWorkspace();
   const upload = useUploader();
   const [title, setTitle] = useState(page.title);
   const editing = useRef(false);
   const pendingTitle = useRef<string | null>(null);
+  const savingTitle = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -36,16 +37,19 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
         timer.current = null;
       }
       const next = value ?? pendingTitle.current;
-      if (next === null) return;
+      if (next === null || savingTitle.current !== null) return;
+      savingTitle.current = next;
       try {
-        await ws.call("pages.update", { id: page._id, title: next });
+        await call("pages.update", { id: page._id, title: next });
       } catch (err) {
         notifyError(err, "Couldn't save the title.");
       } finally {
+        savingTitle.current = null;
         if (pendingTitle.current === next) pendingTitle.current = null;
+        else if (pendingTitle.current !== null && !timer.current) void flushTitle();
       }
     },
-    [page._id, ws],
+    [page._id, call],
   );
 
   const save = (value: string) => {
@@ -61,7 +65,7 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
     [flushTitle],
   );
 
-  const update = (patch: Record<string, unknown>) => ws.call("pages.update", { id: page._id, ...patch }).catch((e) => notifyError(e));
+  const update = (patch: Record<string, unknown>) => call("pages.update", { id: page._id, ...patch }).catch((e) => notifyError(e));
   const cover = page.cover;
 
   return (
@@ -141,7 +145,6 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.nativeEvent.isComposing) {
               e.preventDefault();
-              if (pendingTitle.current !== null) void flushTitle();
               e.currentTarget.blur();
               onEnter();
             }
