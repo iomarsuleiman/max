@@ -5,14 +5,16 @@ async function newPage(page: Page, title: string) {
   await page.goto("/home");
   await page.waitForURL(/\/p\//);
   await page.locator(".bn-editor").waitFor();
-  const before = page.url();
+  const before = new URL(page.url()).pathname;
   await page.getByRole("button", { name: "New page" }).last().click();
-  await page.waitForURL((u) => u.href !== before && u.pathname.startsWith("/p/"));
+  await page.waitForURL((u) => u.pathname !== before && u.pathname.startsWith("/p/"));
+  const current = page.getByRole("navigation", { name: "Breadcrumb" }).locator('a[aria-current="page"]');
+  await expect(current).toHaveAttribute("href", new URL(page.url()).pathname);
   await page.getByLabel("Page title").fill(title);
-  return page.url();
 }
 
 test("first visit creates a welcome page", async ({ page }) => {
+  await page.context().addCookies([{ name: "max-dev-user", value: `first_visit_${Date.now()}`, url: new URL("/", test.info().project.use.baseURL).origin }]);
   await page.goto("/home");
   await expect(page.getByRole("treeitem").first()).toBeVisible();
   await expect(page.getByRole("tree", { name: "Pages" })).toContainText("Welcome to Max");
@@ -36,15 +38,22 @@ test("write, autosave and find the content after a reload", async ({ page }) => 
 });
 
 test("nest pages, move to trash and restore", async ({ page }) => {
-  const parentUrl = await newPage(page, "Parent page");
-  const parentId = parentUrl.split("/p/")[1].split("?")[0];
+  await page.context().addCookies([{ name: "max-dev-user", value: `trash_journey_${Date.now()}`, url: new URL("/", test.info().project.use.baseURL).origin }]);
+  await newPage(page, "Parent page");
   await page.getByRole("treeitem").filter({ hasText: "Parent page" }).hover();
   await page.getByRole("treeitem").filter({ hasText: "Parent page" }).getByRole("button", { name: "Add a page inside" }).click();
-  await page.waitForURL((u) => !u.pathname.includes(parentId));
-  await page.getByLabel("Page title").fill("Child page");
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Parent page");
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+  const parentLink = breadcrumb.getByRole("link", { name: "Parent page", exact: true });
+  // The new URL can arrive before React replaces the previous page's editor.
+  await expect(breadcrumb.locator('a[aria-current="page"]')).toHaveText("Untitled");
+  await expect(parentLink).toBeVisible();
+  const title = page.getByLabel("Page title");
+  await title.fill("Child page");
+  await title.blur();
+  await expect(breadcrumb.locator('a[aria-current="page"]')).toHaveText("Child page");
 
-  await page.goto(parentUrl);
+  await parentLink.click();
+  await expect(breadcrumb.locator('a[aria-current="page"]')).toHaveText("Parent page");
   await page.getByRole("button", { name: "Page options" }).click();
   await page.getByRole("menuitem", { name: "Move to trash" }).click();
   await expect(page.getByText(/Moved “Parent page” and 1 subpage to trash/)).toBeVisible();
@@ -53,7 +62,11 @@ test("nest pages, move to trash and restore", async ({ page }) => {
   await page.getByRole("button", { name: "Restore Parent page" }).click();
   await expect(page.getByText(/Restored/).first()).toBeVisible();
   await page.goto("/home");
-  await expect(page.getByRole("tree", { name: "Pages" })).toContainText("Parent page");
+  const tree = page.getByRole("tree", { name: "Pages" });
+  await expect(tree.getByRole("link", { name: "Parent page", exact: true })).toBeVisible();
+  const expandParent = tree.getByRole("button", { name: "Expand Parent page" });
+  if (await expandParent.isVisible()) await expandParent.click();
+  await expect(tree.getByRole("link", { name: "Child page", exact: true })).toBeVisible();
 });
 
 test("databases: add rows and filter", async ({ page }) => {

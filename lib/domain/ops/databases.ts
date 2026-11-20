@@ -257,8 +257,8 @@ export const databasesGet = defineOp({
   async run(ctx, { databaseId }) {
     const db = await requirePage(ctx, databaseId, { allowArchived: true });
     if (db.kind !== "database") throw new MaxError("VALIDATION", "That page isn't a database.");
-    const pages = await allPages(ctx);
-    return { database: summary(db), properties: db.properties ?? [], views: db.views ?? [], recordCount: records(pages, databaseId).length };
+    const rows = await ctx.db.list("pages", ctx.ownerId, { field: "databaseId", value: databaseId });
+    return { database: summary(db), properties: db.properties ?? [], views: db.views ?? [], recordCount: records(rows, databaseId).length };
   },
 });
 
@@ -270,10 +270,15 @@ export const databasesList = defineOp({
   input: z.object({}),
   async run(ctx) {
     const pages = await allPages(ctx);
+    const hidden = templateMembers(pages);
+    const counts = new Map<string, number>();
+    for (const p of pages) {
+      if (p.databaseId && !p.archivedAt && !p.isTemplate) counts.set(p.databaseId, (counts.get(p.databaseId) ?? 0) + 1);
+    }
     return {
       databases: pages
-        .filter((p) => p.kind === "database" && !p.archivedAt && !templateMembers(pages).has(p._id))
-        .map((p) => ({ ...summary(p), recordCount: records(pages, p._id).length, properties: (p.properties ?? []).map((x) => ({ id: x.id, name: x.name, type: x.type })) })),
+        .filter((p) => p.kind === "database" && !p.archivedAt && !hidden.has(p._id))
+        .map((p) => ({ ...summary(p), recordCount: counts.get(p._id) ?? 0, properties: (p.properties ?? []).map((x) => ({ id: x.id, name: x.name, type: x.type })) })),
     };
   },
 });
@@ -632,14 +637,30 @@ export const databasesQuery = defineOp({
   async run(ctx, input) {
     const db = await requirePage(ctx, input.databaseId, { allowArchived: true });
     if (db.kind !== "database") throw new MaxError("VALIDATION", "That page isn't a database.");
-    const props = db.properties ?? [];
+    const publishedPages = ctx.publishedPages;
+    const properties = db.properties ?? [];
+    const props = publishedPages ? properties.filter((prop) => {
+      const relation = prop.type === "rollup"
+        ? properties.find((p) => p.id === prop.rollup?.relationPropertyId)
+        : prop;
+      if (prop.type !== "relation" && prop.type !== "rollup") return true;
+      return !!relation?.relationDatabaseId && publishedPages.has(relation.relationDatabaseId);
+    }) : properties;
     const view = input.viewId ? db.views?.find((v) => v.id === input.viewId) : undefined;
     if (input.viewId && !view) throw new MaxError("NOT_FOUND", "That view doesn't exist.");
-    const filters = [...(view?.filters ?? []), ...(input.filters ?? [])];
-    const sorts = [...(input.sorts ?? []), ...(view?.sorts ?? [])];
-    const pages = await allPages(ctx);
+    const visiblePropertyIds = new Set(props.map((prop) => prop.id));
+    const filters = [...(view?.filters ?? []), ...(input.filters ?? [])].filter((filter) => !publishedPages || visiblePropertyIds.has(filter.propertyId));
+    const sorts = [...(input.sorts ?? []), ...(view?.sorts ?? [])].filter((sort) => !publishedPages || visiblePropertyIds.has(sort.propertyId));
+    const hasRollup = props.some((p) => p.type === "rollup");
+    const pages = publishedPages
+      ? [...publishedPages.values()]
+      : hasRollup ? await allPages(ctx) : await ctx.db.list("pages", ctx.ownerId, { field: "databaseId", value: db._id });
+    const dbRecords = records(pages, db._id).map((row) => publishedPages ? {
+      ...row,
+      values: Object.fromEntries(Object.entries(row.values ?? {}).filter(([id]) => visiblePropertyIds.has(id))),
+    } : row);
     const q = input.search?.trim().toLowerCase();
-    let rows = withComputed(props, records(pages, db._id), pages, ctx.now).filter((r) => filters.every((f) => matchesFilter(props.find((p) => p.id === f.propertyId), r, f)));
+    let rows = withComputed(props, dbRecords, pages, ctx.now).filter((r) => filters.every((f) => matchesFilter(props.find((p) => p.id === f.propertyId), r, f)));
     if (q) {
       rows = rows.filter((r) => [r.title, ...props.map((p) => displayValue(p, r.values?.[p.id] ?? null, r))].some((v) => v !== null && String(v).toLowerCase().includes(q)));
     }
@@ -656,7 +677,7 @@ export const databasesQuery = defineOp({
       records: page.map(recordView),
       calculations,
       total: rows.length,
-      unfilteredTotal: records(pages, db._id).length,
+      unfilteredTotal: dbRecords.length,
       nextCursor: start + limit < rows.length ? start + limit : null,
     };
   },

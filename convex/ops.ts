@@ -22,9 +22,16 @@ async function ownerFromAuth(ctx: { auth: { getUserIdentity(): Promise<{ subject
   return identity.subject;
 }
 
+function constantTimeEqual(a: string, b: string): boolean {
+  const max = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < max; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
 function checkSecret(secret: string) {
   const expected = process.env.MAX_SERVER_SECRET;
-  if (!expected || expected.length < 32 || secret !== expected) {
+  if (!expected || expected.length < 32 || !constantTimeEqual(secret, expected)) {
     throw new ConvexError({ code: "UNAUTHENTICATED", message: "Server credentials are not configured." });
   }
 }

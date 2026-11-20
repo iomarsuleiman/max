@@ -57,10 +57,26 @@ async function chain(db: Db, page: PageRow): Promise<PageRow[]> {
 /** Visitors without an account (pages published to the web) act as this id. */
 export const ANONYMOUS = "anon";
 
+/** Checks moderation standing for sharing & live co-editing entry points (mirrors execute()). */
+export async function assertSharingStanding(db: Db, ownerId: string, callerId: string, write: boolean) {
+  const ids = new Set([ownerId, callerId].filter((x) => !!x && x !== ANONYMOUS).map(accountOf));
+  for (const id of ids) {
+    const m = (await db.list("moderation", id))[0];
+    if (!m) continue;
+    if (m.status === "banned") {
+      throw new MaxError("FORBIDDEN", id === accountOf(callerId) ? "This account has been banned from Max." : "This page is no longer available.");
+    }
+    if (write) {
+      throw new MaxError("FORBIDDEN", id === accountOf(callerId) ? "This account is suspended: you can read pages but not change them." : "This workspace is read-only right now.");
+    }
+  }
+}
+
 export async function resolveAccess(db: Db, callerId: string, pageId: string, linkToken?: string | null): Promise<Access> {
   const page = await db.get("pages", pageId);
   if (!page) throw notFound();
   const anonymous = callerId === ANONYMOUS;
+  await assertSharingStanding(db, page.ownerId, callerId, false);
   if (!anonymous && accountOf(page.ownerId) === callerId) return { level: "owner", ownerId: page.ownerId, page, rootId: null };
   if (page.archivedAt) throw notFound();
   const ancestors = await chain(db, page);
@@ -113,7 +129,6 @@ const POLICY: Record<string, { min: ShareLevel; targets: Targets }> = {
   "pages.get": { min: "view", targets: arg("id") },
   "pages.children": { min: "view", targets: arg("parentId") },
   "pages.backlinks": { min: "view", targets: arg("id") },
-  "pages.touch": { min: "view", targets: arg("id") },
   "documents.get": { min: "view", targets: arg("pageId") },
   "databases.get": { min: "view", targets: arg("databaseId") },
   "databases.query": { min: "view", targets: arg("databaseId") },
@@ -134,11 +149,14 @@ const POLICY: Record<string, { min: ShareLevel; targets: Targets }> = {
   "records.create": { min: "edit", targets: arg("databaseId") },
   "records.update": { min: "edit", targets: arg("id") },
   "records.move": { min: "edit", targets: arg("id") },
-  "records.delete": { min: "edit", targets: async (args) => (Array.isArray(args.ids) ? (args.ids as string[]) : ["\0missing"]) },
+  "records.delete": { min: "edit", targets: async (args) => (Array.isArray(args.ids) && args.ids.length ? (args.ids as string[]) : ["\0missing"]) },
   "views.create": { min: "edit", targets: arg("databaseId") },
   "views.update": { min: "edit", targets: arg("databaseId") },
   "views.delete": { min: "edit", targets: arg("databaseId") },
-  "properties.add": { min: "edit", targets: arg("databaseId") },
+  "properties.add": {
+    min: "edit",
+    targets: async (args) => (args.relationDatabaseId !== undefined ? [args.databaseId as string, args.relationDatabaseId as string] : [args.databaseId as string]),
+  },
   "properties.update": { min: "edit", targets: arg("databaseId") },
   "properties.delete": { min: "edit", targets: arg("databaseId") },
   "assets.createUploadUrl": { min: "edit", targets: async () => [] },
@@ -174,9 +192,9 @@ export async function executeShared(op: string, rawArgs: unknown, ctx: SharedCon
   const args = (rawArgs ?? {}) as Record<string, unknown>;
   const scope = await resolveAccess(ctx.db, ctx.actor.id, ctx.scopePageId, ctx.linkToken);
   if (!atLeast(scope.level, policy.min)) throw new MaxError("FORBIDDEN", `You need “${LEVEL_LABEL[policy.min]}” access to do that.`);
-  // Every page the operation touches must be reachable at the required level too.
+  // Every page the operation touches must be reachable at the required level too (fail closed on missing/null targets).
   for (const target of await policy.targets(args, ctx.db)) {
-    if (!target) continue;
+    if (typeof target !== "string" || !target) throw new MaxError("FORBIDDEN", "That page isn't shared with you.");
     let access: Access;
     try {
       access = await resolveAccess(ctx.db, ctx.actor.id, target, ctx.linkToken);
@@ -201,7 +219,33 @@ export async function executeShared(op: string, rawArgs: unknown, ctx: SharedCon
     throw new MaxError("FORBIDDEN", "You can't give more access than you have.");
   }
   const result = await execute(op, args, { db: ctx.db, storage: ctx.storage, ownerId: scope.ownerId, now: ctx.now, source: ctx.source ?? "ui", actor: ctx.actor }, kind);
-  return op === "pages.get" ? trimBreadcrumbs(result, scope) : result;
+  if (op === "pages.get") return trimBreadcrumbs(result, scope);
+  if (op === "pages.backlinks" && scope.level !== "owner") {
+    const r = result as { pages: { _id: string }[] };
+    const visible: { _id: string }[] = [];
+    for (const p of r.pages) {
+      try {
+        const a = await resolveAccess(ctx.db, ctx.actor.id, p._id, ctx.linkToken);
+        if (a.ownerId === scope.ownerId) visible.push(p);
+      } catch {
+        // Private backlinks outside the share stay hidden.
+      }
+    }
+    return { pages: visible };
+  }
+  if (op === "shares.list" && scope.level !== "owner" && scope.rootId) {
+    const r = result as { direct: unknown[]; inherited: { fromPageId: string }[]; link: unknown };
+    const allowed = new Set<string>();
+    const targetPage = await ctx.db.get("pages", String(args.pageId ?? ""));
+    if (targetPage) {
+      for (const p of await chain(ctx.db, targetPage)) {
+        allowed.add(p._id);
+        if (p._id === scope.rootId) break;
+      }
+    }
+    return { ...r, inherited: r.inherited.filter((item) => allowed.has(item.fromPageId)) };
+  }
+  return result;
 }
 
 /** Breadcrumbs stop at the shared page: people never see the titles of pages above it. */
@@ -252,6 +296,7 @@ async function nearestLink(db: Db, ancestors: PageRow[]) {
 export async function joinByLink(db: Db, actor: Actor, pageId: string, now: number, linkToken?: string | null) {
   if (actor.id === ANONYMOUS) throw new MaxError("UNAUTHENTICATED", "Sign in to Max to join.");
   const a = await resolveAccess(db, actor.id, pageId, linkToken);
+  await assertSharingStanding(db, a.ownerId, actor.id, true);
   if (a.level === "owner") throw new MaxError("VALIDATION", "This page is already yours.");
   const ancestors = await chain(db, a.page);
   const link = await nearestLink(db, ancestors);
@@ -313,6 +358,7 @@ export async function duplicateShared(db: Db, actor: Actor, pageId: string, now:
   if (accountOf(target) !== actor.id) throw new MaxError("FORBIDDEN", "You can only copy into your own workspaces.");
   if (actor.id === ANONYMOUS) throw new MaxError("UNAUTHENTICATED", "Sign in to Max to duplicate this page into your workspace.");
   const access = await resolveAccess(db, actor.id, pageId, linkToken);
+  await assertSharingStanding(db, target, actor.id, true);
   if (access.level === "owner") throw new MaxError("VALIDATION", "This page is already yours. Use Duplicate in its ⋯ menu.");
   const source = access.page;
   const ownerPages = await db.list("pages", access.ownerId);

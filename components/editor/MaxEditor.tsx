@@ -28,7 +28,7 @@ import { fromEditorCodeLanguages, toEditorCodeLanguages } from "./codeLanguages"
 import { blockDropTarget, handleBlockDrop } from "./dragFeedback";
 import { insertDroppedFiles, isTextFile } from "./dropFiles";
 import { INSERT_FILES_EVENT } from "@/lib/client/importKinds";
-import * as locales from "@blocknote/core/locales";
+import { en as enLocale } from "@blocknote/core/locales";
 import { getMultiColumnSlashMenuItems, locales as multiColumnLocales } from "@blocknote/xl-multi-column";
 import { formatMentionDate } from "./blocks";
 import { checkFile, isBlockNoteClipboard, isLinkAllowed, normalizeEditorLinks, parseYouTube, sanitizeClipboardHtml, uploadProblemCopy } from "./policy";
@@ -137,7 +137,7 @@ export default function MaxEditor(props: MaxEditorProps) {
     schema: maxSchema,
     // Shiki loads the first time a code block needs coloring, not with every page.
     extensions: [SyntaxHighlightingExtension({ createHighlighter: () => import("./shiki").then((m) => m.createHighlighter()) })],
-    dictionary: { ...locales.en, multi_column: multiColumnLocales.en, toggle_blocks: { ...locales.en.toggle_blocks, toggle_button: "Toggle content" } } as never,
+    dictionary: { ...enLocale, multi_column: multiColumnLocales.en, toggle_blocks: { ...enLocale.toggle_blocks, toggle_button: "Toggle content" } } as never,
     domAttributes: { editor: { "aria-label": "Page content", "aria-multiline": "true" } },
     initialContent: languages.blocks.length ? (languages.blocks as never) : undefined,
     uploadFile: async (file: File) => {

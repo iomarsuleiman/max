@@ -7,7 +7,7 @@ export { importSourceOf, isImportable, type ImportSource } from "./importKinds";
 type Call = <T>(op: string, args: Record<string, unknown>) => Promise<T>;
 type Upload = (file: File, pageId: string | null) => Promise<string>;
 
-const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif", svg: "image/svg+xml" };
+const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif" };
 
 function unzipAll(data: Uint8Array, prefix = "", depth = 0): ZipEntry[] {
   const out: ZipEntry[] = [];

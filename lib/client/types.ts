@@ -10,6 +10,7 @@ export interface PageGetResult {
   database: PageSummary | null;
   inTrash: boolean;
   trashedWith: PageSummary | null;
+  isShared?: boolean;
 }
 
 export interface DocumentGetResult {

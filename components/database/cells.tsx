@@ -42,12 +42,17 @@ export function ValueView({ prop, value, record, compact }: { prop: PropertyDef;
       return <span className="text-fg-2">{formatDateValue(new Date(record.createdAt).toISOString().slice(0, 16))}</span>;
     case "updated_time":
       return <span className="text-fg-2">{formatDateValue(new Date(record.updatedAt).toISOString().slice(0, 16))}</span>;
-    case "url":
-      return typeof value === "string" ? (
-        <a href={value} target="_blank" rel="noreferrer noopener" className="truncate underline decoration-line-strong underline-offset-2 hover:decoration-fg-2" onClick={(e) => e.stopPropagation()}>
-          {value.replace(/^https?:\/\/(www\.)?/, "")}
+    case "url": {
+      if (typeof value !== "string" || !value) return null;
+      const safe = /^https?:\/\//i.test(value.trim()) ? value.trim() : null;
+      return safe ? (
+        <a href={safe} target="_blank" rel="noreferrer noopener" className="truncate underline decoration-line-strong underline-offset-2 hover:decoration-fg-2" onClick={(e) => e.stopPropagation()}>
+          {safe.replace(/^https?:\/\/(www\.)?/, "")}
         </a>
-      ) : null;
+      ) : (
+        <span className="truncate text-fg-2">{value}</span>
+      );
+    }
     case "email":
       return typeof value === "string" ? <a href={`mailto:${value}`} className="truncate underline decoration-line-strong underline-offset-2" onClick={(e) => e.stopPropagation()}>{value}</a> : null;
     case "phone":

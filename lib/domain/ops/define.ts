@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Db, Storage } from "../db";
-import type { Source } from "../types";
+import type { PageRow, Source } from "../types";
 
 export interface OpContext {
   db: Db;
@@ -10,6 +10,8 @@ export interface OpContext {
   source: Source;
   /** Who is acting when it isn't the owner (someone the page is shared with). */
   actor?: { id: string; name: string; image: string | null };
+  /** A published site's page boundary, supplied by the trusted site reader. */
+  publishedPages?: ReadonlyMap<string, PageRow>;
 }
 
 export interface OpDef<I extends z.ZodType = z.ZodType, O = unknown> {

@@ -26,13 +26,19 @@ export interface CommentView {
   authorImage?: string | null;
 }
 
+export interface CommentsData {
+  comments: CommentView[];
+  openCount: number;
+  resolvedCount: number;
+}
+
 /** Ask the open page to show comments, optionally starting a comment on a block. */
 export function requestComment(pageId: string, blockId: string | null = null) {
   document.dispatchEvent(new CustomEvent("max:comment", { detail: { pageId, blockId } }));
 }
 
-export function useCommentCount(pageId: string) {
-  const q = useOp<{ openCount: number }>("comments.list", { pageId });
+export function useCommentCount(pageId: string, skip = false) {
+  const q = useOp<{ openCount: number }>("comments.list", skip ? "skip" : { pageId });
   return q.data?.openCount ?? 0;
 }
 
@@ -60,7 +66,7 @@ function BlockMarkers({ comments, onOpen }: { comments: CommentView[]; onOpen: (
   return null;
 }
 
-export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: string; open: boolean; onClose: () => void; focusBlock: { blockId: string | null; nonce: number } | null }) {
+export function CommentsPanel({ pageId, open, onClose, focusBlock, prefetched }: { pageId: string; open: boolean; onClose: () => void; focusBlock: { blockId: string | null; nonce: number } | null; prefetched?: CommentsData }) {
   const ws = useWorkspace();
   const access = usePageAccess();
   const canComment = can(access, "comment");
@@ -69,7 +75,8 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
   const authorOf = (c: CommentView) =>
     isMine(c) ? (ws.settings?.displayName || ws.identity.name || "You") : c.authorName || (c.authorId ? "Someone" : access.ownerName || "Page owner");
   const [showResolved, setShowResolved] = useState(false);
-  const q = useOp<{ comments: CommentView[]; openCount: number; resolvedCount: number }>("comments.list", { pageId, includeResolved: true });
+  const q = useOp<CommentsData>("comments.list", prefetched !== undefined ? "skip" : { pageId, includeResolved: true });
+  const data = prefetched ?? q.data;
   const [draft, setDraft] = useState("");
   const [target, setTarget] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -78,12 +85,21 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
   const composer = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
     if (!focusBlock) return;
     setTarget(focusBlock.blockId);
     requestAnimationFrame(() => composer.current?.focus());
   }, [focusBlock]);
 
-  const all = q.data?.comments ?? [];
+  const all = data?.comments ?? [];
   const shown = all.filter((c) => showResolved || !c.resolvedAt);
   const targetExcerpt = target ? (all.find((c) => c.blockId === target)?.blockExcerpt ?? blockText(target)) : null;
 
@@ -106,21 +122,23 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
     <>
       <BlockMarkers comments={all} onOpen={(id) => (setTarget(id), composer.current?.focus())} />
       {open && (
+        <>
+        <button type="button" aria-label="Close comments" onClick={onClose} className="fixed inset-0 z-30 bg-[var(--scrim)] lg:hidden" />
         <aside aria-label="Comments" className="flex w-80 shrink-0 flex-col border-s border-line bg-surface max-lg:fixed max-lg:inset-y-0 max-lg:end-0 max-lg:z-40 max-lg:w-[min(360px,100vw)] max-lg:shadow-dialog">
           <div className="flex items-center gap-2 px-3 pb-2 pt-3">
             <MessageSquare className="size-4 text-fg-3" />
             <h2 className="text-[14px] font-semibold">Comments</h2>
-            {(q.data?.resolvedCount ?? 0) > 0 && (
+            {(data?.resolvedCount ?? 0) > 0 && (
               <button type="button" aria-pressed={showResolved} onClick={() => setShowResolved(!showResolved)} className="ms-auto rounded px-1.5 py-0.5 text-[12px] text-fg-3 hover:bg-hover hover:text-fg-2">
-                {showResolved ? "Hide resolved" : `Show resolved (${q.data!.resolvedCount})`}
+                {showResolved ? "Hide resolved" : `Show resolved (${data!.resolvedCount})`}
               </button>
             )}
-            <IconButton label="Close comments" shortcut="⌘⇧M" className={cn(!(q.data?.resolvedCount ?? 0) && "ms-auto")} onClick={onClose}>
+            <IconButton label="Close comments" shortcut="⌘⇧M" className={cn(!(data?.resolvedCount ?? 0) && "ms-auto")} onClick={onClose}>
               <X className="size-4" />
             </IconButton>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-3">
-            {!q.data ? (
+            {!data ? (
               <Skeleton className="h-16" />
             ) : !shown.length ? (
               <p className="px-1 py-6 text-center text-[13px] leading-relaxed text-fg-3">
@@ -241,6 +259,7 @@ export function CommentsPanel({ pageId, open, onClose, focusBlock }: { pageId: s
           </form>
           )}
         </aside>
+        </>
       )}
     </>
   );

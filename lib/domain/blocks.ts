@@ -136,7 +136,40 @@ export function newBlockId(): string {
   return Array.from(bytes, (b) => (b % 36).toString(36)).join("");
 }
 
-/** Fills in ids/props/children so externally supplied blocks are valid editor blocks. */
+const SAFE_LINK_RE = /^(https?:\/\/|mailto:|\/p\/|max-import:\/\/)/i;
+const SAFE_WEB_RE = /^https?:\/\//i;
+const SAFE_MEDIA_RE = /^(https?:\/\/|max-asset:\/\/|max-import:\/\/)/i;
+const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+
+function sanitizeInline(items: Inline[]): Inline[] {
+  return items.map((item) => {
+    if (item.type === "link") {
+      const href = typeof (item as InlineLink).href === "string" ? (item as InlineLink).href.trim() : "";
+      if (!SAFE_LINK_RE.test(href)) {
+        const text = inlineText((item as InlineLink).content);
+        return { type: "text", text, styles: {} };
+      }
+      return { ...item, href };
+    }
+    return item;
+  });
+}
+
+function sanitizeProps(type: string, props: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...props };
+  if (type === "bookmark" && typeof out.url === "string" && out.url && !SAFE_WEB_RE.test(out.url.trim())) {
+    out.url = "";
+  } else if (type === "embed" && typeof out.url === "string" && out.url && !/^https:\/\//i.test(out.url.trim())) {
+    out.url = "";
+  } else if ((type === "image" || type === "video" || type === "audio" || type === "file") && typeof out.url === "string" && out.url && !SAFE_MEDIA_RE.test(out.url.trim())) {
+    out.url = "";
+  } else if (type === "youtube" && typeof out.videoId === "string" && out.videoId && !YOUTUBE_ID_RE.test(out.videoId)) {
+    out.videoId = "";
+  }
+  return out;
+}
+
+/** Fills in ids/props/children and enforces safe URL schemes so externally supplied blocks are valid editor blocks. */
 export function normalizeBlocks(input: unknown[], seen = new Set<string>()): Block[] {
   return input.map((raw) => {
     const b = (raw ?? {}) as Partial<Block>;
@@ -144,7 +177,7 @@ export function normalizeBlocks(input: unknown[], seen = new Set<string>()): Blo
     while (seen.has(id)) id = newBlockId();
     seen.add(id);
     const type = typeof b.type === "string" && b.type ? b.type : "paragraph";
-    const content =
+    let content: Block["content"] =
       b.content === undefined
         ? NO_INLINE_TYPES.has(type)
           ? undefined
@@ -152,11 +185,24 @@ export function normalizeBlocks(input: unknown[], seen = new Set<string>()): Blo
         : typeof b.content === "string"
           ? [{ type: "text", text: b.content, styles: {} }]
           : b.content;
+    if (Array.isArray(content)) {
+      content = sanitizeInline(content);
+    } else if (content && content.type === "tableContent" && Array.isArray(content.rows)) {
+      content = {
+        ...content,
+        rows: content.rows.map((r) => ({
+          ...r,
+          cells: r.cells.map((cell) =>
+            Array.isArray(cell) ? sanitizeInline(cell) : cell && Array.isArray(cell.content) ? { ...cell, content: sanitizeInline(cell.content) } : cell,
+          ),
+        })),
+      };
+    }
     return {
       id,
       type,
-      props: { ...(DEFAULT_PROPS[type] ?? DEFAULT_PROPS.paragraph), ...(b.props ?? {}) },
-      content: content as Block["content"],
+      props: sanitizeProps(type, { ...(DEFAULT_PROPS[type] ?? DEFAULT_PROPS.paragraph), ...(b.props ?? {}) }),
+      content,
       children: normalizeBlocks(Array.isArray(b.children) ? b.children : [], seen),
     };
   });

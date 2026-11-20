@@ -2,7 +2,7 @@ import { z } from "zod";
 import { profileCardSchema } from "../profileCard";
 import { MaxError } from "../errors";
 import { rankBetween } from "../rank";
-import { blocksToMarkdown, markdownToBlocks, parseContent } from "../blocks";
+import { blocksToMarkdown, markdownToBlocks, normalizeBlocks, parseContent } from "../blocks";
 import { remapDatabaseReferences, remapDocumentReferences } from "../importReferences";
 import type { PageRow, PropertyType, SelectOption, SettingsRow } from "../types";
 import { confirm, defineOp, id, type OpContext } from "./define";
@@ -347,10 +347,13 @@ export const assetsCreateUploadUrl = defineOp({
   input: z.object({ type: z.string().max(100).optional(), size: z.number().int().min(0).optional() }),
   async run(ctx, { type, size }) {
     if (!ctx.storage) throw new MaxError("INTERNAL", "File uploads aren't available right now.");
+    if (type && !UPLOAD_TYPES.includes(type.toLowerCase())) {
+      throw new MaxError("VALIDATION", "That file type isn't supported. Max stores images, PDFs, office documents, text, ZIP archives, audio and video.");
+    }
     if (size !== undefined && size > LIMITS.uploadBytes) throw new MaxError("LIMIT", `Files can be up to ${Math.round(LIMITS.uploadBytes / 1_048_576)} MB.`);
     // Straight to Cloudflare R2 when it's set up (size and type are part of the signature).
     if (type && size !== undefined && ctx.storage.createUpload) {
-      const direct = await ctx.storage.createUpload({ type, size, ownerId: ctx.ownerId });
+      const direct = await ctx.storage.createUpload({ type: type.toLowerCase(), size, ownerId: ctx.ownerId });
       if (direct) return { uploadUrl: direct.url, method: direct.method, headers: direct.headers, storageId: direct.storageId };
     }
     return { uploadUrl: await ctx.storage.createUploadUrl() };
@@ -372,10 +375,12 @@ export const assetsRegister = defineOp({
   }),
   async run(ctx, input) {
     // An R2 file can only be registered by the account it was uploaded for.
-    if (input.storageId.startsWith(R2_PREFIX) && !(await keyBelongsTo(input.storageId.slice(R2_PREFIX.length), accountOf(ctx.ownerId)))) {
+    const isR2 = input.storageId.startsWith(R2_PREFIX);
+    if (isR2 && !(await keyBelongsTo(input.storageId.slice(R2_PREFIX.length), accountOf(ctx.ownerId)))) {
       throw new MaxError("FORBIDDEN", "That upload isn't yours.");
     }
-    const remove = () => ctx.storage?.remove(input.storageId).catch(() => undefined);
+    // Only delete owned R2 objects on validation failure; never blindly delete an unverified Convex storageId.
+    const remove = () => (isR2 ? ctx.storage?.remove(input.storageId).catch(() => undefined) : Promise.resolve());
     if (!UPLOAD_TYPES.includes(input.type.toLowerCase())) {
       await remove();
       throw new MaxError("VALIDATION", `"${input.name}" isn't a supported file type. Max stores images, PDFs, office documents, text, ZIP archives, audio and video.`);
@@ -734,7 +739,31 @@ export const importMaxExport = defineOp({
     const ordered = [...incoming].sort((a, b) => depth(a) - depth(b));
     for (const p of ordered) {
       const { _id, blocks: _b, ownerId: _o, ...rest } = p;
-      const row = newPageRow(ctx, { ...rest, rank: rest.rank || "V", parentId: null, databaseId: null, favoriteRank: null, lastOpenedAt: null, archivedAt: null, archivedRootId: null });
+      const safeCover =
+        typeof rest.cover === "string" && /^(https:\/\/|max-asset:\/\/|gradient:\d+$|color:[a-z]+$|cover:[a-z0-9-]+$)/.test(rest.cover) ? rest.cover : null;
+      const safeIcon =
+        typeof rest.icon === "string" && rest.icon.length <= 500 && !/^(javascript|data|vbscript):/i.test(rest.icon.trim()) ? rest.icon : null;
+      const row = newPageRow(ctx, {
+        kind: rest.kind === "database" ? "database" : "page",
+        title: cleanTitle(typeof rest.title === "string" ? rest.title : ""),
+        icon: safeIcon,
+        cover: safeCover,
+        coverPosition: typeof rest.coverPosition === "number" ? Math.max(0, Math.min(100, rest.coverPosition)) : 50,
+        fullWidth: !!rest.fullWidth,
+        smallText: !!rest.smallText,
+        locked: !!rest.locked,
+        isTemplate: !!rest.isTemplate,
+        ...(rest.properties ? { properties: rest.properties } : {}),
+        ...(rest.views ? { views: rest.views } : {}),
+        ...(rest.values ? { values: rest.values } : {}),
+        rank: typeof rest.rank === "string" && rest.rank ? rest.rank : "V",
+        parentId: null,
+        databaseId: null,
+        favoriteRank: null,
+        lastOpenedAt: null,
+        archivedAt: null,
+        archivedRootId: null,
+      });
       map.set(_id, await ctx.db.insert("pages", row));
     }
     for (const p of ordered) {
@@ -744,7 +773,7 @@ export const importMaxExport = defineOp({
         databaseId: p.databaseId ? (map.get(p.databaseId) ?? null) : null,
         ...remapDatabaseReferences(p, p.databaseId ? incomingById.get(p.databaseId) : undefined, map),
       });
-      await insertDocument(ctx, nid, remapDocumentReferences(parseContent(p.blocks ?? []), map));
+      await insertDocument(ctx, nid, normalizeBlocks(remapDocumentReferences(parseContent(p.blocks ?? []), map)));
     }
     return { imported: map.size };
   },

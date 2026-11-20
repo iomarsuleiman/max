@@ -114,9 +114,29 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
   const frameRef = useRef(0);
   const dirtyRef = useRef(true);
   const playRef = useRef<{ start: number; duration: number } | null>(null);
+  const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fitRef = useRef<() => void>(() => {});
+  const colorsRef = useRef({ bg: "transparent", node: "#888", text: "#222", line: "#ccc", accent: "#7c5cff", db: "#2f80ed", row: "#999", surface: "#fff" });
+  const refreshColors = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    colorsRef.current = {
+      bg: cssVar(canvas, "--bg-graph", "transparent"),
+      node: cssVar(canvas, "--fg-3", "#888"),
+      text: cssVar(canvas, "--fg", "#222"),
+      line: cssVar(canvas, "--line-strong", "#ccc"),
+      accent: cssVar(canvas, "--accent", "#7c5cff"),
+      db: cssVar(canvas, "--icon-blue", "#2f80ed"),
+      row: cssVar(canvas, "--icon-gray", "#999"),
+      surface: cssVar(canvas, "--surface", "#fff"),
+    };
+  }, []);
   const [hover, setHover] = useState<{ node: ApiNode; x: number; y: number; links: number; maxX: number } | null>(null);
   const [playing, setPlaying] = useState(false);
-  const reduceMotion = useMemo(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+  const reduceMotion = useMemo(
+    () => typeof window !== "undefined" && (window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.reduceMotion === "on"),
+    [],
+  );
 
   // Filtered data → simulation nodes (positions are kept across refetches so the graph doesn't jump).
   const filtered = useMemo(() => {
@@ -159,16 +179,7 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
     }
-    const colors = {
-      bg: cssVar(canvas, "--bg-graph", "transparent"),
-      node: cssVar(canvas, "--fg-3", "#888"),
-      text: cssVar(canvas, "--fg", "#222"),
-      line: cssVar(canvas, "--line-strong", "#ccc"),
-      accent: cssVar(canvas, "--accent", "#7c5cff"),
-      db: cssVar(canvas, "--icon-blue", "#2f80ed"),
-      row: cssVar(canvas, "--icon-gray", "#999"),
-      surface: cssVar(canvas, "--surface", "#fff"),
-    };
+    const colors = colorsRef.current;
     let easing = false;
     const target = viewTargetRef.current;
     if (target) {
@@ -332,6 +343,8 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
     if (reduceMotion && !prev.size) {
       sim.stop();
       sim.tick(220);
+      fitPendingRef.current = false;
+      fitRef.current();
     }
     redraw();
     // forces are applied in the next effect
@@ -360,21 +373,26 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
   useEffect(
     () => () => {
       cancelAnimationFrame(frameRef.current);
+      if (playTimerRef.current) clearTimeout(playTimerRef.current);
       simRef.current?.stop();
     },
     [],
   );
 
-  // Redraw on resize and when the theme flips.
+  // Redraw on resize and when the theme flips (refresh cached CSS color tokens only then, not every frame).
   useEffect(() => {
+    refreshColors();
     const el = wrapRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => redraw());
     ro.observe(el);
-    const mo = new MutationObserver(() => redraw());
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme", "style"] });
+    const mo = new MutationObserver(() => {
+      refreshColors();
+      redraw();
+    });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme", "data-accent", "style"] });
     return () => (ro.disconnect(), mo.disconnect());
-  }, [redraw]);
+  }, [redraw, refreshColors]);
 
   const toWorld = (clientX: number, clientY: number) => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -504,13 +522,16 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
     viewTargetRef.current = { k, x: (-(minX + maxX) / 2) * k, y: (-(minY + maxY) / 2) * k };
     redraw();
   }, [redraw]);
-  const fitRef = useRef(fit);
   useEffect(() => {
     fitRef.current = fit;
   }, [fit]);
 
   /** Obsidian's “Animate”: replay the graph growing, oldest page first. */
   const animate = useCallback(() => {
+    if (playTimerRef.current) {
+      clearTimeout(playTimerRef.current);
+      playTimerRef.current = null;
+    }
     if (playRef.current) {
       playRef.current = null;
       setPlaying(false);
@@ -534,7 +555,10 @@ export function GraphView({ pageId, compact, className }: { pageId?: string; com
     viewRef.current = { x: 0, y: 0, k: viewRef.current.k };
     playRef.current = { start: performance.now(), duration };
     fitPendingRef.current = false;
-    setTimeout(() => fitRef.current(), duration + 600);
+    playTimerRef.current = setTimeout(() => {
+      playTimerRef.current = null;
+      fitRef.current();
+    }, duration + 600);
     setPlaying(true);
     simRef.current?.alpha(1).restart();
     loop();

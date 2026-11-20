@@ -18,7 +18,7 @@ export const LIMITS = {
   tokens: 20,
 };
 
-export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/svg+xml"];
+export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"];
 /** Files Max stores: images, PDFs, office documents, text, archives, audio and video. */
 export const UPLOAD_TYPES = [
   ...IMAGE_TYPES,

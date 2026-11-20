@@ -58,11 +58,43 @@ export async function siteRead(db: Db, storage: Storage | null, slug: string, op
   if (!SITE_OPS.has(op)) throw new MaxError("FORBIDDEN", "That isn't available on a website.");
   const site = await siteBySlug(db, slug);
   const { inside } = await sitePages(db, site);
-  const args = (rawArgs ?? {}) as Record<string, unknown>;
-  let target = String(args.id ?? args.pageId ?? args.parentId ?? args.databaseId ?? "");
-  if (op === "assets.getUrl") target = (await db.get("assets", target))?.pageId ?? "";
-  if (!inside.has(target)) throw notFound();
-  const result = await execute(op, args, { db, storage, ownerId: site.ownerId, now, source: "ui" }, "query");
+  const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" && v.length > 0 ? v : "");
+  let target = "";
+  let cleanArgs: Record<string, unknown>;
+  if (op === "pages.get") {
+    target = str(args.id);
+    cleanArgs = { id: target };
+  } else if (op === "pages.children") {
+    target = str(args.parentId);
+    cleanArgs = { parentId: target };
+  } else if (op === "documents.get") {
+    target = str(args.pageId);
+    cleanArgs = { pageId: target, format: args.format };
+  } else if (op === "databases.get") {
+    target = str(args.databaseId);
+    cleanArgs = { databaseId: target };
+  } else if (op === "databases.query") {
+    target = str(args.databaseId);
+    cleanArgs = {
+      databaseId: target,
+      ...(typeof args.viewId === "string" ? { viewId: args.viewId } : {}),
+      ...(typeof args.search === "string" ? { search: args.search } : {}),
+      ...(Array.isArray(args.filters) ? { filters: args.filters } : {}),
+      ...(Array.isArray(args.sorts) ? { sorts: args.sorts } : {}),
+      ...(typeof args.cursor === "number" ? { cursor: args.cursor } : {}),
+      ...(typeof args.limit === "number" ? { limit: args.limit } : {}),
+    };
+  } else if (op === "assets.getUrl") {
+    const assetId = str(args.id);
+    const asset = assetId ? await db.get("assets", assetId) : null;
+    target = asset && asset.ownerId === site.ownerId && asset.pageId ? asset.pageId : "";
+    cleanArgs = { id: assetId };
+  } else {
+    throw new MaxError("FORBIDDEN", "That isn't available on a website.");
+  }
+  if (!target || !inside.has(target)) throw notFound();
+  const result = await execute(op, cleanArgs, { db, storage, ownerId: site.ownerId, now, source: "ui", publishedPages: inside }, "query");
   if (op !== "pages.get") return result;
   // Breadcrumbs start at the site's home page; nothing above it is revealed.
   const r = result as { breadcrumbs: { _id: string }[]; database: { _id: string } | null; trashedWith?: unknown };

@@ -10,6 +10,7 @@
  */
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 
 const OUT = path.resolve("public/covers");
 const MANIFEST = path.resolve("lib/client/cover-manifest.json");
@@ -20,6 +21,7 @@ const previous = await readFile(MANIFEST, "utf8")
 const existingItems = (name) => [...(previous.collections.find((c) => c.name === name)?.items ?? [])];
 
 const MET = "https://collectionapi.metmuseum.org/public/collection/v1";
+const COVER_WIDTH = 2400;
 const metCollections = [
   { name: "The Met Museum", slug: "met", query: "painting", departmentId: 11, limit: 60 },
   { name: "Japanese prints", slug: "japanese-prints", query: "Hokusai", departmentId: 6, limit: 24 },
@@ -53,6 +55,45 @@ async function download(url, file) {
   await writeFile(file, buf);
 }
 
+async function saveCoverOriginal(url, file) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(45_000) });
+  if (!res.ok) throw new Error(`${res.status} ${url}`);
+  const original = sharp(Buffer.from(await res.arrayBuffer()));
+  const { width = 0 } = await original.metadata();
+  const existing = await sharp(file).metadata().catch(() => null);
+  if (width <= (existing?.width ?? 0)) return false;
+  await writeFile(file, await original.rotate().resize({ width: COVER_WIDTH, withoutEnlargement: true }).jpeg({ quality: 88, mozjpeg: true }).toBuffer());
+  return true;
+}
+
+async function refreshNasaCover(id, file) {
+  const assets = await json(`https://images-api.nasa.gov/asset/${encodeURIComponent(id)}`);
+  const urls = (assets.collection?.items ?? []).map((item) => item.href.replace(/^http:/, "https:"));
+  const url = urls.find((url) => /~large\.jpg$/i.test(url)) ?? urls.find((url) => /~orig\.(?:jpe?g|png)$/i.test(url));
+  return url ? saveCoverOriginal(url, file) : false;
+}
+
+if (process.argv.includes("--refresh-nasa")) {
+  const nasaDetails = "https://images.nasa.gov/details/";
+  const items = previous.collections.flatMap((collection) => collection.items).filter((item) => item.source?.startsWith(nasaDetails));
+  let updated = 0;
+  let failed = 0;
+  for (let offset = 0; offset < items.length; offset += 4) {
+    await Promise.all(items.slice(offset, offset + 4).map(async ({ value, source }) => {
+      const file = path.join(OUT, `${value.slice(6)}.jpg`);
+      if ((await sharp(file).metadata().catch(() => null))?.width >= COVER_WIDTH) return;
+      try {
+        if (await refreshNasaCover(source.slice(nasaDetails.length), file)) updated++;
+      } catch (error) {
+        console.warn(`Could not refresh ${value}: ${error.message}`);
+        failed++;
+      }
+    }));
+  }
+  console.log(`Refreshed ${updated} NASA covers, ${failed} failed.`);
+  process.exit(failed ? 1 : 0);
+}
+
 async function metCollection(c) {
   const search = await json(
     `${MET.replace(/\/v1$/, "/v1.1")}/search?hasImages=true&isPublicDomain=true&departmentId=${c.departmentId}&q=${encodeURIComponent(c.query)}&limit=300`,
@@ -67,7 +108,9 @@ async function metCollection(c) {
           const o = await json(`${MET}/objects/${id}`);
           if (!o.isPublicDomain || !o.primaryImageSmall) return null;
           const fileName = `${c.slug}-${id}.jpg`;
-          await download(o.primaryImageSmall, path.join(OUT, fileName));
+          const file = path.join(OUT, fileName);
+          const saved = o.primaryImage && await saveCoverOriginal(o.primaryImage, file).catch(() => false);
+          if (!saved) await download(o.primaryImageSmall, file);
           return {
             value: `cover:${fileName.replace(/\.jpg$/, "")}`,
             label: o.title?.slice(0, 80) || "Untitled",

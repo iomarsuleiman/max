@@ -223,7 +223,7 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .lx-math .katex-display { margin: 0; }
 .lx-figure { margin: 0; display: grid; gap: 6px; justify-items: center; }
 .lx-figure img { max-width: 100%; height: auto; border-radius: 8px; }
-.lx-figure[data-kind="diagram"] img { background: #fff; padding: 12px; border: 1px solid var(--ws-line); }
+.lx-figure[data-kind="diagram"] img { background: var(--surface-1); padding: 12px; border: 1px solid var(--ws-line); }
 .lx-figure__alt { font-size: 12px; color: var(--on-surface-variant); background: none; border: 1px dashed transparent; border-radius: 6px; padding: 2px 6px; cursor: pointer; font-family: inherit; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lx-figure__alt:hover { border-color: var(--ws-line-strong); }
 .lx-figure__alt[data-missing] { color: var(--ws-warning); }

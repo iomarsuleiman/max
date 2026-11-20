@@ -8,6 +8,7 @@ import { Bot, Clock, History, RotateCcw, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Skeleton, cn, confirmAction } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
+import { useAssetResolver } from "@/lib/client/upload";
 import { dateTime, pageTitle } from "@/lib/client/format";
 import { requestSaveFlush } from "@/lib/client/saveFlush";
 import type { PageRef } from "@/components/editor/blocks";
@@ -59,6 +60,7 @@ function PreviewSkeleton() {
 /** Notion-style page history: preview any earlier version, restore it, or save a version now. */
 export function PageHistory({ pageId, open, onOpenChange }: { pageId: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const ws = useWorkspace();
+  const resolveAsset = useAssetResolver();
   const router = useRouter();
   const history = useOp<History>("versions.list", open ? { pageId } : "skip");
   const [selected, setSelected] = useState<string | null>(null);
@@ -178,7 +180,7 @@ export function PageHistory({ pageId, open, onOpenChange }: { pageId: string; op
                       editable={false}
                       onChange={() => {}}
                       uploadFile={async () => ""}
-                      resolveFileUrl={async (u) => u}
+                      resolveFileUrl={resolveAsset}
                       onNotice={() => {}}
                       onEditImage={() => {}}
                       createSubpage={async () => null}

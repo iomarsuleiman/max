@@ -21,6 +21,7 @@ const config: NextConfig = {
   experimental: { optimizePackageImports: ["radix-ui"] },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "i.ytimg.com" }],
+    localPatterns: [{ pathname: "/**", search: "" }, { pathname: "/covers/*.jpg", search: "?v=2" }],
     // Covers and thumbnails: AVIF first, then WebP, cached for a year (the files never change).
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 960, 1280, 1600, 1920, 2560],

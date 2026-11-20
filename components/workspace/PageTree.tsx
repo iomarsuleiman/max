@@ -233,7 +233,7 @@ const TreeRow = memo(function TreeRow({
       aria-expanded={item.hasChildren ? item.expanded : undefined}
       aria-selected={active}
       className={cn(
-        "group/row relative flex h-7 min-w-0 max-w-full items-center gap-0.5 rounded-md pe-1 text-[13.5px] text-fg-2 transition-colors duration-75 hover:bg-hover",
+        "group/row relative flex h-7 max-md:min-h-10 min-w-0 max-w-full items-center gap-0.5 rounded-md pe-1 text-[13.5px] text-fg-2 transition-colors duration-75 hover:bg-hover",
         active && "bg-hover font-medium text-fg",
         (ghost || isDragging) && "z-10 bg-accent-soft opacity-80 ring-1 ring-accent/40",
       )}
@@ -281,14 +281,17 @@ const TreeRow = memo(function TreeRow({
           className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-[4px] outline-offset-[-2px]"
           onMouseEnter={() => {
             prefetchOp("pages.get", { id: item.id });
+            if (item.page.kind === "page") prefetchOp("documents.get", { pageId: item.id });
             router.prefetch(pageHref(item.id, item.page.title));
           }}
-          onFocus={() => prefetchOp("pages.get", { id: item.id })}
+          onFocus={() => {
+            prefetchOp("pages.get", { id: item.id });
+            if (item.page.kind === "page") prefetchOp("documents.get", { pageId: item.id });
+          }}
           onDoubleClick={(e) => {
             e.preventDefault();
             onRename(item.id);
           }}
-          onKeyDown={onKeyDown}
         >
           <PageIcon icon={item.page.icon} kind={item.page.kind} />
           <span className="min-w-0 flex-1 truncate" title={title} data-page-title>

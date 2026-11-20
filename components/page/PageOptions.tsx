@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { PageHistory } from "./PageHistory";
-import { LocalGraphDialog } from "@/components/graph/LocalGraphDialog";
 import {
   Copy,
   CornerUpRight,
@@ -22,13 +21,16 @@ import {
   Unlock, Printer, Waypoints } from "lucide-react";
 import { toast } from "sonner";
 import { Flag, UsersRound } from "lucide-react";
-import { ReportDialog } from "@/components/admin/ReportDialog";
 import { SHARING_ENABLED } from "@/lib/config";
-import { IconButton, Menu, MenuCheckItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Switch } from "@/components/ui";
+import { IconButton, Menu, MenuCheckItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui";
 import { useRead } from "@/lib/client/data";
 import { dateTime } from "@/lib/client/format";
 import type { PageRow } from "@/lib/client/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
+
+const PageHistory = dynamic(() => import("./PageHistory").then((m) => m.PageHistory), { ssr: false });
+const LocalGraphDialog = dynamic(() => import("@/components/graph/LocalGraphDialog").then((m) => m.LocalGraphDialog), { ssr: false });
+const ReportDialog = dynamic(() => import("@/components/admin/ReportDialog").then((m) => m.ReportDialog), { ssr: false });
 
 export function download(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -53,7 +55,7 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
       .call("pages.update", { id: page._id, ...patch })
       .then(() => msg && toast.success(msg, { duration: 1500 }))
       .catch((e) => notifyError(e));
-  const exportAs = async (format: "markdown" | "json") => {
+  const exportAs = useCallback(async (format: "markdown" | "json") => {
     try {
       const res = await read<{ filename: string; content: string; mimeType: string }>("export.page", { id: page._id, format });
       download(res.filename, res.content, res.mimeType);
@@ -61,7 +63,7 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
     } catch (err) {
       notifyError(err, "Couldn't export the page.");
     }
-  };
+  }, [page._id, read]);
   const saveAsTemplate = async () => {
     try {
       const { template } = await ws.call<{ template: { _id: string } }>("templates.create", { fromPageId: page._id, databaseId: page.databaseId ?? undefined });
@@ -83,7 +85,7 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
     };
     document.addEventListener("max:page-action", onAction);
     return () => document.removeEventListener("max:page-action", onAction);
-  });
+  }, [exportAs, page._id, page.kind]);
   return (
     <>
       <Menu>
@@ -94,20 +96,12 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
         </MenuTrigger>
         <MenuContent align="end" className="w-64">
           <MenuLabel>Style</MenuLabel>
-          <div className="flex items-center justify-between px-2 py-1 text-[13.5px]">
-            <span className="inline-flex items-center gap-2">
-              <MoveHorizontal className="text-fg-2 size-4" />
-              Full width
-            </span>
-            <Switch checked={page.fullWidth} onCheckedChange={(v) => update({ fullWidth: v })} label="Full width" />
-          </div>
-          <div className="flex items-center justify-between px-2 py-1 text-[13.5px]">
-            <span className="inline-flex items-center gap-2">
-              <Type className="text-fg-2 size-4" />
-              Small text
-            </span>
-            <Switch checked={page.smallText} onCheckedChange={(v) => update({ smallText: v })} label="Small text" />
-          </div>
+          <MenuCheckItem checked={page.fullWidth} onCheckedChange={(v) => update({ fullWidth: v })} icon={<MoveHorizontal />}>
+            Full width
+          </MenuCheckItem>
+          <MenuCheckItem checked={page.smallText} onCheckedChange={(v) => update({ smallText: v })} icon={<Type />}>
+            Small text
+          </MenuCheckItem>
           <MenuCheckItem
             checked={page.locked}
             onCheckedChange={(v) => update({ locked: v }, v ? "Page locked. Unlock it here to edit." : "Page unlocked")}
@@ -175,8 +169,8 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
           </div>
         </MenuContent>
       </Menu>
-      <LocalGraphDialog pageId={page._id} open={graphOpen} onOpenChange={setGraphOpen} />
-      {page.kind === "page" && <PageHistory pageId={page._id} open={historyOpen} onOpenChange={setHistoryOpen} />}
+      {graphOpen && <LocalGraphDialog pageId={page._id} open={graphOpen} onOpenChange={setGraphOpen} />}
+      {historyOpen && page.kind === "page" && <PageHistory pageId={page._id} open={historyOpen} onOpenChange={setHistoryOpen} />}
       {reportOpen && <ReportDialog open={reportOpen} onOpenChange={setReportOpen} context={{ pageId: page._id }} />}
     </>
   );

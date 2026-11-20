@@ -44,6 +44,15 @@ test("landing butterfly flaps its wings on arrival, click and keyboard, and stay
   // A flick spins it.
   await expect.poll(() => mover.evaluate((el) => el.style.transform)).toMatch(/rotate\((?!0deg)/);
   await expect.poll(() => mover.evaluate((el) => el.style.transform), { timeout: 15_000 }).toBe("translate(0px, 0px) rotate(0deg)");
+  // An edge grab turns around the center without dragging the mark across the page.
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const radius = box.width * 0.35;
+  await page.mouse.move(cx + radius, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx, cy + radius, { steps: 5 });
+  await expect.poll(() => mover.evaluate((el) => Math.round(Number(el.style.transform.match(/translate\(0px, 0px\) rotate\(([^)]+)deg\)/)?.[1])))).toBe(90);
+  await page.mouse.up();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.waitForTimeout(60);
   await logo.click();
@@ -60,6 +69,7 @@ test("landing grain stays small and static, follows the chosen theme, with no na
   await page.goto("/welcome");
   // The landing has no navbar; the other public pages have a full-width, solid one.
   await expect(page.getByRole("navigation", { name: "Site" })).toHaveCount(0);
+  await expect(page.getByRole("contentinfo").getByRole("link", { name: "By Wareed" })).toHaveAttribute("href", "https://wareed.io");
   await page.goto("/privacy");
   await expect(page.getByRole("navigation", { name: "Site" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toBeVisible();

@@ -1,7 +1,7 @@
 import { MaxError, notFound } from "./errors";
 import type { Db, Storage } from "./db";
 import { normalizeBlocks } from "./blocks";
-import { ANONYMOUS, atLeast, resolveAccess, type Actor } from "./sharing";
+import { ANONYMOUS, assertSharingStanding, atLeast, resolveAccess, type Actor } from "./sharing";
 import { clearRoom, findRoom } from "./collabRoom";
 import { writeContent } from "./ops/documents";
 import type { CollabRoomRow, ShareLevel } from "./types";
@@ -41,6 +41,7 @@ async function access(c: RoomCaller, pageId: string, min: ShareLevel) {
   }
   if (a.page.kind === "database") throw new MaxError("VALIDATION", "Databases don't have a live room.");
   if (!atLeast(a.level, min)) throw new MaxError("FORBIDDEN", min === "view" ? "This page isn't shared with you." : "You need “Can edit” access to change this page.");
+  if (min !== "view") await assertSharingStanding(c.db, a.ownerId, c.actor.id, true);
   const writable = (a.level === "owner" || atLeast(a.level, "edit")) && !a.page.locked && !a.page.archivedAt;
   return { ...a, writable };
 }
@@ -124,9 +125,10 @@ export async function setAwareness(c: RoomCaller, args: { roomId: string; epoch:
   if (args.data.length > 8_000) throw new MaxError("LIMIT", "Cursor data is too large.");
   const { room } = await roomFor(c, args.roomId, "view", args.epoch);
   const rows = await c.db.list("collabAwareness", room.ownerId, { field: "pageId", value: room.pageId });
-  const mine = rows.find((r) => r.clientId === args.clientId && r.roomId === room._id);
-  for (const r of rows) if (r !== mine && c.now - r.at > AWARENESS_TTL_MS) await c.db.delete("collabAwareness", r._id);
-  if (mine) await c.db.patch("collabAwareness", mine._id, { data: args.data, at: c.now, accountId: c.actor.id });
+  const existing = rows.find((r) => r.clientId === args.clientId && r.roomId === room._id);
+  if (existing && existing.accountId !== c.actor.id) throw new MaxError("FORBIDDEN", "That cursor belongs to another editor.");
+  for (const r of rows) if (r !== existing && c.now - r.at > AWARENESS_TTL_MS) await c.db.delete("collabAwareness", r._id);
+  if (existing) await c.db.patch("collabAwareness", existing._id, { data: args.data, at: c.now });
   else await c.db.insert("collabAwareness", { ownerId: room.ownerId, pageId: room.pageId, roomId: room._id, clientId: args.clientId, accountId: c.actor.id, data: args.data, at: c.now });
   return { ok: true };
 }
@@ -164,7 +166,7 @@ export async function leaveRoom(c: RoomCaller, roomId: string, clientId: string)
   if (!room) return { ok: true };
   await access(c, room.pageId, "view");
   for (const r of await c.db.list("collabAwareness", room.ownerId, { field: "pageId", value: room.pageId })) {
-    if (r.clientId === clientId) await c.db.delete("collabAwareness", r._id);
+    if (r.clientId === clientId && r.accountId === c.actor.id) await c.db.delete("collabAwareness", r._id);
   }
   return { ok: true };
 }

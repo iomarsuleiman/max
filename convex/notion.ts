@@ -5,9 +5,16 @@ import { decryptToken, encryptToken, hashState, notionConfigured } from "../lib/
 import { getSource, listSources } from "../lib/notion/client";
 import { jobIdSchema, object, objects, selectionSchema, sourceFrom, startSchema, text } from "../lib/notion/types";
 
+function constantTimeEqual(a: string, b: string): boolean {
+  const max = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < max; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
 function checkSecret(secret: string) {
   const expected = process.env.MAX_SERVER_SECRET;
-  if (!expected || expected.length < 32 || expected !== secret) throw new ConvexError("Server credentials are not configured.");
+  if (!expected || expected.length < 32 || !constantTimeEqual(expected, secret)) throw new ConvexError("Server credentials are not configured.");
 }
 function publicJob(raw: unknown, rawItems: unknown) {
   const j = object(raw);

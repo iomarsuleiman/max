@@ -23,18 +23,18 @@ export const commentsList = defineOp({
   async run(ctx, { pageId, includeResolved = false }) {
     await requirePage(ctx, pageId, { allowArchived: true });
     const rows = (await ctx.db.list("comments", ctx.ownerId, { field: "pageId", value: pageId })).sort((a, b) => a.createdAt - b.createdAt);
-    const doc = (await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: pageId }))[0];
-    const blocks = parseContent(doc?.content ?? "[]");
     const open = rows.filter((c) => !c.resolvedAt).length;
+    const visible = rows.filter((c) => includeResolved || !c.resolvedAt);
+    // Avoid reading and JSON-parsing the entire document on every autosave when there are no block comments.
+    const needsDoc = visible.some((c) => !!c.blockId);
+    const blocks = needsDoc ? parseContent((await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: pageId }))[0]?.content ?? "[]") : [];
     return {
       openCount: open,
       resolvedCount: rows.length - open,
-      comments: rows
-        .filter((c) => includeResolved || !c.resolvedAt)
-        .map(({ ownerId: _o, ...c }) => {
-          const hit = c.blockId ? findBlock(blocks, c.blockId) : null;
-          return { ...c, blockExcerpt: hit ? blockText(hit.block).slice(0, 120) : null, blockMissing: !!c.blockId && !hit };
-        }),
+      comments: visible.map(({ ownerId: _o, ...c }) => {
+        const hit = c.blockId ? findBlock(blocks, c.blockId) : null;
+        return { ...c, blockExcerpt: hit ? blockText(hit.block).slice(0, 120) : null, blockMissing: !!c.blockId && !hit };
+      }),
     };
   },
 });
