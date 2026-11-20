@@ -33,6 +33,15 @@ test("publish a page as a website and browse it as a visitor", async ({ page, br
   await v.getByRole("dialog", { name: "Search this site" }).getByLabel("Search this site").fill("robins");
   await v.getByRole("dialog", { name: "Search this site" }).getByRole("button", { name: /Birds/ }).click();
   await expect(v.locator(".bn-editor")).toContainText("Robins sing at dawn.");
+  // The usual address is under the owner's username: max.chaos.fail/<username>/<site>.
+  const username = (await ops("account.username", "query", {})).username as string;
+  await v.goto(`/${username}/field-guide`);
+  await expect(v.getByRole("navigation", { name: /pages/ })).toContainText("Birds");
+  await v.getByRole("navigation", { name: /pages/ }).getByRole("link", { name: "Birds" }).click();
+  await expect(v).toHaveURL(new RegExp(`/${username}/field-guide/birds-${birds._id}`));
+  // Another username doesn't lead to it.
+  expect((await v.goto(`/someone-else/field-guide`))!.status()).toBe(404);
+
   // Unknown sites say so.
   await v.goto("/site/nope-not-here");
   await expect(v.getByText("This site isn't published")).toBeVisible();

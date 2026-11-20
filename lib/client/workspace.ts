@@ -35,8 +35,32 @@ export function onWorkspaceChange(fn: () => void): () => void {
   return () => listeners.delete(fn);
 }
 
-/** Opens a workspace (null: your main one) at its home page, without reloading. */
-export function switchWorkspace(id: string | null) {
+const PLACE = "max:workspace-place:";
+
+/** Remembers where you are in the open workspace, so coming back to it returns you there. */
+export function rememberPlace(path: string) {
+  if (!/^\/(home|p\/|graph|templates)/.test(path)) return;
+  try {
+    localStorage.setItem(PLACE + (activeWorkspace() ?? "main"), path);
+  } catch {
+    // Without storage, switching opens Home.
+  }
+}
+
+function placeIn(id: string | null): string {
+  try {
+    return localStorage.getItem(PLACE + (id ?? "main")) ?? "/home";
+  } catch {
+    return "/home";
+  }
+}
+
+/**
+ * Opens a workspace (null: your main one) without reloading: at `path`, or wherever you were in it
+ * last time (Home the first time).
+ */
+export function switchWorkspace(id: string | null, path?: string) {
+  path ??= placeIn(id);
   try {
     if (id) localStorage.setItem(KEY, id);
     else localStorage.removeItem(KEY);
@@ -46,6 +70,6 @@ export function switchWorkspace(id: string | null) {
   if (id === activeWorkspace()) return;
   current = id;
   // Next's router follows history.pushState, so the new workspace opens straight on Home.
-  if (window.location.pathname !== "/home") window.history.pushState(null, "", "/home");
+  if (window.location.pathname !== path) window.history.pushState(null, "", path);
   listeners.forEach((fn) => fn());
 }

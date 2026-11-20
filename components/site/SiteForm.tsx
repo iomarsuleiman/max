@@ -32,7 +32,10 @@ export function SiteForm({ page }: { page: { _id: string; title: string; icon?: 
     setSearch(site.search);
   }, [site]);
   const origin = typeof window === "undefined" ? "" : window.location.origin;
-  const url = `${origin}/site/${slug}`;
+  // Sites live under your username: max.chaos.fail/<username>/<site>.
+  const username = useOp<{ username: string | null }>("account.username", {}).data?.username;
+  const siteUrl = (s: string) => (username ? `${origin}/${username}/${s}` : `${origin}/site/${s}`);
+  const url = siteUrl(slug);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -66,10 +69,10 @@ export function SiteForm({ page }: { page: { _id: string; title: string; icon?: 
           </Button>
           {site && (
             <>
-              <Button size="sm" icon={<ExternalLink className="size-4" />} onClick={() => window.open(`${origin}/site/${site.slug}`, "_blank", "noopener")}>
+              <Button size="sm" icon={<ExternalLink className="size-4" />} onClick={() => window.open(siteUrl(site.slug), "_blank", "noopener")}>
                 Open
               </Button>
-              <Button size="sm" variant="ghost" icon={<Copy className="size-4" />} onClick={() => void navigator.clipboard.writeText(`${origin}/site/${site.slug}`).then(() => toast.success("Link copied", { duration: 1500 }))}>
+              <Button size="sm" variant="ghost" icon={<Copy className="size-4" />} onClick={() => void navigator.clipboard.writeText(siteUrl(site.slug)).then(() => toast.success("Link copied", { duration: 1500 }))}>
                 Copy link
               </Button>
               <Button

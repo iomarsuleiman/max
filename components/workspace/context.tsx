@@ -114,10 +114,11 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   const [optimisticSettings, setOptimisticSettings] = useState<Partial<SettingsRow>>({});
   const settings = useMemo(() => (settingsQ.data ? { ...settingsQ.data.settings, ...optimisticSettings } : undefined), [settingsQ.data, optimisticSettings]);
 
-  // First sign-in: create preferences and a welcome page (idempotent on the server).
+  // Once per visit: on first sign-in this creates preferences and a welcome page; for existing
+  // accounts it fills in anything added since (a username, the sign-in email). Idempotent.
   const initRan = useRef(false);
   useEffect(() => {
-    if (initRan.current || !settingsQ.data || settingsQ.data.settings.onboarded) return;
+    if (initRan.current || !settingsQ.data) return;
     initRan.current = true;
     call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null, invitedBy: readInviter(), email: identity.email ?? null })
       .then((r) => {

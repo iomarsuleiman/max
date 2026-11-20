@@ -53,7 +53,7 @@ describe("usernames and invite links", () => {
     const target = await resolveOwner(h.db, "user_b", workspace.id);
     const actor = { id: "user_b", name: "Bob", image: null };
     await h.db.transaction(() => duplicateShared(h.db, actor, page._id, Date.now(), link.token, target));
-    expect((await h.db.list("pages", target)).map((p) => p.title)).toEqual(["Recipe"]);
+    expect((await h.db.list("pages", target)).map((p) => p.title)).toContain("Recipe");
     expect((await h.db.list("pages", "user_b")).map((p) => p.title)).not.toContain("Recipe");
     // Never into someone else's workspace.
     await expect(h.db.transaction(() => duplicateShared(h.db, actor, page._id, Date.now(), link.token, "user_a"))).rejects.toThrow(/your own/);

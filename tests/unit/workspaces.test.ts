@@ -16,12 +16,14 @@ describe("personal workspaces", () => {
     const owner = await resolveOwner(h.db, "user_a", workspace.id);
     expect(owner).toBe(`user_a~${workspace.id}`);
     const side = h.as(owner);
+    // A new workspace starts with one empty page, ready to write in.
+    expect((await side<{ pages: { title: string }[] }>("pages.tree")).pages.map((p) => p.title)).toEqual([""]);
     await side("pages.create", { title: "Side notes" });
 
     const titles = async (call: typeof main) => (await call<{ pages: { title: string }[] }>("pages.tree")).pages.map((p) => p.title);
     expect(await titles(main)).toContain("Main notes");
     expect(await titles(main)).not.toContain("Side notes");
-    expect(await titles(side)).toEqual(["Side notes"]);
+    expect(await titles(side)).toEqual(["", "Side notes"]);
 
     // The account's name, accent and member number follow you; the sidebar is the workspace's own.
     const s = (await side<{ settings: { displayName: string; accent: string; sidebarWidth: number } }>("settings.get")).settings;

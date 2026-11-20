@@ -28,3 +28,14 @@ export async function sharedPreview(token: string, pageId: string): Promise<Prev
     return null;
   }
 }
+
+/** Which username a published site lives under, for /<username>/<site>. */
+export async function siteHandle(slug: string): Promise<string | null> {
+  try {
+    if (CLOUD) return (await new ConvexHttpClient(CONVEX_URL).query(anyApi.invites.siteHandle, { slug })) as string | null;
+    if (!localModeAllowed()) return null;
+    return (await import("@/lib/domain/usernames")).siteHandle(await localDb(), slug);
+  } catch {
+    return null;
+  }
+}

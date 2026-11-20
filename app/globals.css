@@ -370,13 +370,13 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
   isolation: isolate;
   background-color: var(--canvas);
   /* A hint of your space's colors (Settings → Preferences → Space), not a wash. */
-  background-image: linear-gradient(170deg, color-mix(in oklch, var(--tint-1) var(--tint-strength, 9%), var(--surface-1)), color-mix(in oklch, var(--tint-3, var(--tint-2)) calc(var(--tint-strength, 9%) * .9), var(--surface-1)) 50%, color-mix(in oklch, var(--tint-2) calc(var(--tint-strength, 9%) * .8), var(--surface-1)));
+  background-image: linear-gradient(170deg, color-mix(in oklch, var(--tint-1) var(--tint-strength, 0%), var(--surface-1)), color-mix(in oklch, var(--tint-3, var(--tint-2)) calc(var(--tint-strength, 0%) * .9), var(--surface-1)) 50%, color-mix(in oklch, var(--tint-2) calc(var(--tint-strength, 0%) * .8), var(--surface-1)));
 }
 .dark .max-space {
-  background-image: linear-gradient(170deg, color-mix(in oklch, var(--tint-1) calc(var(--tint-strength, 9%) * .66), #161616), color-mix(in oklch, var(--tint-3, var(--tint-2)) calc(var(--tint-strength, 9%) * .6), #171717) 50%, color-mix(in oklch, var(--tint-2) calc(var(--tint-strength, 9%) * .55), #171717));
+  background-image: linear-gradient(170deg, color-mix(in oklch, var(--tint-1) calc(var(--tint-strength, 0%) * .66), #161616), color-mix(in oklch, var(--tint-3, var(--tint-2)) calc(var(--tint-strength, 0%) * .6), #171717) 50%, color-mix(in oklch, var(--tint-2) calc(var(--tint-strength, 0%) * .55), #171717));
 }
 /* The grain sits on its own layer so its strength can be tuned. */
-.max-space::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: var(--paper-texture); background-size: 160px 160px; opacity: var(--grain-strength, 1); }
+.max-space::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: var(--paper-texture); background-size: 160px 160px; opacity: var(--grain-strength, 0); }
 .max-panel { background-color: var(--canvas); }
 @media (min-width: 768px) {
   .max-panel { margin: 8px 8px 8px 0; border-radius: 12px; box-shadow: 0 0 0 1px color-mix(in oklch, var(--fg) 7%, transparent), 0 1px 2px rgb(0 0 0 / .05), 0 10px 30px -12px rgb(0 0 0 / .16); overflow: hidden; }
@@ -657,3 +657,4 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .max-poof { position: fixed; z-index: 90; width: 0; height: 0; pointer-events: none; }
 .max-poof i { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, color-mix(in oklch, var(--fg) 10%, var(--canvas)), color-mix(in oklch, var(--fg) 22%, var(--canvas)) 70%, transparent 72%); opacity: 0; animation: max-poof-cloud 560ms cubic-bezier(.2,.7,.3,1) forwards; }
 @keyframes max-poof-cloud { 0% { opacity: .95; transform: translate(0, 0) scale(.3); } 45% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.35); } }
+

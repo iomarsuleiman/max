@@ -31,12 +31,25 @@ export const pagesTree = defineOp({
   kind: "query",
   title: "List page tree",
   description:
-    "Lists every live page and database in the sidebar hierarchy (lightweight metadata only, no content). Use parentId to rebuild nesting; siblings sort by rank.",
+    "Lists every live page and database in the sidebar hierarchy (lightweight metadata only, no content). Use parentId to rebuild nesting; siblings sort by rank. Database rows, and pages or databases nested inside a row, aren't listed: use databases_query and pages_children for those.",
   input: z.object({}),
   async run(ctx) {
     const pages = await allPages(ctx);
     const hidden = templateMembers(pages);
-    const live = pages.filter((p) => !p.archivedAt && !p.databaseId && !hidden.has(p._id));
+    // Database rows live in their database, not the sidebar, and so does everything inside a row
+    // (its sub-pages and nested databases): left in, they'd lose their parent and show at the top.
+    const byId = new Map(pages.map((p) => [p._id, p]));
+    const insideRow = (page: (typeof pages)[number]) => {
+      for (let cur = page, guard = 0; cur && guard < 64; guard++) {
+        if (cur.databaseId) return true;
+        if (!cur.parentId) return false;
+        const up = byId.get(cur.parentId);
+        if (!up) return false;
+        cur = up;
+      }
+      return false;
+    };
+    const live = pages.filter((p) => !p.archivedAt && !hidden.has(p._id) && !insideRow(p));
     return { pages: live.sort(byRank).map(summary) };
   },
 });

@@ -2,6 +2,7 @@ import { queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import { profileByUsername } from "../lib/domain/usernames";
 import { linkPreview } from "../lib/domain/sharing";
+import { siteHandle as handleForSite } from "../lib/domain/usernames";
 import { convexDb } from "./convexDb";
 
 /**
@@ -16,4 +17,10 @@ export const profile = queryGeneric({
 export const preview = queryGeneric({
   args: { token: v.string(), pageId: v.string() },
   handler: async (ctx, { token, pageId }) => linkPreview(convexDb(ctx.db as never), token.slice(0, 80), pageId.slice(0, 80)),
+});
+
+/** The username a published site lives under (max.chaos.fail/<username>/<site>), or null. */
+export const siteHandle = queryGeneric({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => handleForSite(convexDb(ctx.db as never), slug.slice(0, 60)),
 });
