@@ -32,6 +32,29 @@ Share → Publish on any page publishes it with everything inside it at `max.cha
 
 The workspace menu (top of the sidebar) creates extra private workspaces, each with its own pages, databases, files, sidebar and colors. They're stored on the account's settings row and in their own data namespace, so `npx convex deploy` is all they need. Suspending or banning an account covers all of its workspaces.
 
+## Images on Cloudflare R2 (optional)
+
+Uploads go straight from the browser to R2 with short-lived signed links (files never pass through Max's servers) and are read through signed links, so private pages stay private. Without these settings, files stay in Convex storage.
+
+1. Cloudflare dashboard → R2 → enable R2, then create a bucket (for example `max-files`).
+2. R2 → Manage API tokens → create a token with Object Read & Write on that bucket. Note the Access Key ID, Secret Access Key and your Account ID.
+3. Bucket → Settings → CORS policy:
+
+```json
+[{ "AllowedOrigins": ["https://max.chaos.fail"], "AllowedMethods": ["GET", "PUT"], "AllowedHeaders": ["content-type"], "MaxAgeSeconds": 3600 }]
+```
+
+4. In Convex (production):
+
+```bash
+npx convex env set R2_ACCOUNT_ID <account id> --prod
+npx convex env set R2_ACCESS_KEY_ID <access key id> --prod
+npx convex env set R2_SECRET_ACCESS_KEY <secret access key> --prod
+npx convex env set R2_BUCKET max-files --prod
+```
+
+Existing files stay where they are and keep working.
+
 ## Usernames and invite links
 
 Everyone gets a username from their name at sign-in (omar, then omar2…), changeable in Settings → My account. `max.chaos.fail/<username>` is their invitation: their card, "Omar invited you", and a preview image naming them. Shared page links preview as the page (title and who shared it). Nothing to configure; `npx convex deploy` adds the `usernames` table.

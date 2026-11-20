@@ -32,6 +32,9 @@ test("create a personal workspace, keep its pages separate, and switch back", as
   await page.getByRole("button", { name: /workspace menu$/ }).click();
   await page.getByRole("menuitem", { name }).click();
   await expect(page).toHaveURL(new RegExp(`${firstPageId}$`));
+  // The page itself loads in the new workspace (never "This page doesn't exist").
+  await expect(page.getByLabel("Page title")).toBeVisible();
+  await expect(page.getByText("This page doesn't exist")).toHaveCount(0);
 
   // Arc-style: the workspace icons at the foot of the sidebar switch between them.
   const dock = page.getByRole("tablist", { name: "Workspaces" });

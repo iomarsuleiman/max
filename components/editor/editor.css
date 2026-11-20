@@ -364,3 +364,9 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 /* With the phone keyboard open, leave room below the last line for the keyboard and formatting row. */
 [data-keyboard="open"] #page-scroll { padding-bottom: calc(var(--keyboard, 0px) + 72px); scroll-padding-bottom: calc(var(--keyboard, 0px) + 72px); }
 @media (max-width: 380px) { .max-touch-formatting .bn-toolbar { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; } .max-touch-sep { display: none; } }
+
+/* Images, Notion-like: softly rounded, a quiet caption, and a zoom cursor where a click opens them. */
+.lx-editor img.bn-visual-media { border-radius: 4px; }
+.lx-editor .bn-editor[contenteditable="false"] img.bn-visual-media { cursor: zoom-in; }
+.lx-editor .bn-file-caption { margin-top: 6px; font-size: 14px; color: var(--fg-3); }
+.lx-editor [data-content-type="image"] .bn-file-block-content-wrapper { margin-block: 4px; }

@@ -3,6 +3,9 @@ import { ConvexError, v } from "convex/values";
 import { execute } from "../lib/domain/ops";
 import { MaxError, serializeError } from "../lib/domain/errors";
 import { convexDb, convexStorage } from "./convexDb";
+import { makeFunctionReference } from "convex/server";
+
+const deleteR2Object = makeFunctionReference<"action", { key: string }>("r2:deleteObject");
 import { accountOf, resolveOwner } from "../lib/domain/workspaces";
 import { purgeNotionAccount } from "./notionCleanup";
 
@@ -35,7 +38,9 @@ async function run(
   kind: "query" | "mutation",
 ) {
   try {
-    const result = await execute(op, args, { db: convexDb(ctx.db), storage: convexStorage(ctx.storage), ownerId, now: Date.now(), source }, kind);
+    // R2 files are deleted by a background action (mutations can't make network calls).
+    const schedule = kind === "mutation" && ctx.scheduler ? (key: string) => ctx.scheduler.runAfter(0, deleteR2Object, { key }) : undefined;
+    const result = await execute(op, args, { db: convexDb(ctx.db), storage: convexStorage(ctx.storage, schedule), ownerId, now: Date.now(), source }, kind);
     if (op === "account.deleteAllData") await purgeNotionAccount(ctx, ownerId);
     return result;
   } catch (err) {

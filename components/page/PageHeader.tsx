@@ -25,12 +25,6 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
     if (!editing.current) setTitle(page.title);
   }, [page.title]);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "0px";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [title]);
 
   const save = (value: string) => {
     if (timer.current) clearTimeout(timer.current);
@@ -99,6 +93,9 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
             )}
           </div>
         )}
+        {/* The box grows with the title through CSS (a hidden copy of the text sizes it), never by
+            collapsing and re-measuring, which made iOS jump the page and fight text selection. */}
+        <div className="page-title-grow" data-value={`${title || (page.kind === "database" ? "Untitled database" : "Untitled")} `}>
         <textarea
           ref={ref}
           value={title}
@@ -121,8 +118,9 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
               onEnter();
             }
           }}
-          className="mt-1 block w-full resize-none overflow-hidden bg-transparent text-[40px] font-bold leading-[1.2] tracking-[-0.01em] text-fg outline-none placeholder:text-fg-3/60 max-sm:text-[32px]"
+          className="block w-full resize-none overflow-hidden bg-transparent text-fg outline-none placeholder:text-fg-3/60"
         />
+        </div>
       </div>
     </div>
   );

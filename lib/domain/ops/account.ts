@@ -30,6 +30,7 @@ import {
 import { insertDocument } from "./pages";
 import { accountOf, ownerFor, workspaceOf } from "../workspaces";
 import { ensureUsername, setUsername, usernameOf } from "../usernames";
+import { keyBelongsTo, R2_PREFIX } from "../r2";
 import { recordsCreate } from "./databases";
 import { defaultView, shortId, TITLE_PROPERTY_ID } from "./databaseDefaults";
 
@@ -342,10 +343,17 @@ export const assetsCreateUploadUrl = defineOp({
   name: "assets.createUploadUrl",
   kind: "mutation",
   title: "Start an upload",
-  description: "Returns a short-lived URL. POST the file body to it (with its Content-Type), then call assets.register with the returned storageId.",
-  input: z.object({}),
-  async run(ctx) {
+  description:
+    "Returns a short-lived upload URL. Pass the file's type and size: if the response has method PUT, PUT the body there with the returned headers and use the returned storageId; otherwise POST the body (with its Content-Type) and use the storageId it answers with. Then call assets.register.",
+  input: z.object({ type: z.string().max(100).optional(), size: z.number().int().min(0).optional() }),
+  async run(ctx, { type, size }) {
     if (!ctx.storage) throw new MaxError("INTERNAL", "File uploads aren't available right now.");
+    if (size !== undefined && size > LIMITS.uploadBytes) throw new MaxError("LIMIT", `Files can be up to ${Math.round(LIMITS.uploadBytes / 1_048_576)} MB.`);
+    // Straight to Cloudflare R2 when it's set up (size and type are part of the signature).
+    if (type && size !== undefined && ctx.storage.createUpload) {
+      const direct = await ctx.storage.createUpload({ type, size, ownerId: ctx.ownerId });
+      if (direct) return { uploadUrl: direct.url, method: direct.method, headers: direct.headers, storageId: direct.storageId };
+    }
     return { uploadUrl: await ctx.storage.createUploadUrl() };
   },
 });
@@ -364,6 +372,10 @@ export const assetsRegister = defineOp({
     alt: z.string().max(500).optional(),
   }),
   async run(ctx, input) {
+    // An R2 file can only be registered by the account it was uploaded for.
+    if (input.storageId.startsWith(R2_PREFIX) && !(await keyBelongsTo(input.storageId.slice(R2_PREFIX.length), accountOf(ctx.ownerId)))) {
+      throw new MaxError("FORBIDDEN", "That upload isn't yours.");
+    }
     const remove = () => ctx.storage?.remove(input.storageId).catch(() => undefined);
     if (!UPLOAD_TYPES.includes(input.type.toLowerCase())) {
       await remove();

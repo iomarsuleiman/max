@@ -30,6 +30,24 @@ export function wsArgs(): { ws?: string } {
   return id ? { ws: id } : {};
 }
 
+let pending: string | null = null;
+let navigate: ((path: string) => void) | null = null;
+
+/** The app's router, so switching can load the new workspace's page (history alone doesn't). */
+export function setWorkspaceNavigator(fn: ((path: string) => void) | null) {
+  navigate = fn;
+}
+
+/** While switching: the path being opened (null once it's on screen). */
+export const pendingPlace = () => pending;
+
+export function arrived(path: string) {
+  if (pending && pending === path) {
+    pending = null;
+    listeners.forEach((fn) => fn());
+  }
+}
+
 export function onWorkspaceChange(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -39,7 +57,8 @@ const PLACE = "max:workspace-place:";
 
 /** Remembers where you are in the open workspace, so coming back to it returns you there. */
 export function rememberPlace(path: string) {
-  if (!/^\/(home|p\/|graph|templates)/.test(path)) return;
+  // Mid-switch the address is still the old workspace's: don't file it under the new one.
+  if (pending || !/^\/(home|p\/|graph|templates)/.test(path)) return;
   try {
     localStorage.setItem(PLACE + (activeWorkspace() ?? "main"), path);
   } catch {
@@ -69,7 +88,12 @@ export function switchWorkspace(id: string | null, path?: string) {
   }
   if (id === activeWorkspace()) return;
   current = id;
-  // Next's router follows history.pushState, so the new workspace opens straight on Home.
-  if (window.location.pathname !== path) window.history.pushState(null, "", path);
+  // Load the new workspace's page through the router; until it arrives, the old workspace's page
+  // (which doesn't exist here) isn't shown.
+  if (window.location.pathname !== path.split("?")[0]) {
+    pending = path.split("?")[0];
+    if (navigate) navigate(path);
+    else window.location.assign(path);
+  }
   listeners.forEach((fn) => fn());
 }
