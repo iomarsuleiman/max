@@ -158,7 +158,10 @@ function WorkspacePreviewFrame({ children }: { children: ReactNode }) {
   );
 }
 
-/** Tints your space with your membership card's colors (Arc-style), remembered for the next visit. */
+/**
+ * Your space: plain by default (no tint, no grain). Colors and grain appear only once you set them
+ * in the Space editor, or pick a palette in Preferences.
+ */
 function useSpaceTint(theme: string | undefined, custom: { colors: string[]; grain: number; intensity: number } | null) {
   useEffect(() => {
     if (custom) {
@@ -166,16 +169,9 @@ function useSpaceTint(theme: string | undefined, custom: { colors: string[]; gra
       return;
     }
     clearSpace();
-    let t = theme;
-    try {
-      if (t) localStorage.setItem("max:space-tint", t);
-      else t = localStorage.getItem("max:space-tint") ?? undefined;
-    } catch {
-      // Storage can be unavailable; the default tint still applies.
-    }
-    const palette = cardPalette(t ?? "sunset");
-    document.documentElement.style.setProperty("--tint-1", palette.first);
-    document.documentElement.style.setProperty("--tint-2", palette.second);
+    if (!theme) return;
+    const palette = cardPalette(theme);
+    applySpace({ colors: [palette.first, palette.second], grain: 0, intensity: 23 });
   }, [theme, custom]);
 }
 
@@ -183,8 +179,8 @@ function useSpaceTint(theme: string | undefined, custom: { colors: string[]; gra
 function Frame({ children }: { children: ReactNode }) {
   const ws = useWorkspace();
   const s = ws.settings;
-  // Your space takes your card's colors unless you picked a palette or made your own in Preferences.
-  useSpaceTint(s?.spaceColor && s.spaceColor !== "card" ? s.spaceColor : (s?.profileCard as { theme?: string } | undefined)?.theme, s?.space ?? null);
+  // Plain unless you picked a palette or made your own space in Preferences.
+  useSpaceTint(s?.spaceColor && s.spaceColor !== "card" ? s.spaceColor : undefined, s?.space ?? null);
   useEffect(() => {
     const root = document.documentElement;
     if (s?.accent && s.accent !== "blue") root.dataset.accent = s.accent;
@@ -223,7 +219,7 @@ function Frame({ children }: { children: ReactNode }) {
           </D.Content>
         </D.Portal>
       </D.Root>
-      <main id="main" className="max-panel relative flex min-w-0 flex-1 flex-col" data-alone={!ws.sidebarOpen || undefined} data-frame={ws.settings?.frame === "full" ? "full" : undefined}>
+      <main id="main" className="max-panel relative flex min-w-0 flex-1 flex-col" data-alone={!ws.sidebarOpen || undefined} data-frame={ws.settings?.frame === "floating" ? undefined : "full"}>
         <OfflineNotice />
         {standing?.status === "suspended" && <SuspendedBanner standing={standing} />}
         {children}

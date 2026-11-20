@@ -288,8 +288,8 @@ function PreferencesSection() {
             Edit space
           </Button>
         </SettingRow>
-        <SettingRow title="Window" description="Floating keeps pages on a rounded card with a little room around it. Edge to edge fills the window.">
-          <Segmented label="Window" value={s.frame ?? "floating"} onChange={(v) => set("frame", v, "Saved")} options={[{ value: "floating", label: "Floating" }, { value: "full", label: "Edge to edge" }]} />
+        <SettingRow title="Window" description="Edge to edge fills the window (the default). Floating puts pages on a rounded card with a little room around it.">
+          <Segmented label="Window" value={s.frame ?? "full"} onChange={(v) => set("frame", v, "Saved")} options={[{ value: "full", label: "Edge to edge" }, { value: "floating", label: "Floating" }]} />
         </SettingRow>
       </Group>
       <Group title="Appearance">

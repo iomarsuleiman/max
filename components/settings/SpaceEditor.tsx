@@ -140,7 +140,7 @@ export function SpaceEditor() {
         <span>Grain</span>
         {saved ? (
           <button type="button" className="underline underline-offset-2 hover:text-fg-2" onClick={() => void ws.call("settings.update", { space: null }).then(() => setSpace(DEFAULT))}>
-            Use my card&apos;s colors
+            Back to plain
           </button>
         ) : (
           <span>{resolvedTheme === "dark" ? "Dark" : "Light"} space</span>
