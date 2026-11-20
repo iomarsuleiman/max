@@ -13,6 +13,7 @@ async function newPage(page: Page, title: string) {
 }
 
 test("first visit creates a welcome page", async ({ page }) => {
+  await page.context().addCookies([{ name: "max-dev-user", value: `first_visit_${Date.now()}`, url: new URL("/", test.info().project.use.baseURL).origin }]);
   await page.goto("/home");
   await expect(page.getByRole("treeitem").first()).toBeVisible();
   await expect(page.getByRole("tree", { name: "Pages" })).toContainText("Welcome to Max");

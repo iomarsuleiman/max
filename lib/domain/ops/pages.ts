@@ -449,7 +449,7 @@ export const pagesArchive = defineOp({
     for (const p of [page, ...subtree]) {
       await ctx.db.patch("pages", p._id, { archivedAt: ctx.now, archivedRootId: pageId });
     }
-    return { archived: subtree.length + 1, id: pageId };
+    return { archived: subtree.length + 1, id: pageId, title: page.title };
   },
 });
 

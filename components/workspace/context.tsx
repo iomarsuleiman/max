@@ -283,8 +283,8 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
         // Poof in the sidebar and a little crumple, then it's in the trash.
         playTrash();
         await poof(id);
-        const res = await call<{ archived: number }>("pages.archive", { id });
-        toast(`Moved “${pageTitle(page?.title)}”${res.archived > 1 ? ` and ${res.archived - 1} subpage${res.archived > 2 ? "s" : ""}` : ""} to trash`, {
+        const res = await call<{ archived: number; title?: string }>("pages.archive", { id });
+        toast(`Moved “${pageTitle(res.title ?? page?.title)}”${res.archived > 1 ? ` and ${res.archived - 1} subpage${res.archived > 2 ? "s" : ""}` : ""} to trash`, {
           action: {
             label: "Undo",
             onClick: () => call("pages.restore", { id }).then(() => toast.success("Restored")).catch((e) => notifyError(e)),
