@@ -658,3 +658,31 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .max-poof i { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, color-mix(in oklch, var(--fg) 10%, var(--canvas)), color-mix(in oklch, var(--fg) 22%, var(--canvas)) 70%, transparent 72%); opacity: 0; animation: max-poof-cloud 560ms cubic-bezier(.2,.7,.3,1) forwards; }
 @keyframes max-poof-cloud { 0% { opacity: .95; transform: translate(0, 0) scale(.3); } 45% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.35); } }
 
+
+/* Page title: grows with its text without JavaScript resizing (iOS-friendly). The textarea and a
+   hidden copy of its text share one grid cell; the copy sets the height. */
+.page-title-grow { display: grid; margin-top: 4px; }
+.page-title-grow::after { content: attr(data-value); visibility: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
+.page-title-grow > textarea, .page-title-grow::after { grid-area: 1 / 1; font-size: 40px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; padding: 0; border: 0; font-family: inherit; overflow-wrap: anywhere; }
+.page-title-grow > textarea { height: 100%; -webkit-user-select: text; user-select: text; }
+@media (max-width: 639px) { .page-title-grow > textarea, .page-title-grow::after { font-size: 32px; } }
+.landing-features { display: flex; align-items: center; justify-content: center; gap: 14px; font-size: clamp(15px, 2.2vw, 19px); font-weight: 500; letter-spacing: .02em; color: var(--fg-2); }
+.landing-features span[aria-hidden] { color: var(--fg-3); }
+
+/* Image viewer (Notion-like): full screen, dark, the image centered with its caption. */
+.max-viewer { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgb(12 12 12 / .92); animation: max-fade 160ms ease; -webkit-tap-highlight-color: transparent; }
+.max-viewer-bar { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 12px; left: 12px; display: flex; align-items: center; justify-content: flex-end; gap: 4px; color: #fff; z-index: 2; }
+.max-viewer-count { margin-inline-end: auto; padding-inline-start: 6px; font-size: 13px; color: rgb(255 255 255 / .7); }
+.max-viewer-bar > button, .max-viewer-bar > a { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: #fff; }
+.max-viewer-bar > button:hover, .max-viewer-bar > a:hover { background: rgb(255 255 255 / .12); }
+.max-viewer-bar > button:disabled { opacity: .35; }
+.max-viewer-nav { position: absolute; top: 50%; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; margin-top: -22px; border-radius: 999px; color: #fff; background: rgb(255 255 255 / .1); }
+.max-viewer-nav:hover { background: rgb(255 255 255 / .2); }
+.max-viewer-nav.is-prev { left: 14px; }
+.max-viewer-nav.is-next { right: 14px; }
+.max-viewer-stage { display: grid; justify-items: center; gap: 12px; max-width: min(92vw, 1400px); max-height: 86dvh; margin: 0; overflow: auto; scrollbar-width: none; }
+.max-viewer-stage img { max-width: 100%; max-height: 80dvh; object-fit: contain; border-radius: 6px; transform-origin: center; transition: transform 200ms cubic-bezier(.2,.8,.2,1); cursor: zoom-in; animation: max-viewer-in 220ms cubic-bezier(.2,.8,.2,1); }
+.max-viewer-stage[data-zoomed] img { cursor: zoom-out; }
+.max-viewer-stage figcaption { max-width: 60ch; text-align: center; font-size: 14px; color: rgb(255 255 255 / .8); }
+@keyframes max-viewer-in { from { opacity: 0; transform: scale(.96); } }
+@media (max-width: 640px) { .max-viewer-nav { display: none; } }

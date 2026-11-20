@@ -67,6 +67,11 @@ export type IndexedField<T extends TableName> = T extends "pages"
 export interface Storage {
   /** URL the browser can POST a file body to. */
   createUploadUrl(): Promise<string>;
+  /**
+   * Optional direct upload (Cloudflare R2): a signed URL to PUT the file to, with the headers to
+   * send, and the storage id it will have. When absent, uploads use createUploadUrl.
+   */
+  createUpload?(file: { type: string; size: number; ownerId: string }): Promise<{ url: string; method: "PUT"; headers: Record<string, string>; storageId: string } | null>;
   getUrl(storageId: string): Promise<string | null>;
   remove(storageId: string): Promise<void>;
 }

@@ -103,10 +103,10 @@ export async function uploadAsset(ownerId: string, input: { url?: string; base64
   if (!CLOUD) {
     storageId = await saveLocalFile(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, type);
   } else {
-    const { uploadUrl } = (await runForOwner(ownerId, "assets.createUploadUrl", {})) as { uploadUrl: string };
-    const res = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": type }, body: bytes as BodyInit });
+    const start = (await runForOwner(ownerId, "assets.createUploadUrl", { type, size: bytes.byteLength })) as { uploadUrl: string; method?: "PUT"; headers?: Record<string, string>; storageId?: string };
+    const res = await fetch(start.uploadUrl, { method: start.method ?? "POST", headers: start.headers ?? { "Content-Type": type }, body: bytes as BodyInit });
     if (!res.ok) throw new MaxError("INTERNAL", "Storing the image failed. Try again.");
-    storageId = ((await res.json()) as { storageId: string }).storageId;
+    storageId = start.method === "PUT" && start.storageId ? start.storageId : ((await res.json()) as { storageId: string }).storageId;
   }
   return runForOwner(ownerId, "assets.register", { storageId, pageId: input.pageId ?? null, name, type, size: bytes.byteLength, alt: input.alt ?? "" });
 }

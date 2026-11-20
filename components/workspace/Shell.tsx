@@ -13,7 +13,7 @@ import { cardPalette } from "@/lib/domain/cardPalettes";
 import { setDatePrefs } from "@/lib/client/datePrefs";
 import { applySpace, clearSpace } from "@/lib/client/space";
 import { BannedScreen, SuspendedBanner, useStanding } from "@/components/admin/Standing";
-import { activeWorkspace, onWorkspaceChange, rememberPlace } from "@/lib/client/workspace";
+import { activeWorkspace, arrived, onWorkspaceChange, pendingPlace, rememberPlace, setWorkspaceNavigator } from "@/lib/client/workspace";
 import { setSoundsEnabled } from "@/lib/client/sfx";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
@@ -104,11 +104,20 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   return <WorkspaceRoot>{children}</WorkspaceRoot>;
 }
 
-function WorkspaceRoot({ children }: { children: ReactNode }) {
+function WorkspaceRoot({ children: page }: { children: ReactNode }) {
   const pathname = usePathname();
-  // Remember the page you're on in this workspace, for when you come back to it.
-  useEffect(() => rememberPlace(`${pathname}${window.location.search.includes("share=") ? window.location.search : ""}`), [pathname]);
+  const router = useRouter();
+  useEffect(() => {
+    setWorkspaceNavigator((path) => router.push(path));
+    return () => setWorkspaceNavigator(null);
+  }, [router]);
   const workspaceId = useSyncExternalStore(onWorkspaceChange, activeWorkspace, () => null);
+  const pending = useSyncExternalStore(onWorkspaceChange, pendingPlace, () => null);
+  // The new workspace's page has arrived; until then the old one isn't rendered in it.
+  useEffect(() => arrived(pathname), [pathname]);
+  // Remember the page you're on in this workspace, for when you come back to it.
+  useEffect(() => rememberPlace(`${pathname}${window.location.search.includes("share=") ? window.location.search : ""}`), [pathname, pending]);
+  const children = pending && pending !== pathname ? null : page;
   const isPreview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   const inner = (identity: Identity) => (
     <Suspense fallback={<Splash />}>

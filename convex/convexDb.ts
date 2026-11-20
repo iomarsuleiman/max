@@ -1,4 +1,6 @@
 import type { GenericDatabaseReader, GenericDatabaseWriter, GenericDataModel, StorageReader, StorageWriter } from "convex/server";
+import { newObjectKey, presign, R2_PREFIX, r2ConfigFromEnv } from "../lib/domain/r2";
+import { accountOf } from "../lib/domain/workspaces";
 import type { CrossField, CrossTable, Db, IndexedField, NewRow, Storage } from "../lib/domain/db";
 import type { TableName, Tables } from "../lib/domain/types";
 
@@ -97,16 +99,39 @@ function strip(row: Record<string, unknown>, table?: TableName) {
   return table === "settings" ? { ...rest, joinedAt: rest.joinedAt ?? _creationTime } : rest;
 }
 
-export function convexStorage(storage: StorageReader | StorageWriter): Storage {
+/**
+ * Files: Cloudflare R2 when it's configured (R2_* environment variables), Convex storage otherwise.
+ * R2 files have storage ids "r2:<key>"; older files stay in Convex and keep working either way.
+ * Deleting an R2 file is handed to a background action (`schedule`), as mutations can't fetch.
+ */
+export function convexStorage(storage: StorageReader | StorageWriter, schedule?: (key: string) => Promise<unknown>): Storage {
+  const r2 = r2ConfigFromEnv(process.env);
   return {
     async createUploadUrl() {
       if (!("generateUploadUrl" in storage)) throw new Error("Uploads need a mutation.");
       return storage.generateUploadUrl();
     },
+    async createUpload({ type, size, ownerId }) {
+      if (!r2) return null;
+      const key = await newObjectKey(accountOf(ownerId), type);
+      const headers = { "Content-Type": type || "application/octet-stream", "Content-Length": String(size) };
+      const url = await presign(r2, "PUT", key, { now: Date.now(), expires: 600, headers });
+      // The browser sets Content-Length itself; only Content-Type is sent by hand.
+      return { url, method: "PUT" as const, headers: { "Content-Type": headers["Content-Type"] }, storageId: `${R2_PREFIX}${key}` };
+    },
     async getUrl(storageId) {
+      if (storageId.startsWith(R2_PREFIX)) {
+        if (!r2) return null;
+        // A week-long signed link: private files stay private, and the link can't be guessed.
+        return presign(r2, "GET", storageId.slice(R2_PREFIX.length), { now: Date.now(), expires: 7 * 86_400 });
+      }
       return storage.getUrl(storageId as never);
     },
     async remove(storageId) {
+      if (storageId.startsWith(R2_PREFIX)) {
+        await schedule?.(storageId.slice(R2_PREFIX.length));
+        return;
+      }
       if ("delete" in storage) await storage.delete(storageId as never);
     },
   };

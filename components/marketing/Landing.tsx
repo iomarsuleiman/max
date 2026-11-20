@@ -18,6 +18,14 @@ export function LandingContent() {
           <h1 className="landing-headline mt-4 max-w-5xl text-[64px] leading-[1.05] font-semibold tracking-[-.035em] sm:text-8xl lg:text-[104px]">
             Think together.
           </h1>
+          {/* The main features, in one quiet line. */}
+          <p className="landing-features mt-5" aria-label="Note, collaborate and publish">
+            <span>Note</span>
+            <span aria-hidden>·</span>
+            <span>Collaborate</span>
+            <span aria-hidden>·</span>
+            <span>Publish</span>
+          </p>
           <Link
             href={CLOUD ? "/sign-up" : "/home"}
             className="landing-action joy-press mt-10 inline-flex min-h-12 items-center justify-center rounded-full px-7 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"

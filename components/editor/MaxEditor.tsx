@@ -15,6 +15,7 @@ import {
 import { SuggestionMenu, SyntaxHighlightingExtension } from "@blocknote/core/extensions";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/shadcn";
+import { ImageViewer, type ViewerImage } from "./ImageViewer";
 import { CalendarDays, Plus, Ellipsis, Check, Undo2, Redo2, Copy, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { PageIcon } from "@/components/workspace/PageIcon";
 import { pageIdFromPath } from "@/lib/pageUrl";
@@ -252,9 +253,20 @@ export default function MaxEditor(props: MaxEditorProps) {
   const dir = props.dir === "auto" || !props.dir ? undefined : props.dir;
 
   const rootRef = useRef<HTMLDivElement>(null);
+  // Images open full screen: double-click while editing, a single click on read-only pages.
+  const [viewer, setViewer] = useState<{ images: ViewerImage[]; start: number } | null>(null);
+  const openImage = (target: EventTarget | null) => {
+    const img = (target as HTMLElement | null)?.closest?.(".bn-visual-media") as HTMLImageElement | null;
+    if (!img || img.tagName !== "IMG" || !img.src || !rootRef.current) return false;
+    const all = [...rootRef.current.querySelectorAll<HTMLImageElement>("img.bn-visual-media")].filter((i) => i.src);
+    const images = all.map((i) => ({ src: i.currentSrc || i.src, caption: i.closest("[data-content-type]")?.querySelector(".bn-file-caption")?.textContent?.trim() ?? i.alt ?? "" }));
+    setViewer({ images, start: Math.max(0, all.indexOf(img)) });
+    return true;
+  };
 
   return (
     <EditorBridge.Provider value={bridge}>
+      {viewer && <ImageViewer images={viewer.images} start={viewer.start} onClose={() => setViewer(null)} />}
       {/* Blank-canvas clicks focus the end of the document; block shortcuts are handled here. */}
       <div
         ref={rootRef}
@@ -270,7 +282,14 @@ export default function MaxEditor(props: MaxEditorProps) {
           event.preventDefault();
           focusEditorEnd(editor);
         }}
+        onDoubleClickCapture={(event) => {
+          if (props.editable && openImage(event.target)) event.preventDefault();
+        }}
         onClickCapture={(event) => {
+          if (!props.editable && openImage(event.target)) {
+            event.preventDefault();
+            return;
+          }
           // Internal page links open the page, like Notion (Cmd/Ctrl-click opens a new tab).
           const a = (event.target as HTMLElement).closest?.("a[href^='/p/']") as HTMLAnchorElement | null;
           if (!a || a.closest(".mx-pagelink, .mx-mention")) return;
