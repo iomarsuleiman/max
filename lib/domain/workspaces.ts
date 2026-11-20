@@ -26,7 +26,7 @@ export interface WorkspaceEntry {
 }
 
 /** Settings that belong to a workspace; everything else (name, theme, card, dates…) is the account's. */
-export const WORKSPACE_FIELDS = ["sidebarSections", "collapsedSections", "expandedPageIds", "lastPageId", "startPage", "space", "spaceColor", "defaultFullWidth", "showRecents", "sidebarWidth"] as const;
+export const WORKSPACE_FIELDS = ["sidebarSections", "collapsedSections", "expandedPageIds", "lastPageId", "space", "spaceColor", "defaultFullWidth", "showRecents", "sidebarWidth"] as const;
 export type WorkspaceField = (typeof WORKSPACE_FIELDS)[number];
 
 export function accountOf(ownerId: string): string {

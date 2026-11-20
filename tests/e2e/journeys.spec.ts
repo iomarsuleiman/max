@@ -16,6 +16,7 @@ test("first visit creates a welcome page", async ({ page }) => {
   await page.goto("/home");
   await expect(page.getByRole("treeitem").first()).toBeVisible();
   await expect(page.getByRole("tree", { name: "Pages" })).toContainText("Welcome to Max");
+  await expect(page.locator("[data-sidebar]").getByRole("link", { name: "Home" })).toHaveCount(0);
 });
 
 test("write, autosave and find the content after a reload", async ({ page }) => {

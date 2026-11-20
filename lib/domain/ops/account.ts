@@ -41,7 +41,6 @@ const settingsPatch = z.object({
   font: z.enum(["default", "serif", "mono"]).optional(),
   defaultFullWidth: z.boolean().optional(),
   density: z.enum(["comfortable", "compact"]).optional(),
-  startPage: z.enum(["home", "last"]).optional(),
   textDirection: z.enum(["auto", "ltr", "rtl"]).optional(),
   spellcheck: z.boolean().optional(),
   showRecents: z.boolean().optional(),

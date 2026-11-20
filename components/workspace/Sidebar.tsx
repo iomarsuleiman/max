@@ -14,7 +14,6 @@ import {
   Clock,
   Download,
   GripVertical,
-  House,
   LayoutGrid,
   LayoutTemplate,
   LogOut,
@@ -109,10 +108,9 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
     >
       <SidebarHeader mobile={mobile} />
       {WORKSPACE_NAVIGATION_PREVIEW && <MobileWorkspacePicker />}
-      {/* Like Notion: only what you reach for all day up here; everything else is in the menu at the bottom. */}
+      {/* Quick search up top; everything else is in the menu at the bottom. */}
       <nav className="grid gap-px ps-4 pe-2 pb-2" aria-label="Main">
         <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
-        <NavLink href="/home" icon={<House />} label="Home" />
       </nav>
       <div className="scroll-none min-h-0 flex-1 overflow-y-auto overflow-x-hidden ps-4 pe-2 pb-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
@@ -405,17 +403,6 @@ function MoreMenu() {
         </MenuItem>
       </MenuContent>
     </Menu>
-  );
-}
-
-function NavLink({ href, icon, label }: { href: string; icon: ReactNode; label: string }) {
-  const pathname = usePathname();
-  const active = pathname === href;
-  return (
-    <Link href={href} aria-current={active ? "page" : undefined} className={cn("flex h-7 items-center gap-2 rounded-md px-2 text-[13.5px] hover:bg-hover hover:text-fg [&>svg]:size-4 [&>svg]:text-fg-3 [&>svg]:[stroke-width:1.75]", active && "bg-hover font-medium text-fg")}>
-      {icon}
-      {label}
-    </Link>
   );
 }
 

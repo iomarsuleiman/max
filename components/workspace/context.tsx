@@ -348,7 +348,10 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
       if (!current) return;
       const page = pages.get(current);
       if (e.shiftKey && !e.altKey) {
-        if (key === "u") return run(() => (page?.parentId ? router.push(hrefFor(page.parentId)) : router.push("/home")));
+        if (key === "u") {
+          const parentId = page?.parentId;
+          return parentId ? run(() => router.push(hrefFor(parentId))) : undefined;
+        }
         if (key === "f") return run(() => void toggleFavorite(current, !page?.favoriteRank));
         if (key === "d") return run(() => void duplicatePage(current));
         if (key === "p") return run(() => setMoveTarget(current));

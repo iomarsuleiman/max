@@ -181,7 +181,6 @@ export interface SettingsRow {
   font: "default" | "serif" | "mono";
   defaultFullWidth: boolean;
   density: "comfortable" | "compact";
-  startPage: "home" | "last";
   textDirection: "auto" | "ltr" | "rtl";
   spellcheck: boolean;
   showRecents: boolean;
