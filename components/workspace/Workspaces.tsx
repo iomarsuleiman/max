@@ -124,7 +124,8 @@ export function WorkspaceDock({ onCreate }: { onCreate: () => void }) {
           role="tab"
           aria-selected={i === here}
           aria-label={w.name}
-          title={w.name}
+          aria-keyshortcuts={i < 9 ? (isMac() ? `Control+${i + 1}` : `Alt+${i + 1}`) : undefined}
+          title={i < 9 ? `${w.name}  ${workspaceKey(i + 1)}` : w.name}
           className="workspace-dock-item"
           onClick={() => i !== here && goTo(w.id, i > here ? 1 : -1)}
         >
@@ -137,6 +138,40 @@ export function WorkspaceDock({ onCreate }: { onCreate: () => void }) {
       </button>
     </div>
   );
+}
+
+const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+/** How the workspace shortcut reads on this computer: ⌃1 on a Mac, Alt+1 elsewhere. */
+export const workspaceKey = (n: number) => (isMac() ? `⌃${n}` : `Alt+${n}`);
+
+/**
+ * Arc-style: ⌃1 to ⌃9 on a Mac (Alt+1 to Alt+9 on Windows and Linux) opens your first to ninth
+ * workspace, and ⌃0 / Alt+0 the last one. Works with the sidebar closed too.
+ */
+export function useWorkspaceShortcuts() {
+  const spaces = useWorkspaces();
+  const live = useRef(spaces);
+  useEffect(() => {
+    live.current = spaces;
+  });
+  useEffect(() => {
+    const mac = isMac();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.shiftKey || e.metaKey || e.repeat) return;
+      const modifier = mac ? e.ctrlKey && !e.altKey : e.altKey && !e.ctrlKey;
+      const digit = /^Digit(\d)$/.exec(e.code)?.[1];
+      if (!modifier || digit === undefined) return;
+      const { list, current } = live.current;
+      const target = digit === "0" ? list[list.length - 1] : list[Number(digit) - 1];
+      if (!target) return;
+      e.preventDefault();
+      const here = list.findIndex((w) => w.id === (current?.id ?? null));
+      const at = list.indexOf(target);
+      if (at !== here) goTo(target.id, at > here ? 1 : -1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 }
 
 /** Opens the workspace right away; the new sidebar slides in from the side you swiped toward. */

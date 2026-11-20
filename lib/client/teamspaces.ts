@@ -24,3 +24,24 @@ export function teamspaceMembers(tree: PageSummary[]) {
   return inside;
 }
 
+
+/**
+ * Drops pages whose parent isn't in the sidebar: pages kept inside a database row (a row's script,
+ * notes, nested databases). They belong to their row, not to the top of Private. The server leaves
+ * them out too; this keeps the sidebar right with an older server.
+ */
+export function withoutOrphans(tree: PageSummary[]) {
+  const ids = new Set(tree.map((p) => p._id));
+  const byId = new Map(tree.map((p) => [p._id, p]));
+  const keep = new Map<string, boolean>();
+  const rooted = (page: PageSummary): boolean => {
+    const known = keep.get(page._id);
+    if (known !== undefined) return known;
+    keep.set(page._id, false); // guards against a parent loop
+    const ok = !page.parentId || (ids.has(page.parentId) && rooted(byId.get(page.parentId)!));
+    keep.set(page._id, ok);
+    return ok;
+  };
+  const out = tree.filter(rooted);
+  return out.length === tree.length ? tree : out;
+}

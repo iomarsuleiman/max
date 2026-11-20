@@ -22,3 +22,14 @@ describe("sidebar tree (issue #88)", () => {
     expect(children.pages.map((p) => p.title).sort()).toEqual(["Editing Checklist", "Shot List"]);
   });
 });
+
+describe("sidebar safety net", () => {
+  it("hides pages whose parent isn't in the sidebar, like a database row's script", async () => {
+    const { withoutOrphans } = await import("@/lib/client/teamspaces");
+    const page = (id: string, parentId: string | null) => ({ _id: id, parentId, title: id, kind: "page" }) as never;
+    const tree = [page("home", null), page("child", "home"), page("script", "row1"), page("deep", "script"), page("loopA", "loopB"), page("loopB", "loopA")];
+    expect((withoutOrphans(tree) as { _id: string }[]).map((p) => p._id)).toEqual(["home", "child"]);
+    const clean = [page("a", null), page("b", "a")];
+    expect(withoutOrphans(clean)).toBe(clean);
+  });
+});

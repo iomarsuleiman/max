@@ -3,7 +3,8 @@ import { notionExportZip } from "../fixtures/notionExport";
 
 test("a Notion export comes across like a duplicate", async ({ page }) => {
   await page.goto("/home");
-  await page.getByRole("button", { name: "Import", exact: true }).first().click();
+  await page.locator("[data-sidebar]").getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: /Import/ }).click();
   const dialog = page.getByRole("dialog", { name: "Import" });
   await dialog.getByRole("radio", { name: "Notion" }).click();
   await dialog.locator('input[type="file"]').setInputFiles({ name: "Export-5f1c9b2e.zip", mimeType: "application/zip", buffer: Buffer.from(notionExportZip()) });

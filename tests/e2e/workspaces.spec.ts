@@ -46,6 +46,13 @@ test("create a personal workspace, keep its pages separate, and switch back", as
   await expect(dock.getByRole("tab", { name: "Personal" })).toHaveAttribute("aria-selected", "true");
   await dock.getByRole("tab", { name }).click();
   await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText(name);
+  // Keyboard, like Arc: ⌃1 on a Mac (Alt+1 elsewhere) opens the first workspace, ⌃2 the second.
+  const mac = await page.evaluate(() => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
+  await page.locator("body").click({ position: { x: 5, y: 5 } }).catch(() => undefined);
+  await page.keyboard.press(mac ? "Control+1" : "Alt+1");
+  await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText("Personal");
+  await page.keyboard.press(mac ? "Control+2" : "Alt+2");
+  await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText(name);
 
   // Back to the main workspace: the side page isn't there.
   await page.getByRole("button", { name: /workspace menu$/ }).click();
