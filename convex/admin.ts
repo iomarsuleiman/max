@@ -9,11 +9,11 @@ import { guard } from "./sharing";
  * environment variable (npx convex env set MAX_ADMIN_EMAILS you@example.com) get past adminOf.
  */
 
-type Identity = { subject: string; email?: string; name?: string };
+type Identity = { subject: string; email?: string; emailVerified?: boolean; name?: string };
 
 async function adminOf(ctx: { auth: { getUserIdentity(): Promise<Identity | null> } }) {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity || !isAdminEmail(identity.email)) throw new ConvexError({ code: "FORBIDDEN", message: "This page is for Max's admins." });
+  if (!identity || identity.emailVerified === false || !isAdminEmail(identity.email)) throw new ConvexError({ code: "FORBIDDEN", message: "This page is for Max's admins." });
   return identity;
 }
 
@@ -23,7 +23,7 @@ export const check = queryGeneric({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    return { admin: !!identity && isAdminEmail(identity.email) };
+    return { admin: !!identity && identity.emailVerified !== false && isAdminEmail(identity.email) };
   },
 });
 

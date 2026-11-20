@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Select } from "@/components/ui";
-import "katex/dist/katex.min.css";
 import {
   BlockNoteSchema,
   createCodeBlockSpec,
@@ -81,11 +80,11 @@ export const Callout = createReactBlockSpec(
 
 /* ── Equation (LaTeX via KaTeX) ──────────────────────────────────────────── */
 
-// KaTeX (~75 KB) loads the first time a page shows an equation, not with every page.
+// KaTeX (~75 KB + CSS) loads the first time a page shows an equation, not with every page.
 let katex: typeof import("katex").default | null = null;
 let katexLoading: Promise<void> | null = null;
 function loadKatex() {
-  katexLoading ??= import("katex").then((m) => {
+  katexLoading ??= Promise.all([import("katex"), import("katex/dist/katex.min.css")]).then(([m]) => {
     katex = m.default;
   });
   return katexLoading;
@@ -243,12 +242,21 @@ export const YouTube = createIsolatedBlockSpec(
         setError("");
         editor.updateBlock(block, { props: { start, end } });
       };
+      const validId = /^[A-Za-z0-9_-]{11}$/.test(block.props.videoId) ? block.props.videoId : "";
+      if (!validId) return <div className="lx-embed-empty" contentEditable={false}><Video size={18} aria-hidden /> YouTube video</div>;
       const range = block.props.start || block.props.end ? `${formatTimestamp(block.props.start)}–${block.props.end ? formatTimestamp(block.props.end) : "…"}` : "";
-      const href = `https://www.youtube.com/watch?v=${block.props.videoId}${block.props.start ? `&t=${block.props.start}` : ""}`;
+      const href = `https://www.youtube.com/watch?v=${validId}${block.props.start ? `&t=${block.props.start}` : ""}`;
       return (
         <div className="lx-youtube" contentEditable={false}>
           <div className="lx-youtube__frame">
-            <img src={`https://i.ytimg.com/vi/${block.props.videoId}/hqdefault.jpg`} alt="" loading="lazy" />
+            <img
+              src={`https://i.ytimg.com/vi/${validId}/sddefault.jpg`}
+              onError={(e) => {
+                if (!e.currentTarget.src.endsWith("/hqdefault.jpg")) e.currentTarget.src = `https://i.ytimg.com/vi/${validId}/hqdefault.jpg`;
+              }}
+              alt=""
+              loading="lazy"
+            />
             <a className="lx-youtube__launch" href={href} target="_blank" rel="noreferrer noopener" aria-label="Watch on YouTube">
               <PlayCircle size={42} aria-hidden />
             </a>
@@ -351,12 +359,14 @@ export const BookmarkBlock = createIsolatedBlockSpec(
           </form>
         );
       }
-      let host = block.props.url;
+      const safeUrl = /^https?:\/\//i.test(block.props.url) ? block.props.url : "";
+      if (!safeUrl) return <div className="lx-embed-empty" contentEditable={false}><Globe size={18} aria-hidden /> Bookmark</div>;
+      let host = safeUrl;
       try {
-        host = new URL(block.props.url).hostname.replace(/^www\./, "");
+        host = new URL(safeUrl).hostname.replace(/^www\./, "");
       } catch {}
       return (
-        <a className="mx-bookmark" href={block.props.url} target="_blank" rel="noreferrer noopener" contentEditable={false}>
+        <a className="mx-bookmark" href={safeUrl} target="_blank" rel="noreferrer noopener" contentEditable={false}>
           <span className="mx-bookmark__body">
             {editor.isEditable ? (
               <input
@@ -488,7 +498,7 @@ export const EmbedBlock = createIsolatedBlockSpec(
             allowFullScreen
           />
           <figcaption>
-            <a href={block.props.url} target="_blank" rel="noreferrer noopener">{embed.provider}</a>
+            <a href={/^https:\/\//i.test(block.props.url) ? block.props.url : embed.src} target="_blank" rel="noreferrer noopener">{embed.provider}</a>
           </figcaption>
         </figure>
       );

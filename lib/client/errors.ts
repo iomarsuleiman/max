@@ -11,11 +11,16 @@ export class OpError extends Error {
   }
 }
 
+function isNetworkTypeError(err: unknown): boolean {
+  if (!(err instanceof TypeError)) return false;
+  return /failed to fetch|networkerror|load failed|fetch failed|network request failed/i.test(err.message);
+}
+
 export function toOpError(err: unknown): OpError {
   if (err instanceof OpError) return err;
   const data = (err as { data?: unknown })?.data;
   if (data && typeof data === "object" && "code" in data && "message" in data) return new OpError(data as SerializedError);
-  if (err instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+  if (isNetworkTypeError(err) || (typeof navigator !== "undefined" && navigator.onLine === false)) {
     return new OpError({ code: "INTERNAL", message: "You're offline or Max can't be reached. Your changes are kept on this device; Max will retry when you're back online." });
   }
   return new OpError({ code: "INTERNAL", message: "Something interrupted that request. Try again in a moment." });

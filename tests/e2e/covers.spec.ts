@@ -16,7 +16,7 @@ test("cover crops persist, cancel restores the crop, images download, and galler
   await page.getByRole("button", { name: "Reposition", exact: true }).click();
   await page.getByRole("slider", { name: "Cover position" }).press("End");
   await expect(image).toHaveCSS("object-position", "50% 100%");
-  await page.getByRole("button", { name: "Save position" }).click();
+  await page.getByRole("button", { name: "Save position" }).press("Enter");
   await expect(page.getByRole("slider", { name: "Cover position" })).toBeHidden();
   await page.reload();
   await expect(image).toHaveCSS("object-position", "50% 100%");
@@ -35,4 +35,13 @@ test("cover crops persist, cancel restores the crop, images download, and galler
     .first()
     .click();
   await expect(page.locator('img[src*="japanese-prints-"]').first()).toHaveCSS("object-position", "50% 50%");
+});
+
+test("refreshed NASA artwork loads through the responsive image optimizer", async ({ request }) => {
+  const response = await request.get("/_next/image", {
+    params: { url: "/covers/nasa-as17-148-22727.jpg?v=2", w: 1920, q: 90 },
+    headers: { Accept: "image/webp" },
+  });
+  expect(response.ok()).toBeTruthy();
+  expect(response.headers()["content-type"]).toBe("image/webp");
 });

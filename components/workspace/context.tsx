@@ -115,10 +115,17 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   const settings = useMemo(() => (settingsQ.data ? { ...settingsQ.data.settings, ...optimisticSettings } : undefined), [settingsQ.data, optimisticSettings]);
 
   // Once per visit: on first sign-in this creates preferences and a welcome page; for existing
-  // accounts it fills in anything added since (a username, the sign-in email). Idempotent.
+  // accounts it fills in anything added since (a username, the sign-in email). Skip when already complete.
   const initRan = useRef(false);
   useEffect(() => {
     if (initRan.current || !settingsQ.data) return;
+    const { saved, settings: s } = settingsQ.data;
+    const needsEmail = !!identity.email && !s.email;
+    const needsName = identity.name !== "You" && !s.displayName;
+    if (saved && s.onboarded && !needsEmail && !needsName) {
+      initRan.current = true;
+      return;
+    }
     initRan.current = true;
     call<{ welcomeId?: string | null }>("account.init", { displayName: identity.name !== "You" ? identity.name : null, invitedBy: readInviter(), email: identity.email ?? null })
       .then((r) => {
@@ -130,7 +137,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
       .catch(() => {
         initRan.current = false;
       });
-  }, [settingsQ.data, call, identity.name, pathname, router, params]);
+  }, [settingsQ.data, call, identity.name, identity.email, pathname, router, params]);
 
   // Keep the theme, font and motion preferences applied.
   useEffect(() => {
@@ -140,8 +147,15 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
     document.documentElement.dataset.density = settings.density;
   }, [settings, setTheme]);
 
+  const settingsSeq = useRef<Map<string, number>>(new Map());
   const updateSettings = useCallback(
     async (patch: Partial<SettingsRow>) => {
+      const tokens = new Map<string, number>();
+      for (const k of Object.keys(patch)) {
+        const next = (settingsSeq.current.get(k) ?? 0) + 1;
+        settingsSeq.current.set(k, next);
+        tokens.set(k, next);
+      }
       setOptimisticSettings((s) => ({ ...s, ...patch }));
       try {
         await call("settings.update", patch as Record<string, unknown>);
@@ -150,7 +164,9 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
       } finally {
         setOptimisticSettings((s) => {
           const next = { ...s };
-          for (const k of Object.keys(patch)) delete next[k as keyof SettingsRow];
+          for (const [k, seq] of tokens) {
+            if (settingsSeq.current.get(k) === seq) delete next[k as keyof SettingsRow];
+          }
           return next;
         });
       }
@@ -170,8 +186,7 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
     });
   }, []);
 
-  const [sidebarOpen, setSidebarOpenState] = useState(true);
-  useEffect(() => setSidebarOpenState(readLocal("sidebarOpen", true)), []);
+  const [sidebarOpen, setSidebarOpenState] = useState(() => readLocal("sidebarOpen", true));
   const setSidebarOpen = useCallback((open: boolean) => {
     setSidebarOpenState(open);
     writeLocal("sidebarOpen", open);
@@ -185,7 +200,8 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   const [peekList, setPeekList] = useState<string[]>([]);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const peekParam = params.get("peek");
-  const peek = peekParam ? { id: peekParam, mode: (params.get("pm") === "center" ? "center" : "side") as "side" | "center" } : null;
+  const peekMode = params.get("pm") === "center" ? ("center" as const) : ("side" as const);
+  const peek = useMemo(() => (peekParam ? { id: peekParam, mode: peekMode } : null), [peekParam, peekMode]);
   // Readable page links (/p/<title-words>-<id>); titles come from the sidebar tree.
   const titlesRef = useRef<Map<string, PageSummary>>(new Map());
   const hrefFor = useCallback((id: string) => pageHref(id, titlesRef.current.get(id)?.title), []);
@@ -321,7 +337,9 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
 
   // Global shortcuts (the full list lives in lib/client/shortcuts.ts).
   const shortcutState = useRef({ byId, activePageId: null as string | null });
-  shortcutState.current = { byId, activePageId: peekParam ?? activePageId };
+  useEffect(() => {
+    shortcutState.current = { byId, activePageId: peekParam ?? activePageId };
+  }, [byId, peekParam, activePageId]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
@@ -366,43 +384,77 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
     return () => window.removeEventListener("keydown", onKey);
   }, [archivePage, copyLink, createPage, duplicatePage, hrefFor, openSettings, router, setSidebarOpen, sidebarOpen, toggleFavorite, updateSettings]);
 
-  const value: WorkspaceValue = {
-    tree: tree.data?.pages,
-    treeError: tree.error,
-    settings,
-    identity,
-    byId,
-    call,
-    updateSettings,
-    createPage,
-    archivePage,
-    duplicatePage,
-    toggleFavorite,
-    copyLink,
-    expanded,
-    setExpanded,
-    sidebarOpen,
-    setSidebarOpen,
-    mobileNavOpen,
-    setMobileNavOpen,
-    searchOpen,
-    setSearchOpen,
-    openSettings,
-    closeSettings,
-    settingsSection,
-    moveTarget,
-    setMoveTarget,
-    importOpen,
-    setImportOpen,
-    importAsTemplates,
-    setImportAsTemplates,
-    openPage,
-    peek,
-    peekList,
-    closePeek,
-    activePageId: peek?.id ?? activePageId,
-    setActivePageId,
-  };
+  const resolvedActivePageId = peek?.id ?? activePageId;
+  const value = useMemo<WorkspaceValue>(
+    () => ({
+      tree: tree.data?.pages,
+      treeError: tree.error,
+      settings,
+      identity,
+      byId,
+      call,
+      updateSettings,
+      createPage,
+      archivePage,
+      duplicatePage,
+      toggleFavorite,
+      copyLink,
+      expanded,
+      setExpanded,
+      sidebarOpen,
+      setSidebarOpen,
+      mobileNavOpen,
+      setMobileNavOpen,
+      searchOpen,
+      setSearchOpen,
+      openSettings,
+      closeSettings,
+      settingsSection,
+      moveTarget,
+      setMoveTarget,
+      importOpen,
+      setImportOpen,
+      importAsTemplates,
+      setImportAsTemplates,
+      openPage,
+      peek,
+      peekList,
+      closePeek,
+      activePageId: resolvedActivePageId,
+      setActivePageId,
+    }),
+    [
+      tree.data?.pages,
+      tree.error,
+      settings,
+      identity,
+      byId,
+      call,
+      updateSettings,
+      createPage,
+      archivePage,
+      duplicatePage,
+      toggleFavorite,
+      copyLink,
+      expanded,
+      setExpanded,
+      sidebarOpen,
+      setSidebarOpen,
+      mobileNavOpen,
+      searchOpen,
+      openSettings,
+      closeSettings,
+      settingsSection,
+      moveTarget,
+      importOpen,
+      importAsTemplates,
+      openPage,
+      peek,
+      peekList,
+      closePeek,
+      resolvedActivePageId,
+    ],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

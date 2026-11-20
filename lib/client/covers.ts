@@ -60,7 +60,12 @@ export function isLocalCover(cover: string | null | undefined): boolean {
 export const ALL_COVERS = COVER_COLLECTIONS.flatMap((c) => c.items.map((i) => i.value));
 
 export function coverImageUrl(cover: string | null | undefined): string | null {
-  if (cover?.startsWith("cover:")) return `/covers/${cover.slice(6).replace(/[^a-z0-9-]/g, "")}.jpg`;
+  if (cover?.startsWith("cover:")) {
+    const id = cover.slice(6).replace(/[^a-z0-9-]/g, "");
+    // NASA artwork was refreshed in place. Both the source and optimizer cache by URL.
+    const version = /^(nasa|webb|artemis)-/.test(id) ? "?v=2" : "";
+    return `/covers/${id}.jpg${version}`;
+  }
   if (cover?.startsWith("https://")) return cover;
   return null;
 }

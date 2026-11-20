@@ -38,7 +38,7 @@ export function toEmbed(raw: string): Embed | null {
   if (host === "soundcloud.com") return { src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(url.href)}`, provider: "SoundCloud", aspect: 0.3 };
   if (host === "miro.com" && m(/^\/app\/board\/([\w=-]+)/)) return { src: `https://miro.com/app/live-embed/${m(/^\/app\/board\/([\w=-]+)/)![1]}/`, provider: "Miro", aspect: 0.6 };
   if (host === "airtable.com" && m(/^\/(shr\w+)/)) return { src: `https://airtable.com/embed/${m(/^\/(shr\w+)/)![1]}`, provider: "Airtable", aspect: 0.6 };
-  if (host.endsWith("typeform.com") && m(/^\/to\/(\w+)/)) return { src: url.href, provider: "Typeform", aspect: 0.7 };
+  if ((host === "typeform.com" || host.endsWith(".typeform.com")) && m(/^\/to\/(\w+)/)) return { src: url.href, provider: "Typeform", aspect: 0.7 };
   return null;
 }
 

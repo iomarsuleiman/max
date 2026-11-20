@@ -185,6 +185,7 @@ function ResizeHandle({ width, setWidth, onCommit, onClose }: { width: number; s
   return (
     <div
       role="separator"
+      data-resize=""
       aria-orientation="vertical"
       aria-label="Resize sidebar. Drag or use the left and right arrow keys; Enter closes the sidebar."
       aria-valuemin={MIN_WIDTH}
@@ -351,17 +352,25 @@ export function Avatar({ name, url, size = 28 }: { name: string; url: string | n
   );
 }
 
-/** Shown only to Max's admins (MAX_ADMIN_EMAILS). */
-function useIsAdmin() {
+/** Shown only to Max's admins (MAX_ADMIN_EMAILS). Checked lazily when the More menu opens. */
+function useIsAdmin(enabled: boolean) {
   const api = useAdminApi();
   const [admin, setAdmin] = useState(false);
+  const checked = useRef(false);
   useEffect(() => {
+    if (!enabled || checked.current) return;
+    checked.current = true;
     let live = true;
-    api.check().then((r) => live && setAdmin(r.admin), () => undefined);
+    api.check().then(
+      (r) => live && setAdmin(r.admin),
+      () => {
+        checked.current = false;
+      },
+    );
     return () => {
       live = false;
     };
-  }, [api]);
+  }, [api, enabled]);
   return admin;
 }
 
@@ -369,9 +378,10 @@ function useIsAdmin() {
 function MoreMenu() {
   const ws = useWorkspace();
   const router = useRouter();
-  const admin = useIsAdmin();
+  const [open, setOpen] = useState(false);
+  const admin = useIsAdmin(open);
   return (
-    <Menu>
+    <Menu open={open} onOpenChange={setOpen}>
       <Tooltip label="More">
         <MenuTrigger asChild>
           <button type="button" aria-label="More" className="sidebar-foot-button">
@@ -512,7 +522,14 @@ function SimpleRow({ page, trailing }: { page: PageSummary; trailing?: ReactNode
   const active = pageIdFromPath(pathname) === page._id;
   return (
     <div className={cn("group/row flex h-7 min-w-0 max-w-full items-center gap-1 rounded-md pe-1 ps-2 text-[13.5px] hover:bg-hover", active ? "bg-hover font-medium text-fg" : "text-fg-2")}>
-      <Link href={pageHref(page._id, page.title)} className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch" onMouseEnter={() => prefetchOp("pages.get", { id: page._id })}>
+      <Link
+        href={pageHref(page._id, page.title)}
+        className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch"
+        onMouseEnter={() => {
+          prefetchOp("pages.get", { id: page._id });
+          if (page.kind === "page") prefetchOp("documents.get", { pageId: page._id });
+        }}
+      >
         <PageIcon icon={page.icon} kind={page.kind} />
         <span className="min-w-0 flex-1 truncate" title={pageTitle(page.title)} data-shortcut-title>{pageTitle(page.title)}</span>
       </Link>

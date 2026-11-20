@@ -1,41 +1,65 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { ImagePlus, MessageSquare, SmilePlus } from "lucide-react";
 import { requestComment } from "./CommentsPanel";
 import { cn } from "@/components/ui";
 import { useUploader } from "@/lib/client/upload";
 import type { PageRow } from "@/lib/client/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
-import { IconPicker } from "./IconPicker";
-import { CoverPicker } from "./CoverPicker";
 import { PageCover } from "./PageCover";
 import { PageIcon } from "@/components/workspace/PageIcon";
+
+// Lazy-load heavy pickers (IconPicker pulls lucide-react/dynamic; CoverPicker pulls 140+ cover thumbnails).
+const IconPicker = dynamic(() => import("./IconPicker").then((m) => m.IconPicker), { ssr: false });
+const CoverPicker = dynamic(() => import("./CoverPicker").then((m) => m.CoverPicker), { ssr: false });
 
 export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: PageRow; readOnly: boolean; onEnter: () => void; widthClass: string }) {
   const ws = useWorkspace();
   const upload = useUploader();
   const [title, setTitle] = useState(page.title);
   const editing = useRef(false);
+  const pendingTitle = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  // Follow remote renames unless the title is being edited here.
+  // Follow remote renames unless the title is being edited or a local rename is still saving.
   useEffect(() => {
-    if (!editing.current) setTitle(page.title);
+    if (!editing.current && pendingTitle.current === null) setTitle(page.title);
   }, [page.title]);
 
-
-  const save = (value: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
+  const flushTitle = useCallback(
+    async (value?: string) => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+      const next = value ?? pendingTitle.current;
+      if (next === null) return;
       try {
-        await ws.call("pages.update", { id: page._id, title: value });
+        await ws.call("pages.update", { id: page._id, title: next });
       } catch (err) {
         notifyError(err, "Couldn't save the title.");
+      } finally {
+        if (pendingTitle.current === next) pendingTitle.current = null;
       }
-    }, 350);
+    },
+    [page._id, ws],
+  );
+
+  const save = (value: string) => {
+    pendingTitle.current = value;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void flushTitle(value), 350);
   };
+
+  useEffect(
+    () => () => {
+      if (pendingTitle.current !== null) void flushTitle();
+    },
+    [flushTitle],
+  );
 
   const update = (patch: Record<string, unknown>) => ws.call("pages.update", { id: page._id, ...patch }).catch((e) => notifyError(e));
   const cover = page.cover;
@@ -105,7 +129,10 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
           aria-label="Page title"
           placeholder={page.kind === "database" ? "Untitled database" : "Untitled"}
           onFocus={() => (editing.current = true)}
-          onBlur={() => (editing.current = false)}
+          onBlur={() => {
+            editing.current = false;
+            if (pendingTitle.current !== null) void flushTitle();
+          }}
           onChange={(e) => {
             const v = e.target.value.replace(/\n/g, "");
             setTitle(v);
@@ -114,6 +141,7 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.nativeEvent.isComposing) {
               e.preventDefault();
+              if (pendingTitle.current !== null) void flushTitle();
               e.currentTarget.blur();
               onEnter();
             }

@@ -111,8 +111,12 @@ export class CollabSession {
       if (j.seed) {
         const saved = await loadSaved();
         const editor = BlockNoteEditor.create({ schema: maxSchema });
-        const blocks = toEditorCodeLanguages(saved.blocks).blocks;
-        if (blocks.length) blocksToYXmlFragment(editor as never, blocks as never, this.fragment);
+        try {
+          const blocks = toEditorCodeLanguages(saved.blocks).blocks;
+          if (blocks.length) blocksToYXmlFragment(editor as never, blocks as never, this.fragment);
+        } finally {
+          (editor as { _tiptapEditor?: { destroy?: () => void } })._tiptapEditor?.destroy?.();
+        }
         try {
           const { seq } = await this.t.push({ roomId: j.roomId, epoch: j.epoch, clientId: this.clientId, data: toB64(Y.encodeStateAsUpdate(this.doc)), seedRevision: saved.revision });
           this.applied = seq;
@@ -131,7 +135,11 @@ export class CollabSession {
       if (attempt > 40) throw new Error("Live editing is taking too long to start. Reload the page.");
       await sleep(400);
     }
-    if (this.closed || !this.join) return;
+    if (this.closed || !this.join) {
+      if (this.join) void this.t.leave({ roomId: this.join.roomId, clientId: this.clientId }).catch(() => undefined);
+      this.join = null;
+      return;
+    }
     this.doc.on("update", this.onLocalUpdate);
     this.awareness.on("update", this.onAwareness);
     this.stopWatch = this.t.watch(this.join.roomId, () => this.applied, this.onPull, (err) => {
@@ -293,7 +301,8 @@ export class CollabSession {
         });
         if (r.compacted) this.sinceCompact = 0;
         this.events.onSaved(Date.now());
-        this.events.onStatus("live");
+        if (!this.dirty) this.events.onStatus("live");
+        else this.scheduleCommit();
       } catch (err) {
         const code = (err as { code?: string }).code;
         if (code === "CONFLICT") {

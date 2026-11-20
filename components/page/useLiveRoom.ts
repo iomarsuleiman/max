@@ -20,19 +20,41 @@ export interface LiveRoom {
  * Joins a shared page's live room while `enabled`. Re-joins on its own when the page is changed
  * from outside the room (an assistant, a restore), which loads the new content for everyone.
  */
-export function useLiveRoom(pageId: string, enabled: boolean, linkToken: string | null, user: { name: string; seed: string }): LiveRoom {
+export function useLiveRoom(
+  pageId: string,
+  enabled: boolean,
+  linkToken: string | null,
+  user: { name: string; seed: string },
+  initialDoc?: { blocks: unknown[]; revision: number },
+): LiveRoom {
   const transport = useCollabTransport(linkToken);
   const read = useRead();
   const readRef = useRef(read);
-  readRef.current = read;
+  const userRef = useRef(user);
+  const initialRef = useRef(initialDoc);
+  useEffect(() => {
+    readRef.current = read;
+    userRef.current = user;
+    initialRef.current = initialDoc;
+  });
   const [generation, setGeneration] = useState(0);
   const [room, setRoom] = useState<Omit<LiveRoom, "generation">>({ status: "connecting", session: null, collab: null, lastSavedAt: null });
-  const { name, seed } = user;
+
+  // Update cursor name/color in-place when displayName finishes loading, without restarting the room.
+  useEffect(() => {
+    const session = room.session;
+    if (!session) return;
+    const prev = session.awareness.getLocalState() as { user?: { name?: string; color?: string } } | null;
+    if (prev?.user && prev.user.name !== user.name) {
+      session.awareness.setLocalStateField("user", { ...prev.user, name: user.name });
+    }
+  }, [room.session, user.name]);
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
     let session: CollabSession | null = null;
+    let usedInitial = false;
     setRoom((r) => ({ ...r, status: "connecting", session: null, collab: null }));
     void (async () => {
       try {
@@ -44,10 +66,16 @@ export function useLiveRoom(pageId: string, enabled: boolean, linkToken: string 
           onSaved: (at) => !cancelled && setRoom((r) => ({ ...r, lastSavedAt: at })),
         });
         await session.open(async () => {
+          // Reuse already-fetched document on the first attempt to eliminate a duplicate documents.get round-trip.
+          if (!usedInitial && generation === 0 && initialRef.current) {
+            usedInitial = true;
+            return initialRef.current;
+          }
           const d = await readRef.current<DocumentGetResult>("documents.get", { pageId });
           return { blocks: d.blocks, revision: d.revision };
         });
         if (cancelled) return;
+        const { name, seed } = userRef.current;
         const collab = { fragment: session.fragment, awareness: session.awareness, user: { name, color: m.cursorColor(seed) }, withCollaboration: m.withCollaboration as never };
         setRoom((r) => ({ ...r, status: "live", session, collab }));
       } catch (err) {
@@ -64,7 +92,7 @@ export function useLiveRoom(pageId: string, enabled: boolean, linkToken: string 
       window.removeEventListener("pagehide", flush);
       void session?.close();
     };
-  }, [enabled, pageId, transport, generation, name, seed]);
+  }, [enabled, pageId, transport, generation]);
 
   return { ...room, generation };
 }

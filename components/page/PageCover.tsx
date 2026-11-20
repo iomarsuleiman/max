@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { coverImageUrl } from "@/lib/client/covers";
@@ -8,8 +9,9 @@ import { useAssetResolver, useUploader } from "@/lib/client/upload";
 import type { PageRow } from "@/lib/client/types";
 import { cn } from "@/components/ui";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
-import { CoverPicker } from "./CoverPicker";
 import { CoverView } from "./CoverView";
+
+const CoverPicker = dynamic(() => import("./CoverPicker").then((m) => m.CoverPicker), { ssr: false });
 
 export function PageCover({ page, readOnly }: { page: PageRow; readOnly: boolean }) {
   const ws = useWorkspace();
@@ -110,6 +112,8 @@ export function PageCover({ page, readOnly }: { page: PageRow; readOnly: boolean
         : {})}
       onKeyDown={(event) => {
         if (!repositioning) return;
+        // Let focused Save/Cancel buttons handle their own Enter/Space activation.
+        if (event.target !== event.currentTarget && event.key !== "Escape") return;
         const step = event.shiftKey ? 10 : 2;
         if (event.key === "ArrowUp") setPosition((p) => Math.min(100, p + step));
         else if (event.key === "ArrowDown") setPosition((p) => Math.max(0, p - step));
@@ -146,7 +150,7 @@ export function PageCover({ page, readOnly }: { page: PageRow; readOnly: boolean
       }}
     >
       <div className="pointer-events-none size-full select-none">
-        <CoverView cover={page.cover} className="size-full" position={repositioning ? position : (page.coverPosition ?? 50)} eager />
+        <CoverView cover={page.cover} className="size-full" position={repositioning ? position : (page.coverPosition ?? 50)} eager sizes="(min-width: 768px) calc(100vw - 248px), 100vw" />
       </div>
       {repositioning ? (
         <>

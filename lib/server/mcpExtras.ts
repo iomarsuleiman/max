@@ -13,13 +13,53 @@ import { CLOUD } from "@/lib/config";
  * then call the same domain operations the app uses (assets.createUploadUrl/register, import.markdown).
  */
 
+function privateIPv4(octets: number[]): boolean {
+  if (octets.length !== 4 || octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true;
+  const [a, b] = octets;
+  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+}
+
+function parseIPv6Groups(raw: string): number[] | null {
+  let ip = raw.toLowerCase().split("%")[0];
+  if (ip.includes(".")) {
+    const lastColon = ip.lastIndexOf(":");
+    if (lastColon < 0) return null;
+    const v4 = ip.slice(lastColon + 1).split(".").map(Number);
+    if (v4.length !== 4 || v4.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    const hi = ((v4[0] << 8) | v4[1]).toString(16);
+    const lo = ((v4[2] << 8) | v4[3]).toString(16);
+    ip = `${ip.slice(0, lastColon)}:${hi}:${lo}`;
+  }
+  const halves = ip.split("::");
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(":") : [];
+  const right = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - (left.length + right.length);
+  if ((halves.length === 1 && missing !== 0) || (halves.length === 2 && missing < 0)) return null;
+  const parts = halves.length === 2 ? [...left, ...Array(missing).fill("0"), ...right] : left;
+  const groups = parts.map((p) => (/^[0-9a-f]{1,4}$/.test(p) ? parseInt(p, 16) : NaN));
+  return groups.length === 8 && groups.every(Number.isFinite) ? groups : null;
+}
+
 function privateAddress(ip: string): boolean {
   if (ip.includes(":")) {
-    const v = ip.toLowerCase();
-    return v === "::1" || v.startsWith("fc") || v.startsWith("fd") || v.startsWith("fe80") || v.startsWith("::ffff:127.") || v.startsWith("::ffff:10.") || v.startsWith("::ffff:192.168.") || v === "::";
+    const g = parseIPv6Groups(ip);
+    if (!g) return true;
+    const allZero6 = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0;
+    // :: (unspecified), ::1 (loopback)
+    if (allZero6 && g[6] === 0 && (g[7] === 0 || g[7] === 1)) return true;
+    // ::ffff:0:0/96 (IPv4-mapped) or 64:ff9b::/96 (NAT64)
+    const isV4Mapped = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0xffff;
+    const isNat64 = g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0;
+    if (isV4Mapped || isNat64) return privateIPv4([g[6] >> 8, g[6] & 0xff, g[7] >> 8, g[7] & 0xff]);
+    // fc00::/7 (ULA), fe80::/10 (link-local), fec0::/10 (site-local), ff00::/8 (multicast), 100::/64 (discard)
+    if ((g[0] & 0xfe00) === 0xfc00) return true;
+    if ((g[0] & 0xffc0) === 0xfe80 || (g[0] & 0xffc0) === 0xfec0) return true;
+    if ((g[0] & 0xff00) === 0xff00) return true;
+    if (g[0] === 0x0100 && g[1] === 0 && g[2] === 0 && g[3] === 0) return true;
+    return false;
   }
-  const [a, b] = ip.split(".").map(Number);
-  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  return privateIPv4(ip.split(".").map(Number));
 }
 
 /** Fetches a public https URL, refusing private networks, redirects to them, and oversized bodies. */
@@ -32,6 +72,7 @@ export async function safeFetch(rawUrl: string, maxBytes: number): Promise<{ byt
   }
   for (let hop = 0; hop < 4; hop++) {
     if (url.protocol !== "https:") throw new MaxError("VALIDATION", "Only https links can be fetched.");
+    if (url.port && url.port !== "443") throw new MaxError("VALIDATION", "Only standard https (port 443) links can be fetched.");
     if (url.username || url.password) throw new MaxError("VALIDATION", "Links with credentials aren't allowed.");
     const host = url.hostname.replace(/^\[|\]$/g, "");
     const addresses = isIP(host) ? [{ address: host }] : await lookup(host, { all: true }).catch(() => []);
@@ -76,8 +117,6 @@ function sniffImageType(bytes: Uint8Array): string | null {
   if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return "image/gif";
   if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45) return "image/webp";
   if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) return "image/avif";
-  const head = new TextDecoder().decode(b.slice(0, 256)).trimStart();
-  if (head.startsWith("<svg") || (head.startsWith("<?xml") && head.includes("<svg"))) return "image/svg+xml";
   return null;
 }
 
@@ -98,7 +137,7 @@ export async function uploadAsset(ownerId: string, input: { url?: string; base64
   }
   // The file's real bytes decide its type, not the name or the server's header.
   const type = sniffImageType(bytes);
-  if (!type || !UPLOAD_TYPES.includes(type)) throw new MaxError("VALIDATION", "That isn't a PNG, JPEG, WebP, GIF, AVIF or SVG image.");
+  if (!type || !UPLOAD_TYPES.includes(type)) throw new MaxError("VALIDATION", "That isn't a PNG, JPEG, WebP, GIF or AVIF image.");
   let storageId: string;
   if (!CLOUD) {
     storageId = await saveLocalFile(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, type);

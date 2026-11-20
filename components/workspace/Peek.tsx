@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog as D } from "radix-ui";
 import { ChevronDown, ChevronUp, ChevronsRight, Maximize2, PanelRight, RectangleHorizontal } from "lucide-react";
 import { IconButton, Tooltip, cn } from "@/components/ui";
@@ -21,11 +21,14 @@ export function PeekHost() {
   const start = useRef<{ x: number; w: number } | null>(null);
   const list = ws.peekList;
   const index = peek ? list.indexOf(peek.id) : -1;
-  const go = (delta: number) => {
-    if (!peek || index < 0) return;
-    const next = list[index + delta];
-    if (next) ws.openPage(next, { mode: peek.mode, list });
-  };
+  const go = useCallback(
+    (delta: number) => {
+      if (!peek || index < 0) return;
+      const next = list[index + delta];
+      if (next) ws.openPage(next, { mode: peek.mode, list });
+    },
+    [peek, index, list, ws],
+  );
 
   useEffect(() => {
     if (!peek) return;
@@ -41,7 +44,7 @@ export function PeekHost() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [peek, go, ws]);
 
   if (!peek) return null;
   const center = peek.mode === "center";

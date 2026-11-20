@@ -29,10 +29,10 @@ interface ModelContext {
   clearContext?: () => void;
 }
 
-/** Never available to a browser agent: account deletion, access tokens, workspace deletion, activity log. */
-const BLOCKED = new Set(["account.deleteAllData", "tokens.create", "tokens.list", "tokens.revoke", "audit.list", "workspaces.delete", "account.setUsername"]);
-/** Anything that removes or takes something down asks the person first, in Max's own dialog. */
-const ASKS_FIRST = /(delete|archive|remove|revoke|unpublish|empty|deletePermanently|setLink|invite|leave)/i;
+/** Never available to a browser agent: account deletion, access tokens, workspace deletion, activity log, batch bypasses. */
+const BLOCKED = new Set(["batch", "account.deleteAllData", "tokens.create", "tokens.list", "tokens.revoke", "audit.list", "workspaces.delete", "account.setUsername"]);
+/** Anything that removes, exports everything, or publishes/shares asks the person first, in Max's own dialog. */
+const ASKS_FIRST = /(delete|archive|remove|revoke|publish|empty|deletePermanently|setLink|invite|leave|export\.all)/i;
 
 const text = (value: unknown): ToolResult => ({ content: [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] });
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required });

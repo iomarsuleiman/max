@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useConvex, useQueries } from "convex/react";
 import { anyApi } from "convex/server";
 import { onWorkspaceChange, wsArgs } from "./workspace";
@@ -103,19 +103,27 @@ function load(e: Entry) {
 }
 
 let invalidatePromise: Promise<void> | null = null;
+let invalidateDirty = false;
 /** Refetches every watched query. Resolves once fresh data is in (like Convex's mutation guarantee). */
 export function invalidateLocal(): Promise<void> {
-  if (invalidatePromise) return invalidatePromise;
-  invalidatePromise = new Promise<void>((resolve) => {
-    setTimeout(() => {
-      invalidatePromise = null;
+  if (invalidatePromise) {
+    invalidateDirty = true;
+    return invalidatePromise;
+  }
+  const run = async (): Promise<void> => {
+    do {
+      invalidateDirty = false;
+      await new Promise<void>((r) => setTimeout(r, 15));
       const loads: Promise<void>[] = [];
       for (const [key, e] of cache) {
         if (e.subs.size) loads.push(load(e));
         else cache.delete(key);
       }
-      void Promise.all(loads).then(() => resolve());
-    }, 15);
+      await Promise.all(loads);
+    } while (invalidateDirty);
+  };
+  invalidatePromise = run().finally(() => {
+    invalidatePromise = null;
   });
   return invalidatePromise;
 }
@@ -148,9 +156,18 @@ function useOpLocal<T>(op: string, args: Args | "skip"): QueryState<T> {
   return useSyncExternalStore(subscribe, () => (e ? e.snapshot : SKIPPED), () => (e ? e.snapshot : SKIPPED)) as QueryState<T>;
 }
 
+let cloudClient: ReturnType<typeof useConvex> | null = null;
+
 /** Warms a query (e.g. on hover) so navigation shows content immediately. */
 export function prefetchOp(op: string, args: Args) {
-  if (CLOUD) return;
+  if (CLOUD) {
+    try {
+      cloudClient?.prewarmQuery({ query: anyApi.ops.query, args: { op, args, ...wsArgs() }, extendSubscriptionFor: 5_000 });
+    } catch {
+      // Best-effort prewarm; ignore if client isn't ready.
+    }
+    return;
+  }
   const e = entry(op, args);
   if (e.data === undefined && !e.inflight) void load(e);
 }
@@ -189,6 +206,10 @@ function useReadLocal() {
 /* ── Cloud mode: Convex reactive queries ─────────────────────────────────── */
 
 function useOpCloud<T>(op: string, args: Args | "skip"): QueryState<T> {
+  const convex = useConvex();
+  useEffect(() => {
+    cloudClient = convex;
+  }, [convex]);
   const scope = useShareScope();
   const argKey = args === "skip" ? "skip" : JSON.stringify(args);
   const scopeKey = scope ? (scope.site ? `site:${scope.site}:` : `${scope.anonymous ? "web" : "in"}:${scope.pageId}:${scope.linkToken ?? ""}`) : "";
@@ -202,13 +223,13 @@ function useOpCloud<T>(op: string, args: Args | "skip"): QueryState<T> {
     return { q: { query: anyApi.sharing.query, args: { scopePageId, op, args: parsed, linkToken: linkToken || null } } };
   }, [op, argKey, scopeKey]);
   const result = useQueries(queries as never) as { q?: unknown };
-  const last = useRef<{ data: unknown; key: string } | null>(null);
-  if (args === "skip") return SKIPPED;
-  const raw = result.q;
-  if (raw instanceof Error) return { data: last.current?.data as T | undefined, error: toOpError(raw), isLoading: false };
-  if (raw === undefined) return { data: undefined, error: null, isLoading: true };
-  last.current = { data: raw, key: op };
-  return { data: raw as T, error: null, isLoading: false };
+  const raw = argKey === "skip" ? undefined : result.q;
+  return useMemo(() => {
+    if (argKey === "skip") return SKIPPED;
+    if (raw instanceof Error) return { data: undefined, error: toOpError(raw), isLoading: false };
+    if (raw === undefined) return { data: undefined, error: null, isLoading: true };
+    return { data: raw as T, error: null, isLoading: false };
+  }, [argKey, raw]);
 }
 
 function useCallCloud() {

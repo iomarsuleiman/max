@@ -8,7 +8,6 @@ import {
   LIMITS,
   allPages,
   assertWritable,
-  breadcrumbs,
   byRank,
   cleanTitle,
   depthOf,
@@ -62,8 +61,13 @@ export const pagesChildren = defineOp({
   input: z.object({ parentId: id.nullable() }),
   async run(ctx, { parentId }) {
     if (parentId) await requirePage(ctx, parentId, { allowArchived: true });
-    const pages = await allPages(ctx);
-    return { pages: treeChildren(pages, parentId).map(summary) };
+    const rows = await ctx.db.list("pages", ctx.ownerId, { field: "parentId", value: parentId });
+    return {
+      pages: rows
+        .filter((p) => !p.archivedAt && !p.isTemplate && !p.databaseId)
+        .sort(byRank)
+        .map(summary),
+    };
   },
 });
 
@@ -75,16 +79,49 @@ export const pagesGet = defineOp({
   input: z.object({ id }),
   async run(ctx, { id: pageId }) {
     const page = await requirePage(ctx, pageId, { allowArchived: true });
-    const pages = await allPages(ctx);
-    const byId = new Map(pages.map((p) => [p._id, p]));
-    const archivedRoot = page.archivedRootId ? byId.get(page.archivedRootId) : undefined;
+    // Walk only this page's ancestor chain instead of scanning every page in the workspace.
+    const chain: PageRow[] = [page];
+    const seen = new Set<string>([page._id]);
+    let cur: PageRow = page;
+    for (let guard = 0; guard < 60; guard++) {
+      const upId = cur.parentId ?? cur.databaseId;
+      if (!upId || seen.has(upId)) break;
+      const up = await ctx.db.get("pages", upId);
+      if (!up || up.ownerId !== ctx.ownerId) break;
+      seen.add(up._id);
+      chain.push(up);
+      cur = up;
+    }
+    const [childRows, archivedRoot, databaseRow, sharedChecks] = await Promise.all([
+      ctx.db.list("pages", ctx.ownerId, { field: "parentId", value: page._id }),
+      page.archivedRootId && page.archivedRootId !== page._id ? ctx.db.get("pages", page.archivedRootId) : Promise.resolve(null),
+      page.databaseId ? ctx.db.get("pages", page.databaseId) : Promise.resolve(null),
+      // Check share state in parallel so solo pages never block editor mount on a separate shares.list RTT.
+      page.kind !== "database" && !page.isTemplate && !page.archivedAt
+        ? Promise.all(
+            chain.map(async (p) => {
+              const [s, l] = await Promise.all([
+                ctx.db.list("shares", ctx.ownerId, { field: "pageId", value: p._id }),
+                ctx.db.list("shareLinks", ctx.ownerId, { field: "pageId", value: p._id }),
+              ]);
+              return s.length > 0 || l.length > 0;
+            }),
+          )
+        : Promise.resolve([]),
+    ]);
+    const children = childRows
+      .filter((p) => !p.archivedAt && !p.isTemplate && !p.databaseId)
+      .sort(byRank)
+      .map(summary);
+    const crumbs = [...chain].reverse().map(summary);
     return {
       page,
-      breadcrumbs: breadcrumbs(pages, page),
-      children: treeChildren(pages, page._id).map(summary),
-      database: page.databaseId ? summary(byId.get(page.databaseId) ?? page) : null,
+      breadcrumbs: crumbs,
+      children,
+      database: page.databaseId ? summary(databaseRow && databaseRow.ownerId === ctx.ownerId ? databaseRow : page) : null,
       inTrash: !!page.archivedAt,
-      trashedWith: archivedRoot && archivedRoot._id !== page._id ? summary(archivedRoot) : null,
+      trashedWith: archivedRoot && archivedRoot.ownerId === ctx.ownerId && archivedRoot._id !== page._id ? summary(archivedRoot) : null,
+      isShared: sharedChecks.some(Boolean),
     };
   },
 });
@@ -115,9 +152,10 @@ export const pagesRecents = defineOp({
   input: z.object({ limit: z.number().int().min(1).max(50).optional() }),
   async run(ctx, { limit = 10 }) {
     const pages = await allPages(ctx);
+    const hidden = templateMembers(pages);
     return {
       pages: pages
-        .filter((p) => p.lastOpenedAt && !p.archivedAt && !templateMembers(pages).has(p._id))
+        .filter((p) => p.lastOpenedAt && !p.archivedAt && !hidden.has(p._id))
         .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0))
         .slice(0, limit)
         .map(summary),
@@ -332,8 +370,14 @@ export const pagesTouch = defineOp({
   async run(ctx, { id: pageId }) {
     const page = await requirePage(ctx, pageId, { allowArchived: true });
     if (page.archivedAt) return { ok: true };
-    await ctx.db.patch("pages", pageId, { lastOpenedAt: ctx.now });
-    if (ctx.source === "ui") await upsertSettings(ctx, { lastPageId: pageId });
+    // Avoid reactive invalidation storms when re-visiting the same page within a minute.
+    if (!page.lastOpenedAt || ctx.now - page.lastOpenedAt >= 60_000) {
+      await ctx.db.patch("pages", pageId, { lastOpenedAt: ctx.now });
+    }
+    if (ctx.source === "ui") {
+      const current = await getSettingsRow(ctx);
+      if (current?.lastPageId !== pageId) await upsertSettings(ctx, { lastPageId: pageId });
+    }
     return { ok: true };
   },
 });

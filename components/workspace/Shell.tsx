@@ -36,7 +36,9 @@ const PeekHost = dynamic(() => import("./Peek").then((m) => m.PeekHost), { ssr: 
 
 function useEverTrue(flag: boolean) {
   const [ever, setEver] = useState(flag);
-  if (flag && !ever) setEver(true);
+  useEffect(() => {
+    if (flag) setEver(true);
+  }, [flag]);
   return ever || flag;
 }
 
@@ -199,8 +201,12 @@ function Frame({ children }: { children: ReactNode }) {
     if (s?.accent && s.accent !== "blue") root.dataset.accent = s.accent;
     else delete root.dataset.accent;
   }, [s?.accent]);
-  setDatePrefs({ dateFormat: s?.dateFormat, timeFormat: s?.timeFormat, weekStart: s?.weekStart });
-  setSoundsEnabled(s?.sounds !== false);
+  useEffect(() => {
+    setDatePrefs({ dateFormat: s?.dateFormat, timeFormat: s?.timeFormat, weekStart: s?.weekStart });
+  }, [s?.dateFormat, s?.timeFormat, s?.weekStart]);
+  useEffect(() => {
+    setSoundsEnabled(s?.sounds !== false);
+  }, [s?.sounds]);
   const standing = useStanding();
   useWorkspaceShortcuts();
   // Get the emoji list ready while nothing else is happening, so the icon picker opens instantly.
@@ -233,13 +239,12 @@ function Frame({ children }: { children: ReactNode }) {
           </D.Content>
         </D.Portal>
       </D.Root>
-      <main id="main" className="max-panel relative flex min-w-0 flex-1 flex-col" data-alone={!ws.sidebarOpen || undefined} data-frame={ws.settings?.frame === "floating" ? undefined : "full"}>
+      <main id="main" tabIndex={-1} className="max-panel relative flex min-w-0 flex-1 flex-col outline-none" data-alone={!ws.sidebarOpen || undefined} data-frame={ws.settings?.frame === "floating" ? undefined : "full"}>
         <OfflineNotice />
         {standing?.status === "suspended" && <SuspendedBanner standing={standing} />}
         {children}
       </main>
-      {!preview && <SearchDialog />}
-      {!preview && <ProfileCardInvitation />}
+      {!preview && !!s && !s.profileCardOnboarded && !s.profileCard && <ProfileCardInvitation />}
       {!preview && <LazyDialogs />}
       {!preview && <SpacePanel />}
       {!preview && <WebMcp />}
@@ -250,12 +255,14 @@ function Frame({ children }: { children: ReactNode }) {
 
 function LazyDialogs() {
   const ws = useWorkspace();
+  const search = useEverTrue(ws.searchOpen);
   const settings = useEverTrue(!!ws.settingsSection);
   const move = useEverTrue(!!ws.moveTarget);
   const importer = useEverTrue(ws.importOpen);
   const peek = useEverTrue(!!ws.peek);
   return (
     <>
+      {search && <SearchDialog />}
       {settings && <SettingsDialog />}
       {move && <MoveDialog />}
       {importer && <ImportDialog />}

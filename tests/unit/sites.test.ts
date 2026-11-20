@@ -47,4 +47,25 @@ describe("published websites", () => {
     await alice("sites.unpublish", { pageId: home._id });
     await expect(siteNav(h.db, "my-garden")).rejects.toThrow();
   });
+
+  it("keeps private relation and rollup values out of published database queries", async () => {
+    const { h, alice, home } = await world();
+    const { database: publicDb } = await alice<{ database: { _id: string } }>("databases.create", { title: "Public", parentId: home._id });
+    const { database: privateDb } = await alice<{ database: { _id: string } }>("databases.create", { title: "Private" });
+    const { property: price } = await alice<{ property: { id: string } }>("properties.add", { databaseId: privateDb._id, name: "Price", type: "number" });
+    const { record: privateRow } = await alice<{ record: { _id: string } }>("records.create", { databaseId: privateDb._id, values: { Name: "Private", Price: 8675309 } });
+    const { property: relation } = await alice<{ property: { id: string } }>("properties.add", { databaseId: publicDb._id, name: "Items", type: "relation", relationDatabaseId: privateDb._id });
+    const { property: rollup } = await alice<{ property: { id: string } }>("properties.add", {
+      databaseId: publicDb._id, name: "Total", type: "rollup", rollup: { relationPropertyId: relation.id, targetPropertyId: price.id, fn: "sum" },
+    });
+    await alice("records.create", { databaseId: publicDb._id, values: { Name: "Public row", Items: [privateRow._id] } });
+    await alice("sites.publish", { pageId: home._id, slug: "garden", name: "Garden" });
+    const query = (args: object) => siteRead(h.db, h.storage, "garden", "databases.query", { databaseId: publicDb._id, ...args }, Date.now());
+    const publicResult = await query({});
+    expect(publicResult).toMatchObject({ total: 1, records: [{ title: "Public row", values: {} }] });
+    expect(JSON.stringify(publicResult)).not.toContain(rollup.id);
+    expect(JSON.stringify(publicResult)).not.toContain(privateRow._id);
+    expect(await query({ search: "8675309" })).toMatchObject({ total: 0 });
+    expect(await alice("databases.query", { databaseId: publicDb._id, search: "8675309" })).toMatchObject({ total: 1 });
+  });
 });

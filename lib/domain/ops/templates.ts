@@ -32,10 +32,10 @@ export const templatesList = defineOp({
   description: "Lists your page templates, or a database's row templates when databaseId is given.",
   input: z.object({ databaseId: id.nullable().optional() }),
   async run(ctx, { databaseId = null }) {
-    const pages = await allPages(ctx);
+    const pages = await ctx.db.list("pages", ctx.ownerId, { field: "databaseId", value: databaseId });
     return {
       templates: pages
-        .filter((p) => p.isTemplate && !p.archivedAt && (p.databaseId ?? null) === databaseId)
+        .filter((p) => p.isTemplate && !p.archivedAt)
         .sort(byRank)
         .map((p) => ({ ...summary(p), values: p.values ?? {} })),
     };
