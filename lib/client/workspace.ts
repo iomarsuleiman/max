@@ -58,11 +58,11 @@ const PLACE = "max:workspace-place:";
 /** Remembers where you are in the open workspace, so coming back to it returns you there. */
 export function rememberPlace(path: string) {
   // Mid-switch the address is still the old workspace's: don't file it under the new one.
-  if (pending || !/^\/(home|p\/|graph|templates)/.test(path)) return;
+  if (pending || !/^\/(p\/|graph|templates)/.test(path)) return;
   try {
     localStorage.setItem(PLACE + (activeWorkspace() ?? "main"), path);
   } catch {
-    // Without storage, switching opens Home.
+    // Without storage, switching opens the workspace's last or first page.
   }
 }
 
@@ -76,7 +76,7 @@ function placeIn(id: string | null): string {
 
 /**
  * Opens a workspace (null: your main one) without reloading: at `path`, or wherever you were in it
- * last time (Home the first time).
+ * last time (its first page the first time).
  */
 export function switchWorkspace(id: string | null, path?: string) {
   path ??= placeIn(id);

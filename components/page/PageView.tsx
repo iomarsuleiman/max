@@ -157,7 +157,7 @@ function PageViewInner({ pageId, renderHeader, accessPending }: { pageId: string
         <Topbar crumbs={[]} />
         {q.error.code === "NOT_FOUND" ? (
           <EmptyState icon={<FileQuestion className="size-5" />} title="This page doesn't exist" body="It may have been deleted permanently, or the link is wrong." className="mt-16">
-            <Button onClick={() => router.push("/home")}>Go to Home</Button>
+            <Button onClick={() => router.push("/home")}>Go to my pages</Button>
             <Button variant="ghost" onClick={() => ws.setSearchOpen(true)}>
               Search pages
             </Button>

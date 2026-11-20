@@ -67,11 +67,11 @@ export function WebMcp() {
       },
       {
         name: "max_open",
-        description: "Open a page in Max by its id, or by its title (the best match). Also opens Home, Templates, Graph or Trash by name.",
-        inputSchema: obj({ page: { type: "string", description: "A page id or title, or home/templates/graph/trash." } }, ["page"]),
+        description: "Open a page in Max by its id, or by its title (the best match). Also opens Templates, Graph or Trash by name.",
+        inputSchema: obj({ page: { type: "string", description: "A page id or title, or templates/graph/trash." } }, ["page"]),
         execute: run(async ({ page }) => {
           const wanted = String(page).trim();
-          const places: Record<string, string> = { home: "/home", templates: "/templates", graph: "/graph", trash: "/trash" };
+          const places: Record<string, string> = { templates: "/templates", graph: "/graph", trash: "/trash" };
           if (places[wanted.toLowerCase()]) return live.current.router.push(places[wanted.toLowerCase()]), `Opened ${wanted}.`;
           const byId = await call<{ page: { _id: string; title: string } }>("pages.get", { id: wanted }).catch(() => null);
           const hit = byId?.page ?? (await call<{ results: { _id: string; title: string }[] }>("search.query", { query: wanted, limit: 1 })).results?.[0];
