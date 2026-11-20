@@ -6,7 +6,9 @@ test("mobile navigation drawer opens and navigates", async ({ page }) => {
   await page.getByRole("button", { name: "Open navigation" }).click();
   const nav = page.getByRole("dialog", { name: "Navigation" });
   await expect(nav).toBeVisible();
-  await nav.getByRole("link", { name: "Templates" }).click();
+  // Like Notion, the places you visit now and then are in the ⊞ menu at the foot of the sidebar.
+  await nav.getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: /Templates/ }).click();
   await expect(page).toHaveURL(/\/templates/);
   await expect(page.getByRole("heading", { name: "Templates", exact: true })).toBeVisible();
 });

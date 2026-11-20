@@ -641,7 +641,11 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 }
 
 /* Arc-style workspaces: icons at the foot of the sidebar; swiping slides the sidebar away. */
-.workspace-dock { display: flex; align-items: center; justify-content: center; gap: 2px; padding: 8px 0 0; }
+/* The sidebar's foot, like Notion's: workspaces on the left, the ⊞ menu on the right. */
+.sidebar-foot { display: flex; align-items: center; gap: 4px; min-height: 44px; padding-top: 6px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+.sidebar-foot-button { display: grid; place-items: center; width: 28px; height: 28px; margin-inline-start: auto; border-radius: 7px; color: var(--fg-3); transition: background 120ms, color 120ms; }
+.sidebar-foot-button:hover, .sidebar-foot-button[data-state="open"] { background: var(--hover); color: var(--fg); }
+.workspace-dock { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .workspace-dock-item { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: var(--fg-3); opacity: .55; filter: grayscale(.6); transition: opacity 150ms, background 150ms, filter 150ms, transform 150ms; }
 .workspace-dock-item:hover { opacity: .9; filter: none; background: var(--hover); }
 .workspace-dock-item[aria-selected="true"] { opacity: 1; filter: none; background: var(--hover); box-shadow: inset 0 0 0 1px var(--line); }
@@ -652,11 +656,14 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 @media (prefers-reduced-motion: reduce) { [data-sidebar] > * { animation: none; } }
 
 /* Moving a page to the trash: its sidebar row goes poof, like an icon dragged off the macOS Dock. */
-.max-poofing { animation: max-poof-row 260ms cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
-@keyframes max-poof-row { to { opacity: 0; transform: scale(.6); filter: blur(4px); } }
+.max-poofing { animation: max-poof-row 150ms cubic-bezier(.5,0,.75,0) forwards; pointer-events: none; }
+@keyframes max-poof-row { 0% { transform: scale(1); } 35% { transform: scale(1.06); opacity: 1; } 100% { opacity: 0; transform: scale(.2); } }
 .max-poof { position: fixed; z-index: 90; width: 0; height: 0; pointer-events: none; }
-.max-poof i { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, color-mix(in oklch, var(--fg) 10%, var(--canvas)), color-mix(in oklch, var(--fg) 22%, var(--canvas)) 70%, transparent 72%); opacity: 0; animation: max-poof-cloud 560ms cubic-bezier(.2,.7,.3,1) forwards; }
-@keyframes max-poof-cloud { 0% { opacity: .95; transform: translate(0, 0) scale(.3); } 45% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.35); } }
+.max-poof i, .max-poof b { position: absolute; left: 0; top: 0; border-radius: 50%; opacity: 0; background: radial-gradient(circle at 42% 38%, #fbfbfc, #e9ebee 58%, #d3d6db 100%); box-shadow: inset -1px -2px 2px rgb(0 0 0 / .06); will-change: transform, opacity; animation: max-poof-cloud 620ms cubic-bezier(.15,.8,.3,1) forwards; }
+.max-poof b { width: 26px; height: 26px; margin: -13px 0 0 -13px; animation: max-poof-core 260ms cubic-bezier(.2,.9,.3,1) forwards; }
+.dark .max-poof i, .dark .max-poof b { background: radial-gradient(circle at 42% 38%, #eef0f2, #c6cad0 58%, #9aa0a8 100%); }
+@keyframes max-poof-cloud { 0% { opacity: 1; transform: translate(0, 0) scale(.15) rotate(0); } 30% { opacity: 1; transform: translate(calc(var(--dx) * .7), calc(var(--dy) * .7)) scale(1) rotate(calc(var(--spin) * .5)); } 70% { opacity: .85; } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) - 6px)) scale(.55) rotate(var(--spin)); } }
+@keyframes max-poof-core { 0% { opacity: 1; transform: scale(.2); } 50% { opacity: 1; transform: scale(1.15); } 100% { opacity: 0; transform: scale(.6); } }
 
 
 /* Page title: grows with its text without JavaScript resizing (iOS-friendly). The textarea and a

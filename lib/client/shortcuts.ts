@@ -30,6 +30,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: "Peek", keys: "⌥ ↑ / ⌥ ↓", label: "Previous / next row" },
   { group: "Peek", keys: "⌘-click", label: "Open a row in a new tab instead" },
   { group: "Sidebar", keys: "⌘ \\", label: "Show / hide the sidebar" },
+  { group: "Sidebar", keys: "⌃ 1 … 9", label: "Open workspace 1 to 9 (Alt+1 … 9 on Windows)" },
+  { group: "Sidebar", keys: "⌃ 0", label: "Open your last workspace" },
   { group: "Sidebar", keys: "⌥ ⇧ ↑ / ↓", label: "Move the focused page up / down" },
   { group: "Sidebar", keys: "⌥ ⇧ → / ←", label: "Nest under the page above / move out a level" },
   { group: "Sidebar", keys: "→ / ←", label: "Expand / collapse the focused page" },

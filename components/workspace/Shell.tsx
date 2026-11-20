@@ -18,6 +18,7 @@ import { setSoundsEnabled } from "@/lib/client/sfx";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { FileDrop } from "@/components/import/FileDrop";
+import { useWorkspaceShortcuts } from "./Workspaces";
 import { Sidebar } from "./Sidebar";
 import { WorkspaceRail, WorkspacePreviewSidebar, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
 import dynamic from "next/dynamic";
@@ -201,6 +202,7 @@ function Frame({ children }: { children: ReactNode }) {
   setDatePrefs({ dateFormat: s?.dateFormat, timeFormat: s?.timeFormat, weekStart: s?.weekStart });
   setSoundsEnabled(s?.sounds !== false);
   const standing = useStanding();
+  useWorkspaceShortcuts();
   // Get the emoji list ready while nothing else is happening, so the icon picker opens instantly.
   useEffect(() => {
     const idle = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;

@@ -18,7 +18,8 @@ test("admin: see users, suspend with a reason they see, reports, ban and restore
   // The person running this Max (the admin) opens the dashboard from the sidebar.
   await page.goto("/home");
   await page.waitForURL(/\/p\//);
-  await page.getByRole("link", { name: "Admin" }).click();
+  await page.locator("[data-sidebar]").getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: "Admin" }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await page.getByRole("radiogroup", { name: "Section" }).getByRole("radio", { name: /Users/ }).click();
   const row = page.getByRole("table", { name: "Users" }).getByRole("row").filter({ hasText: "Erin" });

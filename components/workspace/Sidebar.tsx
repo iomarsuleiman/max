@@ -14,6 +14,8 @@ import {
   Clock,
   Download,
   GripVertical,
+  House,
+  LayoutGrid,
   LayoutTemplate,
   LogOut,
   Monitor,
@@ -30,12 +32,10 @@ import {
   Waypoints,
 } from "lucide-react";
 import { toast } from "sonner";
-import { IconButton, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Popover, Skeleton, cn } from "@/components/ui";
-import { LogoMark } from "@/components/brand/Logo";
+import { IconButton, Kbd, Menu, Tooltip, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Skeleton, cn } from "@/components/ui";
 import { SharedList, useSharedPages } from "@/components/share/SharedSection";
 import { NEW_TEAMSPACE_EVENT, TeamspacesList } from "@/components/share/Teamspaces";
-import { withoutTeamspaces } from "@/lib/client/teamspaces";
-import { DOODLE, Doodle } from "@/components/icons/Doodle";
+import { withoutOrphans, withoutTeamspaces } from "@/lib/client/teamspaces";
 import { useAdminApi } from "@/lib/client/admin";
 import { ShieldCheck } from "lucide-react";
 import { useOp, prefetchOp } from "@/lib/client/data";
@@ -48,9 +48,7 @@ import { switchWorkspace } from "@/lib/client/workspace";
 import { PageIcon } from "./PageIcon";
 import { PageMenu } from "./PageMenu";
 import { PageTree } from "./PageTree";
-import dynamic from "next/dynamic";
 
-const TrashPanel = dynamic(() => import("./TrashPanel").then((m) => m.TrashPanel), { ssr: false });
 import { MobileWorkspacePicker, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
 
 type SectionId = SettingsRow["sidebarSections"][number];
@@ -111,12 +109,10 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
     >
       <SidebarHeader mobile={mobile} />
       {WORKSPACE_NAVIGATION_PREVIEW && <MobileWorkspacePicker />}
+      {/* Like Notion: only what you reach for all day up here; everything else is in the menu at the bottom. */}
       <nav className="grid gap-px ps-4 pe-2 pb-2" aria-label="Main">
-        <NavButton icon={<Doodle icon={Search} color={DOODLE.blue} size={15} />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
-        <NavLink href="/templates" icon={<Doodle icon={LayoutTemplate} color={DOODLE.amber} size={15} />} label="Templates" />
-        <NavLink href="/graph" icon={<Doodle icon={Waypoints} color={DOODLE.violet} size={15} />} label="Graph view" />
-        <NavButton icon={<Doodle icon={Download} color={DOODLE.mint} size={15} />} label="Import" onClick={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))} />
-        <AdminLink />
+        <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
+        <NavLink href="/home" icon={<House />} label="Home" />
       </nav>
       <div className="scroll-none min-h-0 flex-1 overflow-y-auto overflow-x-hidden ps-4 pe-2 pb-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
@@ -155,31 +151,10 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
           </SortableContext>
         </DndContext>
       </div>
-      <div className="grid gap-px border-t border-line ps-4 pe-2 py-2">
-        <Popover
-          side="right"
-          align="end"
-          trigger={
-            <button type="button" className="flex h-7 items-center gap-2 rounded-md px-2 text-[13.5px] text-fg-2 hover:bg-hover hover:text-fg">
-              <Doodle icon={Trash2} color={DOODLE.red} size={15} />
-              Trash
-            </button>
-          }
-        >
-          <TrashPanel compact />
-        </Popover>
-        <NavButton icon={<Doodle icon={Settings} color={DOODLE.gray} size={15} />} label="Settings" onClick={() => ws.openSettings("account")} />
-        <button
-          type="button"
-          onClick={() => ws.createPage()}
-          className="mt-1 flex h-8 items-center gap-2 rounded-md px-2 text-[13.5px] font-medium text-fg hover:bg-hover"
-        >
-          <Doodle icon={SquarePen} color={DOODLE.pink} size={15} />
-          New page
-          <span className="ms-auto text-[11px] font-normal text-fg-3 max-md:hidden">⌘⌥N</span>
-        </button>
-        {/* Like Arc's spaces: the very last thing in the sidebar. */}
+      {/* The foot: your workspaces (Arc-style, ⌃1–9) and Notion's menu for everything else. */}
+      <div className="sidebar-foot ps-3 pe-2">
         <WorkspaceDock onCreate={() => setCreatingWorkspace(true)} />
+        <MoreMenu />
         {creatingWorkspace && <NewWorkspaceDialog open={creatingWorkspace} onOpenChange={setCreatingWorkspace} />}
       </div>
       {!mobile && <ResizeHandle width={width} setWidth={setWidth} onCommit={(w) => ws.updateSettings({ sidebarWidth: w })} onClose={() => ws.setSidebarOpen(false)} />}
@@ -349,13 +324,17 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
           )}
         </MenuContent>
       </Menu>
-      {mobile ? (
-        <IconButton label="Close sidebar" size="md" onClick={() => ws.setMobileNavOpen(false)}>
-          <X className="size-4" />
-        </IconButton>
-      ) : (
+      {!mobile && (
         <IconButton label="Close sidebar" shortcut="⌘\" size="md" onClick={() => ws.setSidebarOpen(false)} className="opacity-0 transition-opacity group-hover/sidebar:opacity-100 focus-visible:opacity-100">
           <ChevronsLeft className="size-4 flip-rtl" />
+        </IconButton>
+      )}
+      <IconButton label="New page" shortcut="⌘⌥N" size="md" onClick={() => ws.createPage()}>
+        <SquarePen className="size-4" />
+      </IconButton>
+      {mobile && (
+        <IconButton label="Close sidebar" size="md" onClick={() => ws.setMobileNavOpen(false)}>
+          <X className="size-4" />
         </IconButton>
       )}
     </div>
@@ -375,7 +354,7 @@ export function Avatar({ name, url, size = 28 }: { name: string; url: string | n
 }
 
 /** Shown only to Max's admins (MAX_ADMIN_EMAILS). */
-function AdminLink() {
+function useIsAdmin() {
   const api = useAdminApi();
   const [admin, setAdmin] = useState(false);
   useEffect(() => {
@@ -385,8 +364,48 @@ function AdminLink() {
       live = false;
     };
   }, [api]);
-  if (!admin) return null;
-  return <NavLink href="/admin" icon={<Doodle icon={ShieldCheck} color={DOODLE.red} size={15} />} label="Admin" />;
+  return admin;
+}
+
+/** Notion's ⊞ menu: the places you visit now and then, out of the sidebar until you want them. */
+function MoreMenu() {
+  const ws = useWorkspace();
+  const router = useRouter();
+  const admin = useIsAdmin();
+  return (
+    <Menu>
+      <Tooltip label="More">
+        <MenuTrigger asChild>
+          <button type="button" aria-label="More" className="sidebar-foot-button">
+            <LayoutGrid className="size-4" />
+          </button>
+        </MenuTrigger>
+      </Tooltip>
+      <MenuContent side="top" align="end" sideOffset={8} className="w-56">
+        <MenuItem icon={<LayoutTemplate />} shortcut="⌘⇧T" onSelect={() => router.push("/templates")}>
+          Templates
+        </MenuItem>
+        <MenuItem icon={<Waypoints />} shortcut="⌘⇧G" onSelect={() => router.push("/graph")}>
+          Graph view
+        </MenuItem>
+        <MenuItem icon={<Download />} shortcut="⌘⇧I" onSelect={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))}>
+          Import
+        </MenuItem>
+        <MenuItem icon={<Settings />} shortcut="⌘," onSelect={() => ws.openSettings("account")}>
+          Settings
+        </MenuItem>
+        {admin && (
+          <MenuItem icon={<ShieldCheck />} onSelect={() => router.push("/admin")}>
+            Admin
+          </MenuItem>
+        )}
+        <MenuSeparator />
+        <MenuItem icon={<Trash2 />} onSelect={() => router.push("/trash")}>
+          Trash
+        </MenuItem>
+      </MenuContent>
+    </Menu>
+  );
 }
 
 function NavLink({ href, icon, label }: { href: string; icon: ReactNode; label: string }) {
@@ -488,7 +507,7 @@ function PagesSection() {
     );
   }
   // Teamspaces (and everything in them) are listed in their own section.
-  const pages = withoutTeamspaces(ws.tree);
+  const pages = withoutTeamspaces(withoutOrphans(ws.tree));
   return (
     <PageTree
       pages={pages}
