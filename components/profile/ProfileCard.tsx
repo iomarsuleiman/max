@@ -11,11 +11,14 @@ const needsPermission = () =>
 const clamp = (value: number) => Math.max(-1, Math.min(1, value));
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.reduceMotion === "on";
 
-/** Tilts the card toward (x, y) in -1…1 and moves the light across it. */
-function applyTilt(element: HTMLElement, x: number, y: number) {
+/**
+ * Tilts the card toward (x, y) in -1…1 and moves the light and the see-through lens across it.
+ * With `lensOnly` (phones, from the tilt sensor) the card stays flat and only the lens moves.
+ */
+function applyTilt(element: HTMLElement, x: number, y: number, lensOnly = false) {
   if (reducedMotion()) return;
-  element.style.setProperty("--rx", `${-y * 9}deg`);
-  element.style.setProperty("--ry", `${x * 11}deg`);
+  element.style.setProperty("--rx", lensOnly ? "0deg" : `${-y * 9}deg`);
+  element.style.setProperty("--ry", lensOnly ? "0deg" : `${x * 11}deg`);
   element.style.setProperty("--mx", `${50 + x * 50}%`);
   element.style.setProperty("--my", `${50 + y * 50}%`);
   element.dataset.active = "true";
@@ -50,7 +53,8 @@ export function ProfileCard({ card, note, invite }: { card: Card; note: CardNote
       const horizontal = clamp((event.gamma - baseline.gamma) / 25);
       const vertical = clamp((event.beta - baseline.beta) / 25);
       const angle = ((screen.orientation?.angle ?? window.orientation ?? 0) * Math.PI) / 180;
-      applyTilt(tilt.current, horizontal * Math.cos(angle) + vertical * Math.sin(angle), vertical * Math.cos(angle) - horizontal * Math.sin(angle));
+      // On a phone, tilting moves the see-through lens over the card; the card itself stays put.
+      applyTilt(tilt.current, horizontal * Math.cos(angle) + vertical * Math.sin(angle), vertical * Math.cos(angle) - horizontal * Math.sin(angle), true);
     };
     window.addEventListener("deviceorientation", orient);
     return () => window.removeEventListener("deviceorientation", orient);

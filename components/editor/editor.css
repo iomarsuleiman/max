@@ -313,12 +313,16 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 .mx-date { display: inline-flex; padding: 0 3px; border-radius: 4px; color: var(--fg-2); background: var(--hover); font-size: 0.95em; white-space: nowrap; }
 
 /* The mobile strip fits the phone. Extra commands open upwards in a wrapped tray. */
-.max-touch-formatting { width: min(100vw, 460px); background: var(--overlay); border: 1px solid var(--line); border-radius: 12px 12px 0 0; box-shadow: 0 -4px 20px #0001; }
-.max-touch-formatting .bn-toolbar { width: 100%; display: flex; justify-content: space-between; gap: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 3px 4px !important; }
-.max-touch-formatting .bn-toolbar .bn-button { min-width: 44px; height: 44px !important; flex-shrink: 0; }
-.max-touch-formatting [data-slot="select-trigger"] { max-width: 106px; min-width: 70px; height: 44px !important; overflow: hidden; font-size: 13px; }
-.max-touch-secondary { display: flex; flex-wrap: wrap; gap: 3px; padding: 8px; max-height: min(180px, 30svh); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); }
-.max-touch-secondary .bn-button { min-width: 44px; min-height: 44px; border-radius: 6px; color: var(--fg); }
+/* Phones: a floating pill above the keyboard, inset from the edges, with grouped actions. */
+.max-touch-formatting { width: min(calc(100vw - 16px), 480px); margin: 0 auto 8px; overflow: hidden; background: color-mix(in oklch, var(--overlay) 92%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); border-radius: 18px; box-shadow: 0 0 0 1px var(--line), 0 10px 30px -10px rgb(0 0 0 / .35); }
+.max-touch-formatting .bn-toolbar { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; padding: 4px !important; }
+.max-touch-formatting .bn-toolbar .bn-button { min-width: 40px; height: 40px !important; flex-shrink: 0; border-radius: 12px !important; color: var(--fg-2); }
+.max-touch-formatting .bn-toolbar .bn-button[data-selected], .max-touch-formatting .bn-toolbar .bn-button:active { background: var(--hover) !important; color: var(--fg); }
+.max-touch-formatting [data-slot="select-trigger"] { max-width: 92px; min-width: 64px; height: 36px !important; padding-inline: 8px !important; overflow: hidden; border-radius: 10px !important; background: var(--hover) !important; font-size: 12.5px; font-weight: 500; }
+.max-touch-sep { width: 1px; height: 22px; margin: 0 2px; flex: none; background: var(--line-strong); }
+.max-touch-formatting .bn-toolbar .max-touch-done { min-width: 36px; width: 36px; height: 36px !important; margin-inline-start: 2px; border-radius: 999px !important; background: var(--fg) !important; color: var(--canvas) !important; }
+.max-touch-secondary { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px; max-height: min(180px, 30svh); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); }
+.max-touch-secondary .bn-button { min-width: 42px; min-height: 42px; border-radius: 10px; color: var(--fg); }
 .bn-mobile-formatting-toolbar { padding-bottom: 0 !important; transition: none !important; width: var(--bn-vv-width, 100vw); }
 @media(max-width:767px) {
  .max-workspace-frame { height: min(100dvh, var(--bn-vv-height, 100dvh)); }
@@ -359,4 +363,4 @@ body[data-lx-block-drag] .bn-drag-preview .ProseMirror-selectednode > *::after, 
 }
 /* With the phone keyboard open, leave room below the last line for the keyboard and formatting row. */
 [data-keyboard="open"] #page-scroll { padding-bottom: calc(var(--keyboard, 0px) + 72px); scroll-padding-bottom: calc(var(--keyboard, 0px) + 72px); }
-@media (max-width: 380px) { .max-touch-formatting .bn-toolbar { overflow-x: auto; justify-content: flex-start; } }
+@media (max-width: 380px) { .max-touch-formatting .bn-toolbar { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; } .max-touch-sep { display: none; } }

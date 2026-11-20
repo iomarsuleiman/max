@@ -599,8 +599,10 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 @media (min-width: 768px) { .space-panel { bottom: 28px; } }
 .workspace-initial { display: inline-grid; place-items: center; flex: none; border-radius: 6px; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--tint-1, #7b8cff), var(--tint-2, #c27bff)); }
 /* Invitation: the inviter's own card, tilted a little, floating on the paper. */
-.invite-card { width: min(300px, 72vw); flex: none; transform: rotate(-4deg); filter: drop-shadow(0 30px 40px rgb(0 0 0 / .22)) drop-shadow(0 4px 10px rgb(0 0 0 / .08)); transition: transform 400ms cubic-bezier(.2,.8,.2,1); }
+/* As big as the screen allows next to (or above) the words: never pushes the page into scrolling. */
+.invite-card { width: min(300px, 72vw, calc((100dvh - 430px) * .79)); min-width: 130px; flex: none; transform: rotate(-4deg); filter: drop-shadow(0 30px 40px rgb(0 0 0 / .22)) drop-shadow(0 4px 10px rgb(0 0 0 / .08)); transition: transform 400ms cubic-bezier(.2,.8,.2,1); }
 .invite-card:hover { transform: rotate(-1deg) translateY(-4px); }
+@media (min-width: 768px) { .invite-card { width: min(300px, calc((100dvh - 160px) * .79)); } }
 .invite-card > svg { display: block; width: 100%; height: auto; }
 @media (prefers-reduced-motion: reduce) { .invite-card { transition: none; } }
 
@@ -639,10 +641,19 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 }
 
 /* Arc-style workspaces: icons at the foot of the sidebar; swiping slides the sidebar away. */
-.workspace-dock { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 2px 0 8px; }
-.workspace-dock-item { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: var(--fg-3); opacity: .55; filter: grayscale(.6); transition: opacity 150ms, background 150ms, filter 150ms, transform 150ms; }
+.workspace-dock { display: flex; align-items: center; justify-content: center; gap: 2px; padding: 8px 0 0; }
+.workspace-dock-item { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: var(--fg-3); opacity: .55; filter: grayscale(.6); transition: opacity 150ms, background 150ms, filter 150ms, transform 150ms; }
 .workspace-dock-item:hover { opacity: .9; filter: none; background: var(--hover); }
 .workspace-dock-item[aria-selected="true"] { opacity: 1; filter: none; background: var(--hover); box-shadow: inset 0 0 0 1px var(--line); }
-.workspace-dock-add { font-size: 16px; line-height: 1; }
-[data-sidebar] { transition: transform 160ms ease, opacity 160ms ease; }
-[data-sidebar][data-leaving] { transform: translateX(calc(var(--swipe) * -24px)); opacity: 0; }
+.workspace-dock-add { font-size: 14px; line-height: 1; }
+/* A new workspace's sidebar content arrives with a quick slide (no reload, no wait). */
+[data-sidebar] > :not([data-resize]) { animation: workspace-in 140ms cubic-bezier(.2,.8,.2,1); }
+@keyframes workspace-in { from { opacity: 0; transform: translateX(8px); } }
+@media (prefers-reduced-motion: reduce) { [data-sidebar] > * { animation: none; } }
+
+/* Moving a page to the trash: its sidebar row goes poof, like an icon dragged off the macOS Dock. */
+.max-poofing { animation: max-poof-row 260ms cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
+@keyframes max-poof-row { to { opacity: 0; transform: scale(.6); filter: blur(4px); } }
+.max-poof { position: fixed; z-index: 90; width: 0; height: 0; pointer-events: none; }
+.max-poof i { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, color-mix(in oklch, var(--fg) 10%, var(--canvas)), color-mix(in oklch, var(--fg) 22%, var(--canvas)) 70%, transparent 72%); opacity: 0; animation: max-poof-cloud 560ms cubic-bezier(.2,.7,.3,1) forwards; }
+@keyframes max-poof-cloud { 0% { opacity: .95; transform: translate(0, 0) scale(.3); } 45% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.35); } }

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { pageHref } from "@/lib/pageUrl";
 import { switchWorkspace } from "@/lib/client/workspace";
 import { useWorkspace } from "./context";
+import { confirmAction } from "@/components/ui";
 
 /**
  * WebMCP: lets an AI agent in the browser (one that supports `navigator.modelContext`) use Max
@@ -27,6 +28,11 @@ interface ModelContext {
   provideContext?: (context: { tools: WebMcpTool[] }) => void;
   clearContext?: () => void;
 }
+
+/** Never available to a browser agent: account deletion, access tokens, workspace deletion, activity log. */
+const BLOCKED = new Set(["account.deleteAllData", "tokens.create", "tokens.list", "tokens.revoke", "audit.list", "workspaces.delete", "account.setUsername"]);
+/** Anything that removes or takes something down asks the person first, in Max's own dialog. */
+const ASKS_FIRST = /(delete|archive|remove|revoke|unpublish|empty|deletePermanently|setLink|invite|leave)/i;
 
 const text = (value: unknown): ToolResult => ({ content: [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] });
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required });
@@ -120,7 +126,23 @@ export function WebMcp() {
         description:
           "Run any Max operation as the user, in the open workspace: the same ones Max's MCP server offers (e.g. pages.update, documents.writeMarkdown, blocks.insert, records.create, databases.query, shares.invite). Destructive operations need confirm: true, which you should only pass after the user agrees.",
         inputSchema: obj({ op: { type: "string", description: "Operation name, like pages.update." }, args: { type: "object" } }, ["op"]),
-        execute: run(async ({ op, args }) => call(String(op), (args as Record<string, unknown>) ?? {})),
+        execute: run(async ({ op, args }) => {
+          const name = String(op);
+          const input = (args as Record<string, unknown>) ?? {};
+          if (BLOCKED.has(name)) throw new Error(`“${name}” isn't available to assistants in the browser. Ask the person to do it in Max.`);
+          // A page the agent read could try to steer it: anything that removes, shares or confirms
+          // something is shown to the person to approve first.
+          if (ASKS_FIRST.test(name) || input.confirm === true) {
+            const ok = await confirmAction({
+              title: "Let the assistant do this?",
+              body: <p>Your browser's assistant wants to run <strong>{name}</strong> in Max{input.confirm === true ? ", which can't be undone" : ""}.</p>,
+              confirmLabel: "Allow",
+              tone: "danger",
+            });
+            if (!ok) throw new Error("The person declined.");
+          }
+          return call(name, input);
+        }),
       },
     ];
 

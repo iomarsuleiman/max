@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cardInitials, defaultProfileCard, profileCardThemes, profileCardShapes } from "@/lib/domain/profileCard";
 import { setup } from "./harness";
 import { profileCardBackSvg, profileCardSvg } from "@/lib/domain/profileCardImage";
-import { FOUNDER_NAME, FOUNDER_NOTE, INVITE_NOTE, writeNote } from "@/lib/welcomeNote";
+import { FOUNDER_NAME, FOUNDER_NOTE, INVITE_NOTE, MAKER_NOTE, writeNote } from "@/lib/welcomeNote";
 
 describe("private profile cards", () => {
   it("saves through the shared settings operation and isolates owners", async () => {
@@ -168,7 +168,11 @@ describe("one workspace/card identity", () => {
     // Without a note of their own, the inviter signs Max's invite note.
     await sam("settings.update", { inviteNote: null });
     expect((await avery<{ note: { from: string; text: string } }>("profileCard.get", {})).note).toMatchObject({ from: "Sam", text: writeNote(INVITE_NOTE, "Avery Lane") });
-    // Someone who found Max alone gets the maker's note.
-    expect((await sam<{ note: { from: string; invited: boolean } }>("profileCard.get", {})).note).toMatchObject({ from: FOUNDER_NAME, invited: false });
+    // Member No. 1 built Max: their own card thanks them, signed by themselves.
+    expect((await sam<{ note: { from: string; text: string; invited: boolean } }>("profileCard.get", {})).note).toMatchObject({ from: "Sam", text: writeNote(MAKER_NOTE, "Sam"), invited: false });
+    // Someone else who found Max alone gets the maker's note, signed by member No. 1.
+    const lee = h.as("user_lee");
+    await lee("account.init", { displayName: "Lee" });
+    expect((await lee<{ note: { from: string; text: string; invited: boolean } }>("profileCard.get", {})).note).toMatchObject({ from: "Sam", text: writeNote(FOUNDER_NOTE, "Lee"), invited: false });
   });
 });

@@ -64,6 +64,7 @@ const settingsPatch = z.object({
   timeFormat: z.enum(["12h", "24h"]).optional(),
   weekStart: z.enum(["monday", "sunday"]).optional(),
   frame: z.enum(["floating", "full"]).optional(),
+  sounds: z.boolean().optional(),
 });
 
 export const settingsGet = defineOp({

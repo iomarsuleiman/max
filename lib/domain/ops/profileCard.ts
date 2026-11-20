@@ -7,7 +7,7 @@ import { settingsUpdate } from "./account";
 import { profileCardSchema } from "../profileCard";
 import { profileCardSvg } from "../profileCardImage";
 import { MaxError } from "../errors";
-import { FOUNDER_NAME, FOUNDER_NOTE, INVITE_NOTE, writeNote } from "../../welcomeNote";
+import { FOUNDER_NAME, FOUNDER_NOTE, INVITE_NOTE, MAKER_NOTE, writeNote } from "../../welcomeNote";
 
 export const profileCardGet = defineOp({
   name: "profileCard.get",
@@ -24,9 +24,15 @@ export const profileCardGet = defineOp({
     // otherwise from Max's maker. Only the inviter's name and note are shared, nothing else.
     const memberName = settings?.displayName?.trim() || (saved.success ? saved.data.name : "") || "friend";
     const inviter = settings?.invitedBy ? (await ctx.db.list("settings", settings.invitedBy))[0] ?? null : null;
+    // Member No. 1 built Max: their card thanks them, signed by themselves. Everyone else who found
+    // Max on their own gets member No. 1's note, signed with their name.
+    const founderId = memberNumber === 1 ? null : await ctx.db.memberByNumber(1);
+    const founder = founderId ? (await ctx.db.list("settings", founderId))[0] : null;
     const note = inviter
       ? { from: inviter.displayName?.trim() || "A friend", text: writeNote(inviter.inviteNote?.trim() || INVITE_NOTE, memberName), invited: true }
-      : { from: FOUNDER_NAME, text: writeNote(FOUNDER_NOTE, memberName), invited: false };
+      : memberNumber === 1
+        ? { from: memberName === "friend" ? "You" : memberName.split(/\s+/)[0], text: writeNote(MAKER_NOTE, memberName), invited: false }
+        : { from: founder?.displayName?.trim() || FOUNDER_NAME, text: writeNote(FOUNDER_NOTE, memberName), invited: false };
     return {
       note,
       card: saved.success ? { ...saved.data, createdAt: settings?.joinedAt ?? saved.data.createdAt, name: settings?.displayName?.trim() || saved.data.name, memberNumber } : null,

@@ -53,7 +53,7 @@ export function ProfileCardEditor() {
         <p className="card-about-eyebrow">Max member</p>
         <p className="card-about-number">No. {info.data?.memberNumber ? info.data.memberNumber.toLocaleString("en-US") : "…"}</p>
         {joined && <p className="mt-1 text-[13px] text-fg-3">Joined {joined}</p>}
-        {note.from && <p className="card-about-from">with a note from {note.from}</p>}
+        {note.from && <p className="card-about-from">{info.data?.memberNumber === 1 ? "with a note to yourself, for building this" : `with a note from ${note.from}`}</p>}
         <div className="card-about-actions">
           <Button
             size="sm"
@@ -87,7 +87,6 @@ export function ProfileCardEditor() {
             Download
           </Button>
         </div>
-        <p className="mt-3 text-[12px] text-fg-3">Tap the card to turn it over.</p>
       </div>
     </div>
   );

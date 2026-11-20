@@ -1,11 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter, Cairo, Caveat } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
 import { APP_URL, CLERK_KEY, CLOUD, CONVEX_URL } from "@/lib/config";
-import { Providers } from "@/components/providers";
+import { ThemeProviders } from "@/components/ThemeProviders";
 import { WebVitals } from "@/components/WebVitals";
-import { OfflineRegistration } from "@/components/feedback/OfflineSupport";
+import { OfflineRegistration } from "@/components/feedback/OfflineRegistration";
 import "./globals.css";
 import "@/components/editor/editor.css";
 
@@ -37,10 +36,6 @@ export const viewport: Viewport = {
   ],
 };
 
-const clerkAppearance = {
-  variables: { colorPrimary: "#3c6ea8", borderRadius: "8px", fontFamily: "var(--font-sans)" },
-};
-
 /** Clerk's frontend API host is encoded in the publishable key ("pk_live_<base64 of host$>"). */
 function clerkOrigin(key: string): string | null {
   try {
@@ -54,7 +49,7 @@ function clerkOrigin(key: string): string | null {
 const EARLY_ORIGINS = CLOUD ? [CONVEX_URL && new URL(CONVEX_URL).origin, clerkOrigin(CLERK_KEY)].filter((o): o is string => !!o) : [];
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  const body = (
+  return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${cairo.variable} ${caveat.variable}`}>
       <head>
         {/* Open the sign-in and database connections while the app's JavaScript downloads. */}
@@ -63,17 +58,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         ))}
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <ThemeProviders>{children}</ThemeProviders>
         <WebVitals />
         <OfflineRegistration />
       </body>
     </html>
-  );
-  return CLOUD ? (
-    <ClerkProvider appearance={clerkAppearance} signInUrl="/sign-in" signUpUrl="/sign-up" signInFallbackRedirectUrl="/home" signUpFallbackRedirectUrl="/home">
-      {body}
-    </ClerkProvider>
-  ) : (
-    body
   );
 }

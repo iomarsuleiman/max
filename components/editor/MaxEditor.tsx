@@ -336,8 +336,9 @@ function MaxFormattingToolbar() {
   }, []);
   const items = getFormattingToolbarItems();
   if (mode !== "mobile" && !narrow) return <FormattingToolbar>{items}</FormattingToolbar>;
-  // The row above the keyboard: insert, block type, bold, undo, redo; the rest is one tap away in More.
-  const primary = new Set(["blockTypeSelect", "boldStyleButton"]);
+  // A floating pill above the keyboard: insert, block type, bold, italic | undo, redo | more, done.
+  // Everything else is one tap away in More.
+  const primary = new Set(["blockTypeSelect", "boldStyleButton", "italicStyleButton"]);
   return (
     <div className="max-touch-formatting" data-expanded={more || undefined}>
       {more && <div className="max-touch-secondary" role="group" aria-label="More formatting">
@@ -356,10 +357,12 @@ function MaxFormattingToolbar() {
       <FormattingToolbar>
         <MobileInsertButton />
         {items.filter((item) => primary.has(String(item.key)))}
+        <span className="max-touch-sep" aria-hidden />
         <Components.FormattingToolbar.Button className="bn-button" label="Undo" mainTooltip="Undo" icon={<Undo2 size={18} />} onClick={() => editor.undo()} />
         <Components.FormattingToolbar.Button className="bn-button" label="Redo" mainTooltip="Redo" icon={<Redo2 size={18} />} onClick={() => editor.redo()} />
+        <span className="max-touch-sep" aria-hidden />
         <Components.FormattingToolbar.Button className="bn-button" label="More formatting" mainTooltip="More formatting" icon={<Ellipsis size={20} />} isSelected={more} onClick={() => setMore(!more)} />
-        <Components.FormattingToolbar.Button className="bn-button" label="Done editing" mainTooltip="Done editing" icon={<Check size={20} />} onClick={() => { setMore(false); editor.blur(); }} />
+        <Components.FormattingToolbar.Button className="bn-button max-touch-done" label="Done editing" mainTooltip="Done editing" icon={<Check size={18} />} onClick={() => { setMore(false); editor.blur(); }} />
       </FormattingToolbar>
     </div>
   );

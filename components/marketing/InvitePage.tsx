@@ -18,22 +18,23 @@ export function InvitePage({ profile, member }: { profile: PublicProfile | null;
   const number = profile?.memberNumber ?? member;
   const card = profileCardSvg(profile?.card ?? { ...defaultProfileCard("You're invited"), subtitle: "Max member" }, "invite").svg;
   return (
-    <main className={`${serif.variable} landing-system paper-grain flex min-h-dvh flex-col bg-canvas text-fg`}>
+    // Fits one screen, phone or desktop: no scrolling.
+    <main className={`${serif.variable} landing-system paper-grain flex h-dvh flex-col overflow-hidden bg-canvas text-fg`}>
       {number && <RememberInviter member={number} />}
-      <Link href="/welcome" aria-label="Max" className="m-5 inline-flex w-fit items-center gap-2 text-fg sm:m-7">
+      <Link href="/welcome" aria-label="Max" className="m-4 inline-flex w-fit shrink-0 items-center gap-2 text-fg sm:m-7">
         <LogoMark className="size-6" />
         <span className="text-[16px] font-semibold tracking-tight">Max</span>
       </Link>
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-10 px-6 pb-16 md:flex-row md:gap-16">
+      <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col items-center justify-center gap-[clamp(16px,4dvh,40px)] px-6 pb-[max(16px,env(safe-area-inset-bottom))] md:flex-row md:gap-16 md:pb-16">
         <div className="invite-card" aria-hidden dangerouslySetInnerHTML={{ __html: card }} />
         <div className="max-w-md text-center md:text-start">
-          <h1 className="landing-headline text-[44px] leading-[1.05] font-semibold tracking-[-.03em] text-balance sm:text-6xl">
+          <h1 className="landing-headline text-[clamp(32px,5.2dvh,44px)] leading-[1.05] font-semibold tracking-[-.03em] text-balance sm:text-6xl">
             {from ? `${from} invited you.` : "You're invited."}
           </h1>
-          <p className="mt-5 text-[17px] leading-relaxed text-fg-2 text-pretty">
+          <p className="mt-[clamp(10px,2dvh,20px)] text-[clamp(15px,2.1dvh,17px)] leading-relaxed text-fg-2 text-pretty">
             Max is a calm, private home for your notes, pages and databases{from ? `, and ${from.split(" ")[0]} saved you a seat` : ""}. Your card comes with a note from {from ? from.split(" ")[0] : "us"} on the back.
           </p>
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row md:items-start">
+          <div className="mt-[clamp(14px,3dvh,32px)] flex flex-col items-center gap-2 sm:flex-row md:items-start">
             <Link href={CLOUD ? "/sign-up" : "/home"} className="landing-action joy-press inline-flex min-h-12 items-center justify-center rounded-full px-7 text-[15px] font-medium">
               Join Max
             </Link>
@@ -43,7 +44,7 @@ export function InvitePage({ profile, member }: { profile: PublicProfile | null;
               </Link>
             )}
           </div>
-          {number && <p className="mt-8 font-mono text-[11px] font-bold tracking-[.16em] text-fg-3">INVITED BY MEMBER NO. {String(number).padStart(6, "0")}</p>}
+          {number && <p className="mt-[clamp(12px,3dvh,32px)] font-mono text-[11px] font-bold tracking-[.16em] text-fg-3">INVITED BY MEMBER NO. {String(number).padStart(6, "0")}</p>}
         </div>
       </div>
     </main>

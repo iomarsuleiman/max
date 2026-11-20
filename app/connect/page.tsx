@@ -1,5 +1,6 @@
 import { APP_URL } from "@/lib/config";
 import { PublicFrame } from "@/components/marketing/PublicFrame";
+import { CopyField } from "@/components/marketing/CopyField";
 
 export const metadata = { title: "Connect an assistant" };
 
@@ -14,9 +15,7 @@ export default function Connect() {
           databases: everything you can do in Max itself. Access is limited to your account and you can revoke it at any time.
         </p>
         <h2 className="mt-10 text-lg font-semibold">Server address</h2>
-        <pre className="bg-surface-2 mt-3 overflow-x-auto rounded-lg px-4 py-3 font-mono text-[13px]" dir="ltr">
-          {url}
-        </pre>
+        <CopyField value={url} label="server address" />
         <h2 className="mt-10 text-lg font-semibold">ChatGPT and Claude</h2>
         <ol className="text-fg-2 mt-3 grid list-decimal gap-2 ps-5 text-[15px] leading-relaxed">
           <li>Open your assistant's connector settings and add a custom MCP connector.</li>

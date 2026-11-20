@@ -1,7 +1,8 @@
 "use client";
 
 import { FileText, Sheet } from "lucide-react";
-import { DynamicIcon, type IconName } from "lucide-react/dynamic";
+import type { IconName } from "lucide-react/dynamic";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { cn } from "@/components/ui/cn";
 import { useAssetResolver } from "@/lib/client/upload";
@@ -21,6 +22,21 @@ export const iconColorVar = (c: IconColor) => (c === "default" ? "var(--fg)" : `
 export const ICON_COLOR_LABEL: Record<IconColor, string> = { default: "Default", gray: "Gray", brown: "Brown", orange: "Orange", yellow: "Yellow", green: "Green", blue: "Blue", purple: "Purple", pink: "Pink", red: "Red" };
 
 export const isImageIcon = (icon: string) => icon.startsWith("max-asset://") || icon.startsWith("https://");
+
+/**
+ * Lucide icons by name. The name → icon table is large (every Lucide icon), so it loads only when
+ * a page actually uses a Lucide icon, not on every first paint.
+ */
+const LucideByName = dynamic(
+  () =>
+    import("lucide-react/dynamic").then((m) => {
+      function LucideIcon(props: { name: IconName; size: number; strokeWidth: number; color: string }) {
+        return <m.DynamicIcon {...props} fallback={() => <span style={{ width: props.size, height: props.size }} />} />;
+      }
+      return LucideIcon;
+    }),
+  { ssr: false, loading: () => <span className="inline-block size-4" /> },
+);
 
 const resolvedIcons = new Map<string, string>();
 
@@ -57,7 +73,7 @@ export function PageIcon({ icon, kind, className, size = 16 }: { icon: string | 
   if (lucide) {
     return (
       <span className={cn("inline-grid shrink-0 place-items-center", className)} style={{ width: size + 2, height: size + 2 }} aria-hidden>
-        <DynamicIcon name={lucide.name} size={size} strokeWidth={size > 30 ? 1.5 : 1.9} color={iconColorVar(lucide.color)} fallback={() => <span style={{ width: size, height: size }} />} />
+        <LucideByName name={lucide.name} size={size} strokeWidth={size > 30 ? 1.5 : 1.9} color={iconColorVar(lucide.color)} />
       </span>
     );
   }

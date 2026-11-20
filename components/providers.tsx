@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ThemeProvider, useTheme } from "next-themes";
+import { useTheme } from "next-themes";
 import { Tooltip } from "radix-ui";
 import { Toaster } from "sonner";
 import { ConvexReactClient } from "convex/react";
@@ -28,16 +28,15 @@ function ThemedToaster() {
   );
 }
 
-export function Providers({ children }: { children: ReactNode }) {
+/** The app's pages (workspace, shared and published pages, sign-in): data, tooltips, toasts, dialogs. */
+export function AppProviders({ children }: { children: ReactNode }) {
   const inner = (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="max:theme">
-      <Tooltip.Provider delayDuration={400} skipDelayDuration={200}>
-        <DoodleDefs />
-        {children}
-        <ThemedToaster />
-        <ConfirmHost />
-      </Tooltip.Provider>
-    </ThemeProvider>
+    <Tooltip.Provider delayDuration={400} skipDelayDuration={200}>
+      <DoodleDefs />
+      {children}
+      <ThemedToaster />
+      <ConfirmHost />
+    </Tooltip.Provider>
   );
   if (convex) {
     return (

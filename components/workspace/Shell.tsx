@@ -9,21 +9,24 @@ import { useClerk, useUser } from "@clerk/nextjs";
 import { CLOUD } from "@/lib/config";
 import { isWorkspacePreviewRoute } from "@/lib/domain/workspaceNavigationState";
 import { LogoMark } from "@/components/brand/Logo";
-import { cardPalette } from "@/lib/domain/profileCard";
+import { cardPalette } from "@/lib/domain/cardPalettes";
 import { setDatePrefs } from "@/lib/client/datePrefs";
 import { applySpace, clearSpace } from "@/lib/client/space";
 import { BannedScreen, SuspendedBanner, useStanding } from "@/components/admin/Standing";
-import { SpacePanel } from "@/components/settings/SpacePanel";
-import { WebMcp } from "./WebMcp";
+import { activeWorkspace, onWorkspaceChange } from "@/lib/client/workspace";
+import { setSoundsEnabled } from "@/lib/client/sfx";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
 import { Sidebar } from "./Sidebar";
 import { WorkspaceRail, WorkspacePreviewSidebar, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
-import { SearchDialog } from "./SearchDialog";
 import dynamic from "next/dynamic";
-import { ProfileCardInvitation } from "@/components/profile/ProfileCardInvitation";
 
 // Heavy dialogs load on first use and stay mounted afterwards, so closing still animates.
+// Loaded when first needed, not on first paint.
+const SearchDialog = dynamic(() => import("./SearchDialog").then((m) => m.SearchDialog), { ssr: false });
+const SpacePanel = dynamic(() => import("@/components/settings/SpacePanel").then((m) => m.SpacePanel), { ssr: false });
+const WebMcp = dynamic(() => import("./WebMcp").then((m) => m.WebMcp), { ssr: false });
+const ProfileCardInvitation = dynamic(() => import("@/components/profile/ProfileCardInvitation").then((m) => m.ProfileCardInvitation), { ssr: false });
 const SettingsDialog = dynamic(() => import("@/components/settings/SettingsDialog").then((m) => m.SettingsDialog), { ssr: false });
 const MoveDialog = dynamic(() => import("./MoveDialog").then((m) => m.MoveDialog), { ssr: false });
 const ImportDialog = dynamic(() => import("@/components/import/ImportDialog").then((m) => m.ImportDialog), { ssr: false });
@@ -103,13 +106,15 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
 function WorkspaceRoot({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const workspaceId = useSyncExternalStore(onWorkspaceChange, activeWorkspace, () => null);
   const isPreview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   const inner = (identity: Identity) => (
     <Suspense fallback={<Splash />}>
       {isPreview ? (
         <WorkspacePreviewFrame>{children}</WorkspacePreviewFrame>
       ) : (
-        <WorkspaceProvider identity={identity}>
+        // Keyed by workspace: switching remounts the app for the new one, instantly.
+        <WorkspaceProvider key={workspaceId ?? "main"} identity={identity}>
           <Frame>{children}</Frame>
         </WorkspaceProvider>
       )}
@@ -186,6 +191,7 @@ function Frame({ children }: { children: ReactNode }) {
     else delete root.dataset.accent;
   }, [s?.accent]);
   setDatePrefs({ dateFormat: s?.dateFormat, timeFormat: s?.timeFormat, weekStart: s?.weekStart });
+  setSoundsEnabled(s?.sounds !== false);
   const standing = useStanding();
   // Get the emoji list ready while nothing else is happening, so the icon picker opens instantly.
   useEffect(() => {
