@@ -18,6 +18,8 @@ export interface AdminUser {
   trashed: number;
   sites: number;
   shares: number;
+  /** People who joined Max through their invite link (a count, never who). */
+  invited: number;
   status: "active" | "suspended" | "banned";
   reason: string | null;
 }

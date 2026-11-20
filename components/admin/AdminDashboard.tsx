@@ -140,10 +140,10 @@ function Users({ users, onChanged }: { users: AdminUser[]; onChanged: () => void
         <Segmented label="Status" value={filter} onChange={(v) => setFilter(v as typeof filter)} options={[{ value: "all", label: "All" }, { value: "active", label: "Active" }, { value: "suspended", label: "Suspended" }, { value: "banned", label: "Banned" }]} />
       </div>
       <div className="overflow-x-auto rounded-xl shadow-[0_0_0_1px_var(--line)]">
-        <table className="w-full min-w-[860px] border-collapse text-[13.5px]" aria-label="Users">
+        <table className="w-full min-w-[940px] border-collapse text-[13.5px]" aria-label="Users">
           <thead>
             <tr className="text-start text-[12px] text-fg-3">
-              {["Person", "Pages", "Databases", "Sites", "Shared", "Joined", "Last active", "Status", ""].map((h) => (
+              {["Person", "Pages", "Databases", "Sites", "Shared", "Invited", "Joined", "Last active", "Status", ""].map((h) => (
                 <th key={h} className="border-b border-line px-3 py-2 text-start font-medium">{h}</th>
               ))}
             </tr>
@@ -159,6 +159,7 @@ function Users({ users, onChanged }: { users: AdminUser[]; onChanged: () => void
                 <td className="border-b border-line px-3 py-2 tabular-nums">{u.databases}</td>
                 <td className="border-b border-line px-3 py-2 tabular-nums">{u.sites}</td>
                 <td className="border-b border-line px-3 py-2 tabular-nums">{u.shares}</td>
+                <td className="border-b border-line px-3 py-2 tabular-nums" title="People who joined Max through their link">{u.invited}</td>
                 <td className="border-b border-line px-3 py-2 text-fg-2">{u.joinedAt ? timeAgo(u.joinedAt) : "—"}</td>
                 <td className="border-b border-line px-3 py-2 text-fg-2">{u.lastActive ? timeAgo(u.lastActive) : "—"}</td>
                 <td className="border-b border-line px-3 py-2"><StatusBadge status={u.status} reason={u.reason} /></td>

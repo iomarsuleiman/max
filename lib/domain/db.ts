@@ -31,6 +31,8 @@ export interface Db {
   memberNumber(ownerId: string): Promise<number | null>;
   /** The account with this member number, or null. */
   memberByNumber(n: number): Promise<string | null>;
+  /** How many accounts joined Max through this account's invite link. A count only: never who. */
+  invitedCount(account: string): Promise<number>;
   /** Admins only (lib/domain/admin.ts): every row of a table across all accounts, newest first. */
   listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number): Promise<Tables[T][]>;
 }

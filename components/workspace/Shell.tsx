@@ -17,6 +17,7 @@ import { activeWorkspace, arrived, onWorkspaceChange, pendingPlace, rememberPlac
 import { setSoundsEnabled } from "@/lib/client/sfx";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
+import { FileDrop } from "@/components/import/FileDrop";
 import { Sidebar } from "./Sidebar";
 import { WorkspaceRail, WorkspacePreviewSidebar, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
 import dynamic from "next/dynamic";
@@ -240,6 +241,7 @@ function Frame({ children }: { children: ReactNode }) {
       {!preview && <LazyDialogs />}
       {!preview && <SpacePanel />}
       {!preview && <WebMcp />}
+      {!preview && <FileDrop />}
     </div>
   );
 }

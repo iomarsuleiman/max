@@ -26,6 +26,8 @@ import { MaxSideMenuController, runBlockAction } from "./sideMenu";
 import { announce } from "./announce";
 import { fromEditorCodeLanguages, toEditorCodeLanguages } from "./codeLanguages";
 import { blockDropTarget, handleBlockDrop } from "./dragFeedback";
+import { insertDroppedFiles, isTextFile } from "./dropFiles";
+import { INSERT_FILES_EVENT } from "@/lib/client/importKinds";
 import * as locales from "@blocknote/core/locales";
 import { getMultiColumnSlashMenuItems, locales as multiColumnLocales } from "@blocknote/xl-multi-column";
 import { formatMentionDate } from "./blocks";
@@ -152,7 +154,15 @@ export default function MaxEditor(props: MaxEditorProps) {
         throw err;
       }
     },
-    resolveFileUrl: (url) => propsRef.current.resolveFileUrl(url),
+    // BlockNote throws (and the whole editor stops) if this returns nothing. A brand-new image block
+    // has no address yet: give it a harmless one (it shows its "add image" panel). A file that can't
+    // be loaded is reported as an error, so the block shows that instead of crashing the page.
+    resolveFileUrl: async (url) => {
+      if (!url) return "about:blank";
+      const resolved = await propsRef.current.resolveFileUrl(url);
+      if (!resolved) throw new Error("That file couldn't be loaded.");
+      return resolved;
+    },
     links: { isValidLink: isLinkAllowed },
     pasteHandler: ({ event, editor: target, defaultPasteHandler }) => {
       const data = event.clipboardData;
@@ -193,6 +203,18 @@ export default function MaxEditor(props: MaxEditorProps) {
     props.onReady?.(editor);
   }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
   useKeyboardAwareCaret(editor, props.editable);
+
+  // Files dropped on the page outside the text (FileDrop) go at the end of it.
+  useEffect(() => {
+    if (!props.editable) return;
+    const onInsert = (event: Event) => {
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      void insertDroppedFiles(editor, (event as CustomEvent<{ files: File[] }>).detail.files);
+    };
+    window.addEventListener(INSERT_FILES_EVENT, onInsert);
+    return () => window.removeEventListener(INSERT_FILES_EVENT, onInsert);
+  }, [editor, props.editable]);
 
   const bridge = useMemo<EditorBridgeValue>(
     () => ({
@@ -301,7 +323,14 @@ export default function MaxEditor(props: MaxEditorProps) {
           else propsRef.current.navigate(pageId);
         }}
         onDropCapture={(event) => {
-          handleBlockDrop(editor, event);
+          if (handleBlockDrop(editor, event)) return;
+          // A Markdown file or web page dropped into the text opens right there, as blocks. Pictures and
+          // other files are left to the editor, which uploads them where they were dropped.
+          const files = Array.from(event.dataTransfer?.files ?? []);
+          if (!props.editable || !files.some(isTextFile)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          void insertDroppedFiles(editor, files, { x: event.clientX, y: event.clientY });
         }}
         onKeyDownCapture={(event) => {
           if (!props.editable || !(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "d") return;

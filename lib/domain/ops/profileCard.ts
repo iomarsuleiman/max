@@ -39,6 +39,8 @@ export const profileCardGet = defineOp({
       memberNumber: memberNumber ?? null,
       joinedAt: settings?.joinedAt ?? null,
       username: await usernameOf(ctx.db, ctx.ownerId),
+      // How many people joined through your link. Just the number: who they are stays private.
+      invited: await ctx.db.invitedCount(accountOf(ctx.ownerId)),
     };
   },
 });
