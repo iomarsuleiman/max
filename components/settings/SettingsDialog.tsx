@@ -882,7 +882,7 @@ function UsernameRow() {
 
 function InviteFriends() {
   const { s, ws } = useSettings();
-  const info = useOp<{ memberNumber: number | null; username: string | null }>("profileCard.get", {});
+  const info = useOp<{ memberNumber: number | null; username: string | null; invited?: number }>("profileCard.get", {});
   const current = s?.inviteNote ?? "";
   const [note, setNote] = useState(current);
   useEffect(() => setNote(current), [current]);
@@ -917,6 +917,9 @@ function InviteFriends() {
         <div className="grid min-w-0 gap-1.5 py-3">
           <p className="text-[13.5px] font-medium text-fg">Your invite link</p>
           <Copyable value={info.data.username ? `${origin}/${info.data.username}` : `${origin}/join?from=${info.data.memberNumber}`} label="invite link" />
+          <p className="text-[12.5px] text-fg-3" data-testid="invite-count">
+            {info.data.invited ? `${info.data.invited} ${info.data.invited === 1 ? "person has" : "people have"} joined Max from your link.` : "No one has joined from your link yet."}
+          </p>
         </div>
       )}
     </>

@@ -87,6 +87,12 @@ export class MemoryDb implements Db {
     return ([...this.state[table].values()] as Tables[T][]).map((r) => clone(r)).reverse().slice(0, limit);
   }
 
+  async invitedCount(account: string) {
+    let n = 0;
+    for (const row of this.state.settings.values()) if (row.invitedBy === account) n++;
+    return n;
+  }
+
   async memberByNumber(n: number) {
     const rows = [...this.state.settings.values()].sort((a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0));
     return rows[n - 1]?.ownerId ?? null;

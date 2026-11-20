@@ -26,6 +26,9 @@ export async function adminOverview(db: Db, now: number) {
   const moderation = new Map((await db.listAll("moderation", 1000)).map((m) => [m.ownerId, m]));
   const sites = await db.listAll("sites", 1000);
   const week = now - 7 * 86_400_000;
+  // Joins through each person's invite link: counts only, never who joined through whom.
+  const invited = new Map<string, number>();
+  for (const s of settings) if (s.invitedBy) invited.set(s.invitedBy, (invited.get(s.invitedBy) ?? 0) + 1);
   const users = [];
   for (const s of settings) {
     // Every workspace of the account counts: the main one and any extra ones.
@@ -45,6 +48,7 @@ export async function adminOverview(db: Db, now: number) {
       trashed: pages.length - live.length,
       workspaces: owners.length,
       sites: sites.filter((x) => accountOf(x.ownerId) === s.ownerId).length,
+      invited: invited.get(s.ownerId) ?? 0,
       shares: (await Promise.all(owners.map((o) => db.list("shares", o)))).flat().length,
       status: moderation.get(s.ownerId)?.status ?? "active",
       reason: moderation.get(s.ownerId)?.reason ?? null,

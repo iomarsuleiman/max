@@ -351,7 +351,7 @@ export default defineSchema({
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_pageId", ["ownerId", "pageId"]),
-  settings: defineTable(v.any()).index("by_owner", ["ownerId"]),
+  settings: defineTable(v.any()).index("by_owner", ["ownerId"]).index("by_invitedBy", ["invitedBy"]),
   assets: defineTable({
     ownerId: v.string(),
     pageId: nullableString,

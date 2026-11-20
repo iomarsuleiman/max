@@ -70,6 +70,13 @@ export function convexDb(db: Reader | Writer): Db {
       const rows = await db.query(table).order("desc").take(limit);
       return rows.map((r) => strip(r, table) as unknown as Tables[T]);
     },
+    async invitedCount(account: string) {
+      const rows = await db
+        .query("settings")
+        .withIndex("by_invitedBy", (q) => q.eq("invitedBy", account))
+        .take(10_000);
+      return rows.length;
+    },
     async memberByNumber(n: number) {
       // Settings rows in the order people joined; the nth is member n.
       const rows = await db.query("settings").withIndex("by_creation_time").order("asc").take(n);

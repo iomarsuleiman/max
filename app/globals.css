@@ -670,6 +670,11 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .landing-features span[aria-hidden] { color: var(--fg-3); }
 
 /* Image viewer (Notion-like): full screen, dark, the image centered with its caption. */
+/* Dropping files anywhere in Max: a quiet outline and a label, never in the way of the drop. */
+.max-filedrop { position: fixed; inset: 8px; z-index: 95; display: grid; place-items: end center; padding-bottom: 28px; pointer-events: none; border-radius: 14px; outline: 2px dashed color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: -2px; background: color-mix(in oklab, var(--accent) 5%, transparent); animation: max-fade 120ms ease; }
+.max-filedrop[data-busy] { outline: none; background: none; }
+.max-filedrop-card { display: grid; gap: 2px; padding: 10px 16px; border-radius: 12px; background: var(--overlay); box-shadow: var(--shadow-pop, 0 8px 28px rgb(0 0 0 / .14)); font-size: 13.5px; font-weight: 500; color: var(--fg); text-align: center; }
+.max-filedrop-card > span { font-size: 12px; font-weight: 400; color: var(--fg-3); }
 .max-viewer { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgb(12 12 12 / .92); animation: max-fade 160ms ease; -webkit-tap-highlight-color: transparent; }
 .max-viewer-bar { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 12px; left: 12px; display: flex; align-items: center; justify-content: flex-end; gap: 4px; color: #fff; z-index: 2; }
 .max-viewer-count { margin-inline-end: auto; padding-inline-start: 6px; font-size: 13px; color: rgb(255 255 255 / .7); }

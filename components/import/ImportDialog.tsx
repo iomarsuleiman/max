@@ -2,45 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { unzipSync } from "fflate";
 import { FileArchive, FileJson, FileText, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Dialog, Notice, Segmented } from "@/components/ui";
 import { useUploader } from "@/lib/client/upload";
-import { buildNotionBundle, type BundleItem, type ImportReport, type ZipEntry } from "@/lib/import/notion";
+import type { ImportReport } from "@/lib/import/notion";
+import { importFiles } from "@/lib/client/importFiles";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
 
 type Source = "notion" | "markdown" | "max";
-const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif", svg: "image/svg+xml" };
-
-function unzipAll(data: Uint8Array, prefix = "", depth = 0): ZipEntry[] {
-  const out: ZipEntry[] = [];
-  const files = unzipSync(data);
-  for (const [path, bytes] of Object.entries(files)) {
-    if (/\.zip$/i.test(path) && depth < 3) out.push(...unzipAll(bytes, prefix, depth + 1));
-    else out.push({ path: prefix + path, data: bytes });
-  }
-  return out;
-}
-
-/** Chunks a bundle so each request stays small; parents always precede children. */
-function chunk(items: BundleItem[], size = 40): BundleItem[][] {
-  const out: BundleItem[][] = [];
-  let cur: BundleItem[] = [];
-  let weight = 0;
-  for (const i of items) {
-    const w = 1 + (i.database?.rows.length ?? 0) / 5 + (i.markdown?.length ?? 0) / 50_000;
-    if (cur.length && weight + w > size) {
-      out.push(cur);
-      cur = [];
-      weight = 0;
-    }
-    cur.push(i);
-    weight += w;
-  }
-  if (cur.length) out.push(cur);
-  return out;
-}
 
 export function ImportDialog() {
   const ws = useWorkspace();
@@ -63,48 +33,9 @@ export function ImportDialog() {
     reset();
     setBusy(true);
     try {
-      if (source === "notion") {
-        const file = files[0];
-        if (!/\.zip$/i.test(file.name)) throw new Error("Choose the .zip file Notion created (Settings → Export → Markdown & CSV).");
-        setProgress("Opening the export…");
-        const entries = unzipAll(new Uint8Array(await file.arrayBuffer()));
-        const { items, report } = await buildNotionBundle(
-          entries,
-          async (e) => {
-            const ext = e.path.split(".").pop()!.toLowerCase();
-            if (e.data.byteLength > 20 * 1024 * 1024) return null;
-            const f = new File([e.data as BlobPart], e.path.split("/").pop()!, { type: MIME[ext] ?? "application/octet-stream" });
-            return upload(f, null);
-          },
-          setProgress,
-        );
-        if (!items.length) throw new Error("No pages or databases were found in that file. Make sure it's a Notion “Markdown & CSV” export.");
-        const parts = chunk(items);
-        const keys: Record<string, string> = {};
-        let firstId: string | undefined;
-        for (const [i, part] of parts.entries()) {
-          setProgress(`Creating pages (${i + 1} of ${parts.length})…`);
-          const res = await ws.call<{ rootIds: string[]; keys: Record<string, string> }>("import.bundle", { items: part, existing: keys, asTemplates: ws.importAsTemplates });
-          Object.assign(keys, res.keys);
-          firstId ??= res.rootIds.find(Boolean);
-        }
-        setResult({ ...report, firstId: ws.importAsTemplates ? undefined : firstId });
-        toast.success(ws.importAsTemplates ? "Imported as templates" : "Import finished");
-      } else if (source === "markdown") {
-        let firstId: string | undefined;
-        let n = 0;
-        for (const file of Array.from(files)) {
-          setProgress(`Importing ${file.name}…`);
-          const res = await ws.call<{ id: string }>("import.markdown", { markdown: await file.text(), title: /^#\s/m.test(await file.text()) ? undefined : file.name.replace(/\.(md|markdown|txt)$/i, "") });
-          firstId ??= res.id;
-          n++;
-        }
-        setResult({ pages: n, databases: 0, rows: 0, images: 0, skipped: [], firstId });
-      } else {
-        setProgress("Restoring backup…");
-        const res = await ws.call<{ imported: number }>("import.maxExport", { data: await files[0].text() });
-        setResult({ pages: res.imported, databases: 0, rows: 0, images: 0, skipped: [] });
-      }
+      const res = await importFiles(ws.call, upload, Array.from(files), { source, asTemplates: source === "notion" && ws.importAsTemplates, onProgress: setProgress });
+      setResult(res);
+      if (source === "notion") toast.success(ws.importAsTemplates ? "Imported as templates" : "Import finished");
     } catch (err) {
       setError((err as Error).message || "The import didn't finish.");
       notifyError(err, "The import didn't finish.");
