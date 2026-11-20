@@ -48,7 +48,9 @@ import { switchWorkspace } from "@/lib/client/workspace";
 import { PageIcon } from "./PageIcon";
 import { PageMenu } from "./PageMenu";
 import { PageTree } from "./PageTree";
-import { TrashPanel } from "./TrashPanel";
+import dynamic from "next/dynamic";
+
+const TrashPanel = dynamic(() => import("./TrashPanel").then((m) => m.TrashPanel), { ssr: false });
 import { MobileWorkspacePicker, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
 
 type SectionId = SettingsRow["sidebarSections"][number];
@@ -154,8 +156,6 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
         </DndContext>
       </div>
       <div className="grid gap-px border-t border-line ps-4 pe-2 py-2">
-        <WorkspaceDock onCreate={() => setCreatingWorkspace(true)} />
-        {creatingWorkspace && <NewWorkspaceDialog open={creatingWorkspace} onOpenChange={setCreatingWorkspace} />}
         <Popover
           side="right"
           align="end"
@@ -178,6 +178,9 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
           New page
           <span className="ms-auto text-[11px] font-normal text-fg-3 max-md:hidden">⌘⌥N</span>
         </button>
+        {/* Like Arc's spaces: the very last thing in the sidebar. */}
+        <WorkspaceDock onCreate={() => setCreatingWorkspace(true)} />
+        {creatingWorkspace && <NewWorkspaceDialog open={creatingWorkspace} onOpenChange={setCreatingWorkspace} />}
       </div>
       {!mobile && <ResizeHandle width={width} setWidth={setWidth} onCommit={(w) => ws.updateSettings({ sidebarWidth: w })} onClose={() => ws.setSidebarOpen(false)} />}
     </aside>

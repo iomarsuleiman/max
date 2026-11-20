@@ -213,6 +213,8 @@ export interface SettingsRow {
   weekStart?: "monday" | "sunday";
   /** Pages on a floating rounded card, or edge to edge. */
   frame?: "floating" | "full";
+  /** Little sounds, like the crumple when something goes to the trash. On unless turned off. */
+  sounds?: boolean;
   /** The main workspace's name and icon (extra workspaces keep theirs in `workspaces`). */
   workspaceName?: string | null;
   workspaceIcon?: string | null;

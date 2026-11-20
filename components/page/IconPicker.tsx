@@ -94,7 +94,7 @@ type Tab = "emoji" | "icons" | "upload";
  * Notion-style icon picker: Emoji, Icons (Lucide in ten colors) and Upload (an image file or link).
  * Filter, shuffle, a color menu with "Ask every time", recents, arrow-key navigation and endless scrolling.
  */
-export function IconPicker({ trigger, onPick, onRemove, pageId = null }: { trigger: ReactNode; onPick: (icon: string) => void; onRemove?: () => void; pageId?: string | null }) {
+export function IconPicker({ trigger, onPick, onRemove, pageId = null, side }: { trigger: ReactNode; onPick: (icon: string) => void; onRemove?: () => void; pageId?: string | null; side?: "top" | "bottom" | "left" | "right" }) {
   const [tab, setTab] = useState<Tab>(() => readLocal<Tab>("icon-tab", "icons"));
   const [query, setQuery] = useState("");
   const [color, setColor] = useState<IconColor>(() => readLocal<IconColor>("icon-color", "default"));
@@ -134,6 +134,7 @@ export function IconPicker({ trigger, onPick, onRemove, pageId = null }: { trigg
         }
       }}
       trigger={trigger}
+      side={side}
       className="flex h-[min(456px,72dvh)] w-[min(520px,calc(100vw-24px))] flex-col overflow-hidden p-0"
     >
       <div className="flex items-end gap-1 border-b border-line px-2" role="tablist" aria-label="Icon source">

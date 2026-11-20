@@ -31,12 +31,7 @@ export function PaperHop() {
     </>
   );
 }
-export function OfflineRegistration() {
-  useEffect(() => {
-    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
-  }, []);
-  return null;
-}
+export { OfflineRegistration } from "./OfflineRegistration";
 export function OfflineNotice() {
   const online = useSyncExternalStore(
     subscribe,

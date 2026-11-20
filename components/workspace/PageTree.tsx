@@ -228,6 +228,7 @@ const TreeRow = memo(function TreeRow({
       }}
       style={style}
       role="treeitem"
+      data-page-id={item.id}
       aria-level={depth + 1}
       aria-expanded={item.hasChildren ? item.expanded : undefined}
       aria-selected={active}

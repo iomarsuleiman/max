@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useConvex, useQueries } from "convex/react";
 import { anyApi } from "convex/server";
-import { wsArgs } from "./workspace";
+import { onWorkspaceChange, wsArgs } from "./workspace";
 import { CLOUD } from "@/lib/config";
 import { OpError, toOpError } from "./errors";
 
@@ -52,6 +52,8 @@ interface Entry {
   snapshot: QueryState<unknown>;
 }
 const cache = new Map<string, Entry>();
+// Another workspace: nothing cached from the previous one may show.
+if (typeof window !== "undefined") onWorkspaceChange(() => cache.clear());
 
 async function post(op: string, args: Args, kind: "query" | "mutation", scope?: ShareScopeValue | null) {
   const res = scope?.site

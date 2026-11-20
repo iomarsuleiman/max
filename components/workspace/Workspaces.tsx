@@ -4,7 +4,10 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button, Dialog, Field, Input } from "@/components/ui";
 import { LogoMark } from "@/components/brand/Logo";
-import { IconPicker } from "@/components/page/IconPicker";
+import dynamic from "next/dynamic";
+
+// The icon picker (and its emoji list) loads only when the New workspace dialog opens.
+const IconPicker = dynamic(() => import("@/components/page/IconPicker").then((m) => m.IconPicker), { ssr: false });
 import { PageIcon } from "./PageIcon";
 import { useOp } from "@/lib/client/data";
 import { switchWorkspace } from "@/lib/client/workspace";
@@ -40,6 +43,8 @@ export function WorkspaceIcon({ workspace, size = 22 }: { workspace: WorkspaceIt
   );
 }
 
+const QUICK_ICONS = ["🏠", "💼", "🚀", "🎓", "🎨", "📚", "💡", "🌱", "🎵", "✈️", "🏋️", "🧪"];
+
 /** Name and icon for a new personal workspace; opens it once made. */
 export function NewWorkspaceDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const ws = useWorkspace();
@@ -64,6 +69,7 @@ export function NewWorkspaceDialog({ open, onOpenChange }: { open: boolean; onOp
         <div className="flex items-end gap-3">
           <IconPicker
             pageId={null}
+            side="bottom"
             onPick={setIcon}
             onRemove={() => setIcon(null)}
             trigger={
@@ -77,6 +83,13 @@ export function NewWorkspaceDialog({ open, onOpenChange }: { open: boolean; onOp
               <Input id="workspace-name" autoFocus value={name} maxLength={60} required placeholder="Side project" onChange={(e) => setName(e.target.value)} />
             </Field>
           </div>
+        </div>
+        <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Quick icons">
+          {QUICK_ICONS.map((e) => (
+            <button key={e} type="button" role="radio" aria-checked={icon === e} aria-label={e} onClick={() => setIcon(icon === e ? null : e)} className={`grid size-8 place-items-center rounded-lg text-[18px] hover:bg-hover ${icon === e ? "bg-hover shadow-[inset_0_0_0_1.5px_var(--fg)]" : ""}`}>
+              {e}
+            </button>
+          ))}
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -114,7 +127,7 @@ export function WorkspaceDock({ onCreate }: { onCreate: () => void }) {
           className="workspace-dock-item"
           onClick={() => i !== here && goTo(w.id, i > here ? 1 : -1)}
         >
-          <WorkspaceIcon workspace={w} size={16} />
+          <WorkspaceIcon workspace={w} size={13} />
         </button>
       ))}
       </div>
@@ -125,14 +138,14 @@ export function WorkspaceDock({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-/** Slides the sidebar out the way you swiped, then opens the workspace. */
+/** Opens the workspace right away; the new sidebar slides in from the side you swiped toward. */
 export function goTo(id: string | null, direction: 1 | -1) {
-  const sidebar = document.querySelector<HTMLElement>("[data-sidebar]");
-  if (sidebar && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    sidebar.style.setProperty("--swipe", String(direction));
-    sidebar.dataset.leaving = "";
-    window.setTimeout(() => switchWorkspace(id), 160);
-  } else switchWorkspace(id);
+  try {
+    sessionStorage.setItem("max:swipe", String(direction));
+  } catch {
+    // Only the slide-in direction is lost.
+  }
+  switchWorkspace(id);
 }
 
 /** Two-finger (trackpad) or finger (touch) swipes across the sidebar move between workspaces. */

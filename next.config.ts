@@ -6,6 +6,9 @@ const security = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  // No plugins, no <base> hijacking, forms only post back to Max, never framed. (HTTPS is HSTS's job:
+  // upgrade-insecure-requests also upgrades http://localhost in WebKit and breaks local runs.)
+  { key: "Content-Security-Policy", value: "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },
 ];
 
 const config: NextConfig = {
@@ -14,6 +17,8 @@ const config: NextConfig = {
   typedRoutes: false,
   agentRules: false,
   serverExternalPackages: [],
+  // Pull in only the Radix parts actually used, not the whole package, on every page.
+  experimental: { optimizePackageImports: ["radix-ui"] },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "i.ytimg.com" }],
     // Covers and thumbnails: AVIF first, then WebP, cached for a year (the files never change).

@@ -314,6 +314,9 @@ function PreferencesSection() {
         <SettingRow title="Accent color" description="Buttons, links, checkboxes and highlights.">
           <Swatches label="Accent color" value={s.accent ?? "blue"} onChange={(v) => set("accent", v as SettingsRow["accent"], "Accent color saved")} options={ACCENTS} />
         </SettingRow>
+        <SettingRow title="Sounds" description="A soft crumple when something goes to the trash, and other small sounds.">
+          <Switch label="Sounds" checked={s.sounds !== false} onCheckedChange={(v) => set("sounds", v, v ? "Sounds on" : "Sounds off")} />
+        </SettingRow>
         <SettingRow title="Reduce motion" description="Turn off animations. “System” follows your device setting.">
           <Segmented label="Reduce motion" value={s.reduceMotion} onChange={(v) => set("reduceMotion", v)} options={[{ value: "system", label: "System" }, { value: "on", label: "Always" }]} />
         </SettingRow>

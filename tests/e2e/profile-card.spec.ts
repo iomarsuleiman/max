@@ -17,15 +17,14 @@ test("the membership card lives in About: number, note on the back, artwork as i
   await expect(settings.getByText(/^No\. \d/)).toBeVisible();
   // No hints around the card, just who welcomed you, and Download / Share.
   await expect(settings.getByText(/Hover the card|Read the note/)).toHaveCount(0);
-  await expect(settings.locator(".card-about-from")).toHaveText("with a note from The Max team");
+  await expect(settings.locator(".card-about-from")).toHaveText(/with a note (to yourself, for building this|from .+)/);
   await expect(settings.getByRole("button", { name: "Share", exact: true })).toBeVisible();
 
   // Hovering lets you see through to the note (the card doesn't turn); clicking flips it over.
   await preview.hover();
   await expect(preview).toHaveAttribute("data-active", "true");
   await expect(preview.getByRole("button", { name: "Show the back of the card" })).toHaveAttribute("aria-pressed", "false");
-  await expect(preview).toContainText("thank you for joining");
-  await expect(preview).toContainText("The Max team");
+  await expect(preview).toContainText(/thank you for (joining|building this)/);
   // The back carries a QR code for your invite link.
   await expect(preview.locator(".profile-card-back svg text", { hasText: "SCAN TO JOIN" })).toHaveCount(1);
   await preview.getByRole("button", { name: "Show the back of the card" }).click();

@@ -4,7 +4,10 @@ import { useSyncExternalStore } from "react";
 import { CloudOff, RefreshCw } from "lucide-react";
 import { PublicFrame } from "@/components/marketing/PublicFrame";
 import { BackToPages, RecoveryPanel, recoveryLinkClass } from "./RecoveryPanel";
-import { PaperHop } from "./OfflineSupport";
+import dynamic from "next/dynamic";
+
+// The offline game loads only when the recovery screen shows it.
+const PaperHop = dynamic(() => import("./OfflineSupport").then((m) => m.PaperHop), { ssr: false });
 
 function subscribeOnline(update: () => void) {
   window.addEventListener("online", update);

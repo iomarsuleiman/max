@@ -147,3 +147,21 @@ test("offline fallback and optional Paper hop work without caching private pages
   await expect(page.getByRole("button", { name: "Resume playing" })).toBeVisible();
   await context.setOffline(false);
 });
+
+test("moving a page to the trash makes its sidebar row go poof (and Sounds can be turned off)", async ({ page }) => {
+  const created = (await (await page.request.post("/api/local/ops", { data: { op: "pages.create", args: { title: "Poof me" } } })).json()).result.page as { _id: string };
+  await page.goto(`/p/${created._id}`);
+  const row = page.locator(`[data-page-id="${created._id}"]`).first();
+  await expect(row).toBeVisible();
+  await page.getByRole("button", { name: "Page options" }).click();
+  await page.getByRole("menuitem", { name: "Move to trash" }).click();
+  // A puff of smoke where the row was, then the row is gone.
+  await expect(page.locator(".max-poof")).toHaveCount(1);
+  await expect(row).toHaveCount(0);
+  await expect(page.locator(".max-poof")).toHaveCount(0);
+  await page.goto("/home?settings=preferences");
+  const sounds = page.getByRole("dialog", { name: "Settings", exact: true }).getByRole("switch", { name: "Sounds" });
+  await expect(sounds).toBeChecked();
+  await sounds.click();
+  await expect.poll(async () => (await (await page.request.post("/api/local/ops", { data: { op: "settings.get", args: {} } })).json()).result.settings.sounds).toBe(false);
+});

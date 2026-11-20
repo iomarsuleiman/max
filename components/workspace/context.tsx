@@ -11,6 +11,7 @@ import type { PageSummary, SettingsRow } from "@/lib/client/types";
 import { pageTitle } from "@/lib/client/format";
 import { readLocal, writeLocal } from "@/lib/client/storage";
 import { confirmAction } from "@/components/ui";
+import { playTrash, poof } from "@/lib/client/sfx";
 
 export interface Identity {
   name: string;
@@ -262,6 +263,9 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
     async (id: string) => {
       const page = byId.get(id);
       try {
+        // Poof in the sidebar and a little crumple, then it's in the trash.
+        playTrash();
+        await poof(id);
         const res = await call<{ archived: number }>("pages.archive", { id });
         toast(`Moved “${pageTitle(page?.title)}”${res.archived > 1 ? ` and ${res.archived - 1} subpage${res.archived > 2 ? "s" : ""}` : ""} to trash`, {
           action: {
