@@ -1,0 +1,24 @@
+diff --git a/dist/blocknote-react.js b/dist/blocknote-react.js
+index d6f87123337f38e71fa070e0d1ac0e833752c34b..29cbd2413e84b627baaf829d90c2abad642f5927 100644
+--- a/dist/blocknote-react.js
++++ b/dist/blocknote-react.js
+@@ -941,7 +941,9 @@ function Cr() {
+ // src/components/FormattingToolbar/MobileFormattingToolbarController.tsx
+ var wr = (e) => {
+ 	let t = Cr(), n = _r({ includeEditorUI: !0 });
+-	if (!t || !n) return null;
++	// Max: on touch devices, show whenever the editor is focused; keyboard detection by remembered
++	// viewport height misses the keyboard when the editor mounts while it is already open.
++	if (!n) return null;
+ 	let r = e.formattingToolbar || mr;
+ 	return /* @__PURE__ */ G(be, {
+ 		target: document.body,
+@@ -955,7 +957,7 @@ var wr = (e) => {
+ 	});
+ }, Tr = (e) => {
+ 	let t = Cr();
+-	return rn() && t ? /* @__PURE__ */ G(wr, { formattingToolbar: e.formattingToolbar }) : /* @__PURE__ */ G(gr, { ...e });
++	return rn() ? /* @__PURE__ */ G(wr, { formattingToolbar: e.formattingToolbar }) : /* @__PURE__ */ G(gr, { ...e });
+ }, Er = (e) => {
+ 	let t = C(), n = D(), { deleteLink: r } = j(at);
+ 	return /* @__PURE__ */ G(t.LinkToolbar.Button, {

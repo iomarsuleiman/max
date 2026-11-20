@@ -133,3 +133,10 @@ test("wide mobile documents wrap text, stack columns and scroll tables locally",
   expect(await table.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
   await page.screenshot({ path: "test-results/max-mobile-wide-content.png" });
 });
+
+test("tapping a text field doesn't zoom the page on iPhone; Android keeps the plain viewport", async ({ page }, info) => {
+  await page.goto("/home?settings=preferences");
+  const viewport = page.locator('meta[name="viewport"]');
+  if (info.project.name === "mobile-webkit") await expect(viewport).toHaveAttribute("content", /maximum-scale=1/);
+  else await expect(viewport).not.toHaveAttribute("content", /maximum-scale/);
+});

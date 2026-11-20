@@ -13,7 +13,7 @@ import { cardPalette } from "@/lib/domain/cardPalettes";
 import { setDatePrefs } from "@/lib/client/datePrefs";
 import { applySpace, clearSpace } from "@/lib/client/space";
 import { BannedScreen, SuspendedBanner, useStanding } from "@/components/admin/Standing";
-import { activeWorkspace, onWorkspaceChange } from "@/lib/client/workspace";
+import { activeWorkspace, onWorkspaceChange, rememberPlace } from "@/lib/client/workspace";
 import { setSoundsEnabled } from "@/lib/client/sfx";
 import { Button, cn } from "@/components/ui";
 import { WorkspaceProvider, useWorkspace, type Identity } from "./context";
@@ -106,6 +106,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
 function WorkspaceRoot({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // Remember the page you're on in this workspace, for when you come back to it.
+  useEffect(() => rememberPlace(`${pathname}${window.location.search.includes("share=") ? window.location.search : ""}`), [pathname]);
   const workspaceId = useSyncExternalStore(onWorkspaceChange, activeWorkspace, () => null);
   const isPreview = WORKSPACE_NAVIGATION_PREVIEW && isWorkspacePreviewRoute(pathname);
   const inner = (identity: Identity) => (

@@ -55,9 +55,10 @@ export function NewWorkspaceDialog({ open, onOpenChange }: { open: boolean; onOp
     e.preventDefault();
     setBusy(true);
     try {
-      const { workspace } = await ws.call<{ workspace: { id: string } }>("workspaces.create", { name: name.trim(), icon });
+      const { workspace, pageId } = await ws.call<{ workspace: { id: string }; pageId?: string }>("workspaces.create", { name: name.trim(), icon });
       toast.success(`Opening ${name.trim()}`, { duration: 1500 });
-      switchWorkspace(workspace.id);
+      // Straight into its first, empty page.
+      switchWorkspace(workspace.id, pageId ? `/p/${pageId}` : "/home");
     } catch (err) {
       notifyError(err, "Couldn't create the workspace.");
       setBusy(false);

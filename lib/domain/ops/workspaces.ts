@@ -5,6 +5,7 @@ import type { SettingsRow } from "../types";
 import { confirm, defineOp, type OpContext } from "./define";
 import { defaultSettings } from "./helpers";
 import { accountDeleteAllData } from "./account";
+import { pagesCreate } from "./pages";
 
 const name = z.string().trim().min(1, "Give the workspace a name.").max(60);
 const icon = z.string().max(64).nullable().optional();
@@ -61,7 +62,9 @@ export const workspacesCreate = defineOp({
     const id = await newId(new Set(list.map((w) => w.id)));
     const entry: WorkspaceEntry = { id, name: input.name, icon: input.icon ?? null, createdAt: ctx.now };
     await ctx.db.patch("settings", row._id, { workspaces: [...list, entry], updatedAt: ctx.now });
-    return { workspace: { id, name: entry.name, icon: entry.icon } };
+    // Every new workspace starts with one empty page, ready to write in.
+    const { page } = (await pagesCreate.run({ ...ctx, ownerId: ownerFor(row.ownerId, id) }, { title: "" } as never)) as { page: { _id: string } };
+    return { workspace: { id, name: entry.name, icon: entry.icon }, pageId: page._id };
   },
 });
 

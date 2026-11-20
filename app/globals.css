@@ -657,3 +657,4 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .max-poof { position: fixed; z-index: 90; width: 0; height: 0; pointer-events: none; }
 .max-poof i { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, color-mix(in oklch, var(--fg) 10%, var(--canvas)), color-mix(in oklch, var(--fg) 22%, var(--canvas)) 70%, transparent 72%); opacity: 0; animation: max-poof-cloud 560ms cubic-bezier(.2,.7,.3,1) forwards; }
 @keyframes max-poof-cloud { 0% { opacity: .95; transform: translate(0, 0) scale(.3); } 45% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.35); } }
+

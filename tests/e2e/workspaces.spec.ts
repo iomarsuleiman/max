@@ -9,8 +9,10 @@ test("create a personal workspace, keep its pages separate, and switch back", as
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByRole("button", { name: "Create workspace" }).click();
 
-  // The new workspace opens empty, with its name in the sidebar.
+  // The new workspace opens on its first, empty page, with its name in the sidebar.
   await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText(name);
+  await expect(page).toHaveURL(/\/p\//);
+  const firstPage = new URL(page.url()).pathname;
   const sidebar = page.getByRole("complementary", { name: "Sidebar" });
   await expect(sidebar.getByText("Welcome to Max")).toHaveCount(0);
   await page.keyboard.press("Escape");
@@ -22,6 +24,14 @@ test("create a personal workspace, keep its pages separate, and switch back", as
   expect(created).toBeTruthy();
   await page.reload();
   await expect(sidebar.getByText("Only in the side workspace")).toBeVisible();
+
+  // Coming back to a workspace returns to the page you were on there.
+  await page.getByRole("button", { name: /workspace menu$/ }).click();
+  await page.getByRole("menuitem", { name: "Personal" }).click();
+  await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText("Personal");
+  await page.getByRole("button", { name: /workspace menu$/ }).click();
+  await page.getByRole("menuitem", { name }).click();
+  await expect(page).toHaveURL(new RegExp(firstPage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"));
 
   // Arc-style: the workspace icons at the foot of the sidebar switch between them.
   const dock = page.getByRole("tablist", { name: "Workspaces" });

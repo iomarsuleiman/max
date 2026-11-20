@@ -137,7 +137,7 @@ describe("MCP server", () => {
     const made = await call("pages_create", { title: "Tomatoes", workspace: "garden" });
     expect(made.isError).toBe(false);
     const inGarden = await call("pages_tree", { workspace: workspace.id });
-    expect(inGarden.body.pages.map((p: { title: string }) => p.title)).toEqual(["Tomatoes"]);
+    expect(inGarden.body.pages.map((p: { title: string }) => p.title)).toEqual(["", "Tomatoes"]);
     const inMain = await call("pages_tree");
     expect(inMain.body.pages.map((p: { title: string }) => p.title)).not.toContain("Tomatoes");
     const missing = await call("pages_tree", { workspace: "Nope" });
