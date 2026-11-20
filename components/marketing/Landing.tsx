@@ -37,6 +37,12 @@ export function LandingContent() {
         <Together />
         <Anywhere />
       </main>
+      <footer className="flex min-h-52 items-center justify-center px-6 py-16 text-center">
+        <a href="https://wareed.io" className="text-fg-2 hover:text-fg rounded-sm px-3 py-2 font-serif text-sm tracking-[.12em] focus-visible:outline-2 focus-visible:outline-offset-4">
+          <span className="italic tracking-normal">By</span>{" "}
+          <span className="uppercase">Wareed</span>
+        </a>
+      </footer>
     </div>
   );
 }

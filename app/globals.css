@@ -348,7 +348,7 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 
 /* Landing butterfly: the wings fold toward each other in 3D and open again (see PlayfulLogo). */
 .butterfly { cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.butterfly-body { perspective: 520px; }
+.butterfly-body { perspective: 520px; scale: var(--butterfly-press, 1); }
 .butterfly-wing { display: block; width: 50%; height: 100%; backface-visibility: visible; }
 .butterfly-wing--left { transform-origin: right center; }
 .butterfly-wing--right { transform-origin: left center; }
@@ -657,13 +657,13 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 @media (prefers-reduced-motion: reduce) { [data-sidebar] > * { animation: none; } }
 
 /* Moving a page to the trash: its sidebar row goes poof, like an icon dragged off the macOS Dock. */
-.max-poofing { animation: max-poof-row 150ms cubic-bezier(.5,0,.75,0) forwards; pointer-events: none; }
-@keyframes max-poof-row { 0% { transform: scale(1); } 35% { transform: scale(1.06); opacity: 1; } 100% { opacity: 0; transform: scale(.2); } }
+.max-poofing { animation: max-poof-row 110ms ease-in forwards; pointer-events: none; }
+@keyframes max-poof-row { to { opacity: 0; transform: scale(.7); } }
 .max-poof { position: fixed; z-index: 90; width: 0; height: 0; pointer-events: none; }
-.max-poof i, .max-poof b { position: absolute; left: 0; top: 0; border-radius: 50%; opacity: 0; background: radial-gradient(circle at 42% 38%, #fbfbfc, #e9ebee 58%, #d3d6db 100%); box-shadow: inset -1px -2px 2px rgb(0 0 0 / .06); will-change: transform, opacity; animation: max-poof-cloud 620ms cubic-bezier(.15,.8,.3,1) forwards; }
-.max-poof b { width: 26px; height: 26px; margin: -13px 0 0 -13px; animation: max-poof-core 260ms cubic-bezier(.2,.9,.3,1) forwards; }
+.max-poof i, .max-poof b { position: absolute; left: 0; top: 0; border-radius: 50%; opacity: 0; background: radial-gradient(circle at 40% 33%, #fff, #eff1f3 55%, #c9ced4 100%); box-shadow: 0 1px 2px rgb(0 0 0 / .12); animation: max-poof-cloud 420ms cubic-bezier(.16,.8,.32,1) forwards; }
+.max-poof b { width: 34px; height: 34px; margin: -17px 0 0 -17px; animation: max-poof-core 280ms cubic-bezier(.16,.8,.32,1) forwards; }
 .dark .max-poof i, .dark .max-poof b { background: radial-gradient(circle at 42% 38%, #eef0f2, #c6cad0 58%, #9aa0a8 100%); }
-@keyframes max-poof-cloud { 0% { opacity: 1; transform: translate(0, 0) scale(.15) rotate(0); } 30% { opacity: 1; transform: translate(calc(var(--dx) * .7), calc(var(--dy) * .7)) scale(1) rotate(calc(var(--spin) * .5)); } 70% { opacity: .85; } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) - 6px)) scale(.55) rotate(var(--spin)); } }
+@keyframes max-poof-cloud { 0% { opacity: .85; transform: scale(.25); } 33% { opacity: 1; transform: translate(calc(var(--dx) * .63), calc(var(--dy) * .63)) scale(.95); } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) - 10px)) scale(1.3); } }
 @keyframes max-poof-core { 0% { opacity: 1; transform: scale(.2); } 50% { opacity: 1; transform: scale(1.15); } 100% { opacity: 0; transform: scale(.6); } }
 
 

@@ -279,10 +279,10 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   const archivePage = useCallback(
     async (id: string) => {
       const page = byId.get(id);
+      let clearPoof: (() => void) | undefined;
       try {
-        // Poof in the sidebar and a little crumple, then it's in the trash.
         playTrash();
-        await poof(id);
+        clearPoof = await poof(id);
         const res = await call<{ archived: number; title?: string }>("pages.archive", { id });
         toast(`Moved “${pageTitle(res.title ?? page?.title)}”${res.archived > 1 ? ` and ${res.archived - 1} subpage${res.archived > 2 ? "s" : ""}` : ""} to trash`, {
           action: {
@@ -293,6 +293,8 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
         if (pageIdFromPath(pathname) === id) router.push(page?.parentId ? hrefFor(page.parentId) : "/home");
       } catch (err) {
         notifyError(err, "Couldn't move the page to trash.");
+      } finally {
+        clearPoof?.();
       }
     },
     [byId, call, hrefFor, pathname, router],
