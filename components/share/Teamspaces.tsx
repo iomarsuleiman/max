@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -30,46 +30,41 @@ interface SharedRoot {
  * Teamspaces: shared workspaces inside Max. A teamspace is a top-level page shared with a group;
  * everyone in it sees it here with everything inside, edits it live and adds pages to it.
  */
-export function TeamspacesSection() {
+/** Opens the New teamspace dialog (the + on the Teamspaces section header). */
+export const NEW_TEAMSPACE_EVENT = "max:new-teamspace";
+
+/** The Teamspaces section's contents: yours, and ones you're in. The header comes from the sidebar. */
+export function TeamspacesList() {
   const ws = useWorkspace();
   const shared = useSharing<SharedRoot[]>("withMe", {});
-  const [open, setOpen] = useState(true);
   const [creating, setCreating] = useState(false);
+  useEffect(() => {
+    const open = () => setCreating(true);
+    window.addEventListener(NEW_TEAMSPACE_EVENT, open);
+    return () => window.removeEventListener(NEW_TEAMSPACE_EVENT, open);
+  }, []);
   const inside = ws.tree ? teamspaceMembers(ws.tree) : new Set<string>();
   const mine = ws.tree?.filter((p) => inside.has(p._id)) ?? [];
   const theirs = shared.data?.filter((p) => p.teamspace) ?? [];
   return (
-    <section className="relative mt-3" aria-label="Teamspaces">
-      <div className="group/head flex h-7 items-center rounded-md ps-1 pe-1 hover:bg-hover">
-        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex flex-1 items-center gap-1 self-stretch text-start text-xs font-medium text-fg-3 hover:text-fg-2">
-          <ChevronRight className={cn("size-3.5 shrink-0 transition-transform duration-150 flip-rtl", open && "rotate-90")} />
-          Teamspaces
+    <>
+      {mine.length > 0 && <PageTree pages={mine} label="Your teamspaces" />}
+      {theirs.length > 0 && (
+        <ul role="tree" aria-label="Teamspaces you're in" className="mt-px">
+          {theirs.map((p) => (
+            <ShareScope key={p._id} value={{ pageId: p._id, linkToken: null }}>
+              <SharedRow page={p} depth={0} owner={p.ownerName} />
+            </ShareScope>
+          ))}
+        </ul>
+      )}
+      {!mine.length && !theirs.length && (
+        <button type="button" onClick={() => setCreating(true)} className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-[13px] text-fg-3 hover:bg-hover hover:text-fg-2">
+          <Plus className="size-3.5" /> New teamspace
         </button>
-        <IconButton label="New teamspace" size="sm" className="opacity-0 focus-visible:opacity-100 group-hover/head:opacity-100 max-md:opacity-100" onClick={() => setCreating(true)}>
-          <Plus className="size-3.5" />
-        </IconButton>
-      </div>
-      {open && (
-        <>
-          {mine.length > 0 && <PageTree pages={mine} label="Your teamspaces" />}
-          {theirs.length > 0 && (
-            <ul role="tree" aria-label="Teamspaces you're in" className="mt-px">
-              {theirs.map((p) => (
-                <ShareScope key={p._id} value={{ pageId: p._id, linkToken: null }}>
-                  <SharedRow page={p} depth={0} owner={p.ownerName} />
-                </ShareScope>
-              ))}
-            </ul>
-          )}
-          {!mine.length && !theirs.length && (
-            <button type="button" onClick={() => setCreating(true)} className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-[13px] text-fg-3 hover:bg-hover hover:text-fg-2">
-              <Plus className="size-3.5" /> New teamspace
-            </button>
-          )}
-        </>
       )}
       <NewTeamspace open={creating} onOpenChange={setCreating} />
-    </section>
+    </>
   );
 }
 

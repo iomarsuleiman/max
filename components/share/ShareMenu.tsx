@@ -282,8 +282,9 @@ function PublishPanel({ page }: { page: SharePage }) {
     }
   };
   return (
-    <div className="grid">
-      <section className="grid gap-2.5 p-4" aria-label="Publish to the web">
+    // minmax(0, 1fr): long links and inputs shrink to the menu instead of pushing it wider.
+    <div className="grid grid-cols-[minmax(0,1fr)]">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2.5 p-4" aria-label="Publish to the web">
         <div className="flex items-center gap-3">
           <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", live ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-fg-2")}>
             <Globe className="size-[18px]" aria-hidden />
@@ -299,7 +300,7 @@ function PublishPanel({ page }: { page: SharePage }) {
           )}
         </div>
         {live && (
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 flex-1 truncate rounded-md bg-surface-2 px-2 py-1.5 font-mono text-[12px] text-fg-2">{url}</span>
             <Button size="sm" variant="secondary" icon={<Link2 className="size-3.5" />} onClick={() => copy(url, "Link copied. Anyone with it can read the page.")}>
               Copy
@@ -307,7 +308,7 @@ function PublishPanel({ page }: { page: SharePage }) {
           </div>
         )}
       </section>
-      <section className="grid gap-2 border-t border-line p-4" aria-label="Site">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 border-t border-line p-4" aria-label="Site">
         <div>
           <p className="text-[13.5px] font-medium text-fg">Publish as a site</p>
           <p className="text-[12px] text-fg-3">This page and everything inside it become a simple website with navigation and search.</p>

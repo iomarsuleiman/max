@@ -23,7 +23,8 @@ function applyTilt(element: HTMLElement, x: number, y: number) {
 
 /**
  * The membership card: artwork on the front and a handwritten note on the back. Tilts toward the
- * pointer (or the phone); hovering turns it over to show the note, and a click or tap flips it.
+ * pointer (or the phone); hovering lets you see through to the note on the back, and a click or tap
+ * flips it over.
  * No labels or hints around it: the card explains itself.
  */
 export interface CardNote {
@@ -31,7 +32,7 @@ export interface CardNote {
   from: string;
 }
 
-export function ProfileCard({ card, note }: { card: Card; note: CardNote }) {
+export function ProfileCard({ card, note, invite }: { card: Card; note: CardNote; invite?: string | null }) {
   const id = useId();
   const tilt = useRef<HTMLElement>(null);
   const permissionRequired = useSyncExternalStore(subscribe, needsPermission, () => false);
@@ -39,7 +40,8 @@ export function ProfileCard({ card, note }: { card: Card; note: CardNote }) {
   const [flipped, setFlipped] = useState(false);
   const named = { ...card, name: card.name.trim() || "Your name" };
   const front = profileCardSvg(named, id);
-  const back = profileCardBackSvg(named, note, `${id}-b`);
+  const back = profileCardBackSvg(named, note, `${id}-b`, invite);
+  const peek = profileCardBackSvg(named, note, `${id}-p`, invite);
   useEffect(() => {
     let baseline: { beta: number; gamma: number } | null = null;
     const orient = (event: DeviceOrientationEvent) => {
@@ -70,16 +72,14 @@ export function ProfileCard({ card, note }: { card: Card; note: CardNote }) {
           const box = event.currentTarget.getBoundingClientRect();
           applyTilt(event.currentTarget, ((event.clientX - box.left) / box.width) * 2 - 1, ((event.clientY - box.top) / box.height) * 2 - 1);
         }}
-        onPointerEnter={(event) => event.pointerType === "mouse" && setFlipped(true)}
-        onPointerLeave={(event) => {
-          reset();
-          if (event.pointerType === "mouse") setFlipped(false);
-        }}
+        onPointerLeave={reset}
         onPointerCancel={reset}
       >
         <div className="profile-card-flip" data-flipped={flipped || undefined}>
           <span className="profile-card-inner">
-            <span className="profile-card-face" aria-hidden dangerouslySetInnerHTML={{ __html: front.svg }} />
+            {/* Under the front: the back, seen through the lens that follows the pointer. */}
+            <span className="profile-card-face profile-card-peek" aria-hidden dangerouslySetInnerHTML={{ __html: peek }} />
+            <span className="profile-card-face profile-card-front" aria-hidden dangerouslySetInnerHTML={{ __html: front.svg }} />
             <span className="profile-card-face profile-card-back" aria-hidden dangerouslySetInnerHTML={{ __html: back }} />
             <span className="profile-card-glare" aria-hidden />
           </span>

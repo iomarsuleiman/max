@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button, Dialog, Field, Input } from "@/components/ui";
 import { LogoMark } from "@/components/brand/Logo";
@@ -89,4 +89,83 @@ export function NewWorkspaceDialog({ open, onOpenChange }: { open: boolean; onOp
       </form>
     </Dialog>
   );
+}
+
+/**
+ * Arc-style workspace switching at the foot of the sidebar: one icon per workspace (the open one
+ * highlighted), a + to make another, and swiping sideways over the sidebar (two fingers on a
+ * trackpad, or a finger on a phone) to move to the next or previous workspace.
+ */
+export function WorkspaceDock({ onCreate }: { onCreate: () => void }) {
+  const spaces = useWorkspaces();
+  const here = spaces.list.findIndex((w) => w.id === (spaces.current?.id ?? null));
+  if (spaces.list.length < 1) return null;
+  return (
+    <div className="workspace-dock">
+      <div role="tablist" aria-label="Workspaces" className="flex items-center gap-1">
+      {spaces.list.map((w, i) => (
+        <button
+          key={w.id ?? "main"}
+          type="button"
+          role="tab"
+          aria-selected={i === here}
+          aria-label={w.name}
+          title={w.name}
+          className="workspace-dock-item"
+          onClick={() => i !== here && goTo(w.id, i > here ? 1 : -1)}
+        >
+          <WorkspaceIcon workspace={w} size={16} />
+        </button>
+      ))}
+      </div>
+      <button type="button" className="workspace-dock-item workspace-dock-add" aria-label="New workspace" title="New workspace" onClick={onCreate}>
+        <span aria-hidden>+</span>
+      </button>
+    </div>
+  );
+}
+
+/** Slides the sidebar out the way you swiped, then opens the workspace. */
+export function goTo(id: string | null, direction: 1 | -1) {
+  const sidebar = document.querySelector<HTMLElement>("[data-sidebar]");
+  if (sidebar && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    sidebar.style.setProperty("--swipe", String(direction));
+    sidebar.dataset.leaving = "";
+    window.setTimeout(() => switchWorkspace(id), 160);
+  } else switchWorkspace(id);
+}
+
+/** Two-finger (trackpad) or finger (touch) swipes across the sidebar move between workspaces. */
+export function useWorkspaceSwipe() {
+  const spaces = useWorkspaces();
+  const list = spaces.list;
+  const here = list.findIndex((w) => w.id === (spaces.current?.id ?? null));
+  const step = (direction: 1 | -1) => {
+    const next = list[here + direction];
+    if (next) goTo(next.id, direction);
+  };
+  const wheel = useRef({ dx: 0, locked: false, timer: 0 as number | ReturnType<typeof setTimeout> }).current;
+  const touch = useRef({ x: 0, y: 0 }).current;
+  return {
+    onWheel(e: React.WheelEvent) {
+      if (list.length < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      clearTimeout(wheel.timer);
+      wheel.timer = setTimeout(() => ((wheel.dx = 0), (wheel.locked = false)), 220);
+      if (wheel.locked) return;
+      wheel.dx += e.deltaX;
+      if (Math.abs(wheel.dx) > 140) {
+        wheel.locked = true;
+        step(wheel.dx > 0 ? 1 : -1);
+      }
+    },
+    onTouchStart(e: React.TouchEvent) {
+      touch.x = e.touches[0].clientX;
+      touch.y = e.touches[0].clientY;
+    },
+    onTouchEnd(e: React.TouchEvent) {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touch.x;
+      if (list.length > 1 && Math.abs(dx) > 80 && Math.abs(t.clientY - touch.y) < 40) step(dx < 0 ? 1 : -1);
+    },
+  };
 }

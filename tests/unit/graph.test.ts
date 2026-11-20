@@ -28,11 +28,19 @@ describe("graph.get", () => {
 });
 
 describe("sidebar settings", () => {
-  it("drops the retired databases section", async () => {
+  it("drops the retired databases section and adds Teamspaces and Shared above your pages", async () => {
     const call = setup().as("u1");
     await call("settings.update", { sidebarSections: ["pages", "databases", "favorites", "recents"], collapsedSections: ["databases", "recents"] });
     const { settings } = await call<{ settings: { sidebarSections: string[]; collapsedSections: string[] } }>("settings.get");
-    expect(settings.sidebarSections).toEqual(["pages", "favorites", "recents"]);
+    expect(settings.sidebarSections).toEqual(["teamspaces", "shared", "pages", "favorites", "recents"]);
     expect(settings.collapsedSections).toEqual(["recents"]);
+  });
+
+  it("turns sections off and on, and keeps any order", async () => {
+    const call = setup().as("u1");
+    await call("settings.update", { sidebarSections: ["pages", "shared", "favorites", "teamspaces", "recents"], hiddenSections: ["shared", "recents"] });
+    const { settings } = await call<{ settings: { sidebarSections: string[]; hiddenSections: string[] } }>("settings.get");
+    expect(settings.sidebarSections).toEqual(["pages", "shared", "favorites", "teamspaces", "recents"]);
+    expect(settings.hiddenSections).toEqual(["shared", "recents"]);
   });
 });

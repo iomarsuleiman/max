@@ -32,8 +32,8 @@ import {
 import { toast } from "sonner";
 import { IconButton, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Popover, Skeleton, cn } from "@/components/ui";
 import { LogoMark } from "@/components/brand/Logo";
-import { SharedSection } from "@/components/share/SharedSection";
-import { TeamspacesSection } from "@/components/share/Teamspaces";
+import { SharedList, useSharedPages } from "@/components/share/SharedSection";
+import { NEW_TEAMSPACE_EVENT, TeamspacesList } from "@/components/share/Teamspaces";
 import { withoutTeamspaces } from "@/lib/client/teamspaces";
 import { DOODLE, Doodle } from "@/components/icons/Doodle";
 import { useAdminApi } from "@/lib/client/admin";
@@ -43,7 +43,7 @@ import { pageTitle } from "@/lib/client/format";
 import type { PageSummary, SettingsRow } from "@/lib/client/types";
 import { CLOUD, SHARING_ENABLED } from "@/lib/config";
 import { notifyError, useWorkspace } from "./context";
-import { NewWorkspaceDialog, WorkspaceIcon, useWorkspaces } from "./Workspaces";
+import { NewWorkspaceDialog, WorkspaceDock, WorkspaceIcon, useWorkspaceSwipe, useWorkspaces } from "./Workspaces";
 import { switchWorkspace } from "@/lib/client/workspace";
 import { PageIcon } from "./PageIcon";
 import { PageMenu } from "./PageMenu";
@@ -52,7 +52,7 @@ import { TrashPanel } from "./TrashPanel";
 import { MobileWorkspacePicker, WORKSPACE_NAVIGATION_PREVIEW } from "./WorkspaceRail";
 
 type SectionId = SettingsRow["sidebarSections"][number];
-const SECTION_LABEL: Partial<Record<SectionId, string>> = { favorites: "Favorites", recents: "Recents", pages: "Private" };
+const SECTION_LABEL: Partial<Record<SectionId, string>> = { favorites: "Favorites", recents: "Recents", teamspaces: "Teamspaces", shared: "Shared", pages: "Private" };
 
 export function Sidebar({ mobile }: { mobile?: boolean }) {
   const ws = useWorkspace();
@@ -62,7 +62,14 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
     if (settings?.sidebarWidth) setWidth(settings.sidebarWidth);
   }, [settings?.sidebarWidth]);
 
-  const sections = (settings?.sidebarSections ?? ["favorites", "recents", "pages"]).filter((s) => s in SECTION_LABEL && (s !== "recents" || settings?.showRecents !== false));
+  const sharedPages = useSharedPages();
+  const swipe = useWorkspaceSwipe();
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const hidden = new Set(settings?.hiddenSections ?? []);
+  // Turned-off sections, sharing sections when sharing is off, and Shared while nothing is shared.
+  const sections = (settings?.sidebarSections ?? ["favorites", "recents", "teamspaces", "shared", "pages"]).filter(
+    (s) => s in SECTION_LABEL && !hidden.has(s) && (s !== "recents" || settings?.showRecents !== false) && (SHARING_ENABLED || (s !== "teamspaces" && s !== "shared")) && (s !== "shared" || sharedPages.length > 0),
+  );
   const collapsed = new Set(settings?.collapsedSections ?? []);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const [order, setOrder] = useState<SectionId[] | null>(null);
@@ -94,6 +101,8 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
 
   return (
     <aside
+      data-sidebar
+      {...swipe}
       aria-label="Sidebar"
       className={cn("group/sidebar relative flex h-full shrink-0 flex-col text-fg-2", mobile && "max-space w-[min(86vw,320px)]")}
       style={mobile ? undefined : { width }}
@@ -112,8 +121,6 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
           <SortableContext items={shown} strategy={verticalListSortingStrategy}>
             {shown.map((id, i) => (
               <Fragment key={id}>
-              {id === "pages" && SHARING_ENABLED && <TeamspacesSection />}
-              {id === "pages" && SHARING_ENABLED && <SharedSection />}
               <SidebarSection
                 key={id}
                 id={id}
@@ -128,11 +135,17 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
                     <IconButton label="New page" size="xs" onClick={() => ws.createPage()}>
                       <Plus className="size-3.5" />
                     </IconButton>
+                  ) : id === "teamspaces" ? (
+                    <IconButton label="New teamspace" size="xs" onClick={() => window.dispatchEvent(new Event(NEW_TEAMSPACE_EVENT))}>
+                      <Plus className="size-3.5" />
+                    </IconButton>
                   ) : null
                 }
               >
                 {id === "favorites" && <FavoritesList />}
                 {id === "recents" && <RecentsList />}
+                {id === "teamspaces" && <TeamspacesList />}
+                {id === "shared" && <SharedList />}
                 {id === "pages" && <PagesSection />}
               </SidebarSection>
               </Fragment>
@@ -141,6 +154,8 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
         </DndContext>
       </div>
       <div className="grid gap-px border-t border-line ps-4 pe-2 py-2">
+        <WorkspaceDock onCreate={() => setCreatingWorkspace(true)} />
+        {creatingWorkspace && <NewWorkspaceDialog open={creatingWorkspace} onOpenChange={setCreatingWorkspace} />}
         <Popover
           side="right"
           align="end"

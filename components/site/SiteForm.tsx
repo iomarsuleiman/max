@@ -46,7 +46,7 @@ export function SiteForm({ page }: { page: { _id: string; title: string; icon?: 
     }
   };
   return (
-    <form onSubmit={submit} className="grid gap-3" aria-label="Publish as a site">
+    <form onSubmit={submit} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3" aria-label="Publish as a site">
         <Field label="Site name" htmlFor="site-name">
           <Input id="site-name" value={name} maxLength={80} required onChange={(e) => setName(e.target.value)} />
         </Field>
@@ -54,7 +54,7 @@ export function SiteForm({ page }: { page: { _id: string; title: string; icon?: 
           <Input id="site-slug" value={slug} maxLength={40} required pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />
         </Field>
         <Field label="Description" htmlFor="site-description">
-          <Input id="site-description" value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} placeholder="Notes on design, travel and good books" />
+          <Input id="site-description" value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} placeholder="What this site is about (optional)" />
         </Field>
         <div className="flex items-center justify-between gap-3 text-[13.5px]">
           <span>Visitors can search the site</span>

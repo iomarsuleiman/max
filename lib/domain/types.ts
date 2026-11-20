@@ -189,6 +189,8 @@ export interface SettingsRow {
   sidebarWidth: number;
   sidebarSections: SidebarSectionId[];
   collapsedSections: SidebarSectionId[];
+  /** Sections turned off in Settings → Sidebar. */
+  hiddenSections?: SidebarSectionId[];
   expandedPageIds: string[];
   lastPageId: string | null;
   displayName: string | null;
@@ -220,7 +222,7 @@ export interface SettingsRow {
   updatedAt: number;
 }
 
-export type SidebarSectionId = "favorites" | "recents" | "pages" | "databases";
+export type SidebarSectionId = "favorites" | "recents" | "teamspaces" | "shared" | "pages" | "databases";
 
 export interface AssetRow {
   _id: string;

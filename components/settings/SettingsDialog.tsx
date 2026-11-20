@@ -27,6 +27,7 @@ import { ProfileCardEditor } from "@/components/profile/ProfileCardEditor";
 import { INVITE_NOTE, MAX_NOTE_CHARS, writeNote } from "@/lib/welcomeNote";
 import { openSpaceEditor } from "./SpacePanel";
 import { ReportDialog } from "@/components/admin/ReportDialog";
+import type { SidebarSectionId } from "@/lib/domain/types";
 import { NewWorkspaceDialog, WorkspaceIcon, useWorkspaces } from "@/components/workspace/Workspaces";
 import { switchWorkspace } from "@/lib/client/workspace";
 import { IconPicker } from "@/components/page/IconPicker";
@@ -392,13 +393,18 @@ function EditorSection() {
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 
-const SECTION_LABEL: Record<string, string> = { favorites: "Favorites", recents: "Recents", pages: "Pages" };
+const SECTION_LABEL: Record<string, string> = { favorites: "Favorites", recents: "Recents", teamspaces: "Teamspaces", shared: "Shared with you", pages: "Private pages" };
 
 function SidebarSection() {
   const { s, set, ws } = useSettings();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   if (!s) return <Skeleton className="h-40" />;
-  const order = s.sidebarSections.filter((id) => id in SECTION_LABEL);
+  const order = s.sidebarSections.filter((id) => id in SECTION_LABEL && (SHARING_ENABLED || (id !== "teamspaces" && id !== "shared")));
+  const hidden = new Set([...(s.hiddenSections ?? []), ...(s.showRecents === false ? (["recents"] as const) : [])]);
+  const show = (id: SidebarSectionId, on: boolean) => {
+    const next = on ? [...hidden].filter((h) => h !== id) : [...hidden, id];
+    void ws.updateSettings({ hiddenSections: next.filter((h, i, all) => all.indexOf(h) === i) as SidebarSectionId[], ...(id === "recents" ? { showRecents: on } : {}) });
+  };
   const move = (from: number, to: number) => to >= 0 && to < order.length && set("sidebarSections", arrayMove(order, from, to), "Sidebar order saved");
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
@@ -406,22 +412,19 @@ function SidebarSection() {
   };
   return (
     <>
-      <Heading title="Sidebar" description="Drag the handles to reorder sections. You can also drag them directly in the sidebar." />
-      <Group title="Section order">
+      <Heading title="Sidebar" description="Turn sections on or off and drag them into the order you like. You can also drag them in the sidebar itself." />
+      <Group title="Sections">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={order} strategy={verticalListSortingStrategy}>
             <ul className="grid gap-1 py-2">
               {order.map((id, i) => (
-                <SortableSection key={id} id={id} label={SECTION_LABEL[id]} onUp={() => move(i, i - 1)} onDown={() => move(i, i + 1)} first={i === 0} last={i === order.length - 1} />
+                <SortableSection key={id} id={id} label={SECTION_LABEL[id]} shown={!hidden.has(id)} onShow={(on) => show(id, on)} onUp={() => move(i, i - 1)} onDown={() => move(i, i + 1)} first={i === 0} last={i === order.length - 1} />
               ))}
             </ul>
           </SortableContext>
         </DndContext>
       </Group>
       <Group title="Options">
-        <SettingRow title="Show Recents" description="Recently opened pages in the sidebar.">
-          <Switch label="Show Recents" checked={s.showRecents} onCheckedChange={(v) => set("showRecents", v)} />
-        </SettingRow>
         <SettingRow title="Reset sidebar" description="Restore the default section order, width and expanded sections. Your pages don't change.">
           <Button size="sm" onClick={() => ws.call("settings.reset", { scope: "sidebar" }).then(() => toast.success("Sidebar reset")).catch((e) => notifyError(e))}>
             Reset sidebar
@@ -432,14 +435,15 @@ function SidebarSection() {
   );
 }
 
-function SortableSection({ id, label, onUp, onDown, first, last }: { id: string; label: string; onUp: () => void; onDown: () => void; first: boolean; last: boolean }) {
+function SortableSection({ id, label, shown, onShow, onUp, onDown, first, last }: { id: string; label: string; shown: boolean; onShow: (on: boolean) => void; onUp: () => void; onDown: () => void; first: boolean; last: boolean }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
   return (
     <li ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn("flex h-10 items-center gap-2 rounded-lg bg-overlay px-2 shadow-[0_0_0_1px_var(--line)]", isDragging && "z-10 shadow-pop")}>
       <button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Drag to reorder ${label}`} className="grid h-7 w-5 cursor-grab place-items-center text-fg-3 active:cursor-grabbing">
         <GripVertical className="size-4" />
       </button>
-      <span className="flex-1 text-[13.5px]">{label}</span>
+      <span className={cn("flex-1 text-[13.5px]", !shown && "text-fg-3")}>{label}</span>
+      <Switch label={`Show ${label}`} checked={shown} onCheckedChange={onShow} />
       <IconButton label={`Move ${label} up`} disabled={first} onClick={onUp}><ArrowUp className="size-3.5" /></IconButton>
       <IconButton label={`Move ${label} down`} disabled={last} onClick={onDown}><ArrowDown className="size-3.5" /></IconButton>
     </li>
@@ -1017,9 +1021,7 @@ function AboutSection() {
   return (
     <>
       <Heading title="About Max" description="A calm, private home for your notes, pages and databases." />
-      <Group>
-        <div className="py-3">{s ? <ProfileCardEditor /> : <Skeleton className="h-64" />}</div>
-      </Group>
+      <div className="mb-6">{s ? <ProfileCardEditor /> : <Skeleton className="h-64" />}</div>
       <Group title="Invite friends">
         <InviteFriends />
       </Group>

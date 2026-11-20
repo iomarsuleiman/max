@@ -168,12 +168,20 @@ export function summary(p: PageRow) {
 export type PageSummary = ReturnType<typeof summary>;
 
 /** Sidebar sections, like Notion: databases live in the page tree, not in a section of their own. */
-export const DEFAULT_SIDEBAR: SidebarSectionId[] = ["favorites", "recents", "pages"];
+export const DEFAULT_SIDEBAR: SidebarSectionId[] = ["favorites", "recents", "teamspaces", "shared", "pages"];
 
-/** Drops retired sections (an older "databases" section) and adds any that are missing. */
+/**
+ * Drops retired sections (an older "databases" section) and adds any that are missing, in their
+ * default place: Teamspaces and Shared go just above your pages, where they used to be.
+ */
 export function normalizeSidebar(sections: SidebarSectionId[] | undefined): SidebarSectionId[] {
   const kept = (sections ?? []).filter((s, i, all) => DEFAULT_SIDEBAR.includes(s) && all.indexOf(s) === i);
-  return [...kept, ...DEFAULT_SIDEBAR.filter((s) => !kept.includes(s))];
+  for (const missing of DEFAULT_SIDEBAR.filter((s) => !kept.includes(s))) {
+    const before = missing === "teamspaces" || missing === "shared" ? kept.indexOf("pages") : -1;
+    if (before >= 0) kept.splice(missing === "shared" && kept.includes("teamspaces") ? kept.indexOf("teamspaces") + 1 : before, 0, missing);
+    else kept.push(missing);
+  }
+  return kept;
 }
 
 export function defaultSettings(ownerId: string, now: number): Omit<SettingsRow, "_id"> {
