@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ThemeToggle } from "@/components/marketing/ThemeToggle";
 import { ReportDialog } from "@/components/admin/ReportDialog";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -155,7 +156,7 @@ export function PublicDatabase({ token, databaseId, hrefFor }: { token: string; 
 function Frame({ crumbs = [], duplicateHref, children }: { crumbs?: { title: string; icon: string | null; kind: string; href: string }[]; duplicateHref?: string; children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-canvas text-fg">
-      <header className="sticky top-0 z-10 flex h-11 items-center gap-2 bg-canvas/90 px-3 backdrop-blur sm:px-4">
+      <header className="sticky top-0 z-10 flex h-12 items-center gap-2 bg-canvas px-3 sm:px-4">
         <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
           <ol className="flex min-w-0 items-center gap-1 text-[13.5px] text-fg-2">
             {crumbs.map((c, i) => (
@@ -175,9 +176,10 @@ function Frame({ crumbs = [], duplicateHref, children }: { crumbs?: { title: str
           </Link>
         )}
         <ReportLink />
-        <Link href="/" className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] text-fg-2 hover:bg-hover hover:text-fg">
+        <Link href="/" className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] text-fg-2 hover:bg-hover hover:text-fg max-sm:hidden">
           <LogoMark className="size-4" /> Made with Max
         </Link>
+        <ThemeToggle />
       </header>
       <main>{children}</main>
     </div>

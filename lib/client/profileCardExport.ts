@@ -3,10 +3,10 @@ import { profileCardBackSvg, profileCardSvg } from "@/lib/domain/profileCardImag
 export { profileCardBackSvg, profileCardSvg };
 
 /** Both sides of the card as one PNG, rasterized locally. Card text never leaves the browser. */
-export async function profileCardPng(card: ProfileCard, note: { text: string; from: string }): Promise<Blob> {
+export async function profileCardPng(card: ProfileCard, note: { text: string; from: string }, invite?: string | null): Promise<Blob> {
   // Both sides, side by side: the artwork and the handwritten note on the back.
   const front = profileCardSvg(card, "png-front");
-  const back = profileCardBackSvg(card, note, "png-back");
+  const back = profileCardBackSvg(card, note, "png-back", invite);
   const gap = 32;
   const width = front.width * 2 + gap;
   const height = front.height;
@@ -34,8 +34,8 @@ export async function profileCardPng(card: ProfileCard, note: { text: string; fr
 export const CARD_FILE_NAME = "max-workspace-card.png";
 
 /** Downloads both sides of the card, side by side. */
-export async function downloadProfileCardPng(card: ProfileCard, note: { text: string; from: string }): Promise<void> {
-  const url = URL.createObjectURL(await profileCardPng(card, note));
+export async function downloadProfileCardPng(card: ProfileCard, note: { text: string; from: string }, invite?: string | null): Promise<void> {
+  const url = URL.createObjectURL(await profileCardPng(card, note, invite));
   const link = document.createElement("a");
   link.href = url;
   link.download = CARD_FILE_NAME;
@@ -48,7 +48,7 @@ export async function downloadProfileCardPng(card: ProfileCard, note: { text: st
  * Returns false when it can't share files, so the caller can fall back to copying the link.
  */
 export async function shareProfileCard(card: ProfileCard, note: { text: string; from: string }, url: string): Promise<boolean> {
-  const file = new File([await profileCardPng(card, note)], CARD_FILE_NAME, { type: "image/png" });
+  const file = new File([await profileCardPng(card, note, url)], CARD_FILE_NAME, { type: "image/png" });
   const data: ShareData = { files: [file], title: "My Max card", text: `Join me on Max: ${url}` };
   if (typeof navigator.canShare !== "function" || !navigator.canShare(data)) return false;
   try {

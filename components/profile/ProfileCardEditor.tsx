@@ -5,7 +5,7 @@ import { Download, Share } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
-import { defaultProfileCard, profileCardSchema, profileCardShapes, profileCardThemes, type ProfileCard as Card } from "@/lib/domain/profileCard";
+import { cardPalette, defaultProfileCard, profileCardSchema, profileCardShapes, profileCardThemes, type ProfileCard as Card } from "@/lib/domain/profileCard";
 import { downloadProfileCardPng, shareProfileCard } from "@/lib/client/profileCardExport";
 import { inviteUrl } from "@/lib/domain/profileCardImage";
 import { useOp } from "@/lib/client/data";
@@ -39,39 +39,30 @@ export function ProfileCardEditor() {
   const shown: Card = { ...card, ...(saved.success ? {} : artFor(memberNumber)), memberNumber };
   const note: CardNote = info.data?.note ?? { text: "", from: "" };
 
+  const invite = inviteUrl(memberNumber, info.data?.username);
+  const palette = cardPalette(shown.theme);
+  const joined = ws.settings?.joinedAt ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(ws.settings.joinedAt) : null;
+
   return (
-    <div className="card-about">
+    // A stage lit in the card's own colors.
+    <div className="card-about" style={{ ["--glow-1" as string]: palette.first, ["--glow-2" as string]: palette.second }}>
       <div className="card-about-card">
-        <ProfileCard card={shown} note={note} />
+        <ProfileCard card={shown} note={note} invite={invite} />
       </div>
       <div className="card-about-info">
-        <p className="card-about-number">{info.data?.memberNumber ? `No. ${info.data.memberNumber.toLocaleString("en-US")}` : "No. …"}</p>
-        {note.from && <p className="card-about-from">from {note.from}</p>}
-        <div className="mt-4 flex flex-wrap gap-2">
+        <p className="card-about-eyebrow">Max member</p>
+        <p className="card-about-number">No. {info.data?.memberNumber ? info.data.memberNumber.toLocaleString("en-US") : "…"}</p>
+        {joined && <p className="mt-1 text-[13px] text-fg-3">Joined {joined}</p>}
+        {note.from && <p className="card-about-from">with a note from {note.from}</p>}
+        <div className="card-about-actions">
           <Button
             size="sm"
-            variant="secondary"
-            icon={<Download className="size-3.5" />}
-            onClick={async () => {
-              try {
-                await downloadProfileCardPng(shown, note);
-                toast.success("Card saved, both sides", { duration: 1500 });
-              } catch (err) {
-                notifyError(err, "Couldn't download your card.");
-              }
-            }}
-          >
-            Download
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
+            variant="primary"
             icon={<Share className="size-3.5" />}
             onClick={async () => {
-              const url = info.data?.username ? `${window.location.origin}/${info.data.username}` : inviteUrl(memberNumber);
               try {
-                if (await shareProfileCard(shown, note, url)) return;
-                await navigator.clipboard.writeText(url);
+                if (await shareProfileCard(shown, note, invite)) return;
+                await navigator.clipboard.writeText(invite);
                 toast.success("Invite link copied", { duration: 1500 });
               } catch (err) {
                 notifyError(err, "Couldn't share your card.");
@@ -80,7 +71,23 @@ export function ProfileCardEditor() {
           >
             Share
           </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Download className="size-3.5" />}
+            onClick={async () => {
+              try {
+                await downloadProfileCardPng(shown, note, invite);
+                toast.success("Card saved, both sides", { duration: 1500 });
+              } catch (err) {
+                notifyError(err, "Couldn't download your card.");
+              }
+            }}
+          >
+            Download
+          </Button>
         </div>
+        <p className="mt-3 text-[12px] text-fg-3">Tap the card to turn it over.</p>
       </div>
     </div>
   );

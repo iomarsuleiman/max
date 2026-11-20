@@ -290,22 +290,30 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 }
 
 /* Membership cards stay a keepsake size, even on narrow screens. */
-.profile-card { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 30%; position: relative; width: 100%; max-width: 268px; margin: auto; perspective: 900px; }
-.profile-card-flip { position: relative; display: block; width: 100%; border-radius: 16px; transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform 500ms cubic-bezier(.2,.8,.2,1); outline-offset: 4px; }
+.profile-card { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 30%; position: relative; width: 100%; max-width: 268px; margin: auto; perspective: 900px; container-type: inline-size; }
+/* Corners follow the card's own SVG radius (24 of 300 wide), whatever size it's shown at. */
+.profile-card, .profile-card-flip, .profile-card-face, .profile-card-glare, .profile-card-hit { --card-r: 8cqw; }
+.profile-card-flip { position: relative; display: block; width: 100%; border-radius: var(--card-r); transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform 500ms cubic-bezier(.2,.8,.2,1); outline-offset: 4px; }
 .profile-card[data-active] .profile-card-flip { transition: transform 120ms ease-out; }
+/* Click flips the card over, for real. */
 .profile-card-inner { display: grid; transform-style: preserve-3d; transition: transform 700ms cubic-bezier(.3,1.3,.5,1); }
-/* Hovering reveals the back through the front, like looking through the card: no flip. */
-.profile-card-flip .profile-card-face:not(.profile-card-back) { transition: opacity 420ms ease, filter 420ms ease, transform 420ms ease; }
-.profile-card-flip .profile-card-back { opacity: 0; transform: scale(.985); transition: opacity 420ms ease, transform 420ms ease; }
-.profile-card-flip[data-flipped] .profile-card-face:not(.profile-card-back) { opacity: 0; filter: blur(6px); transform: scale(1.01); }
-.profile-card-flip[data-flipped] .profile-card-back { opacity: 1; transform: none; }
-.profile-card-hit { position: absolute; inset: 0; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 16px; }
+.profile-card-flip[data-flipped] .profile-card-inner { transform: rotateY(180deg); }
+.profile-card-back { transform: rotateY(180deg); }
+/* Hover: a lens that follows the pointer and lets you see through the front to the back. */
+@property --lens { syntax: "<length>"; inherits: true; initial-value: 0px; }
+.profile-card-flip { --lens: 0px; transition: transform 500ms cubic-bezier(.2,.8,.2,1), --lens 260ms ease; }
+.profile-card[data-active] .profile-card-flip:not([data-flipped]) { --lens: 46px; }
+.profile-card-peek { transform: translateZ(-1px); }
+/* A faint, soft-edged window, like a metal detector over the card: the note only shimmers through. */
+.profile-card-front { -webkit-mask-image: radial-gradient(circle var(--lens) at var(--mx) var(--my), rgb(0 0 0 / .42) 0%, rgb(0 0 0 / .7) 45%, #000 100%); mask-image: radial-gradient(circle var(--lens) at var(--mx) var(--my), rgb(0 0 0 / .42) 0%, rgb(0 0 0 / .7) 45%, #000 100%); }
+.profile-card-hit { position: absolute; inset: 0; border: 0; padding: 0; background: none; cursor: pointer; border-radius: var(--card-r); }
 .profile-card-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
-.profile-card-face { grid-area: 1 / 1; display: block; overflow: hidden; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 22px 40px -12px rgb(0 0 0 / .28), 0 4px 10px rgb(0 0 0 / .08); }
+.profile-card-face { grid-area: 1 / 1; display: block; overflow: hidden; border-radius: var(--card-r); backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 22px 40px -12px rgb(0 0 0 / .28), 0 4px 10px rgb(0 0 0 / .08); }
+.profile-card-peek { box-shadow: none; }
 .card-hand { font-family: var(--font-hand), "Segoe Script", "Bradley Hand", cursive; }
 .profile-card-face > svg { display: block; width: 100%; height: auto; }
 /* Light that follows the pointer, with a faint foil rainbow, like a laminated member card. */
-.profile-card-glare { grid-area: 1 / 1; pointer-events: none; border-radius: 16px; opacity: 0; transition: opacity 300ms; background:
+.profile-card-glare { grid-area: 1 / 1; pointer-events: none; border-radius: var(--card-r); opacity: 0; transition: opacity 300ms; background:
   radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / .55), rgb(255 255 255 / 0) 45%),
   linear-gradient(115deg, transparent 30%, rgb(255 120 180 / .14) 42%, rgb(120 200 255 / .16) 50%, rgb(160 255 170 / .14) 58%, transparent 70%);
   background-size: 100% 100%, 220% 220%; background-position: 0 0, var(--mx) var(--my); mix-blend-mode: soft-light; }
@@ -325,7 +333,7 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
  .card-outline { max-width: 258px; }
  .card-studio-controls input, .card-studio-controls textarea { font-size: 16px; }
 }
-@media(prefers-reduced-motion: reduce) { .profile-card-flip, .profile-card-inner { transition: none; } .profile-card-glare { display: none; } }
+@media(prefers-reduced-motion: reduce) { .profile-card-flip, .profile-card-inner { transition: none; } .profile-card-glare { display: none; } .profile-card-front { -webkit-mask-image: none; mask-image: none; } }
 [data-reduce-motion="on"] .profile-card-flip, [data-reduce-motion="on"] .profile-card-inner { transition: none; }
 
 /* Landing sections. The one after the hero rises over it as a large rounded panel. */
@@ -462,12 +470,16 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 @media (prefers-reduced-motion: reduce) { .mind-callout, .mind-item { transition: none; } }
 
 /* The membership card in Settings → About: the card beside its number and who the note is from. */
-.card-about { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 22px; border-radius: 14px; background: var(--surface-1); box-shadow: 0 0 0 1px var(--line); }
-.card-about-card { width: 190px; flex: none; }
-.card-about-card .profile-card { max-width: 190px; }
-.card-about-info { min-width: 0; flex: 1; }
-.card-about-number { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: var(--fg); }
-@media (max-width: 600px) { .card-about { justify-content: center; text-align: center; } .card-about-info .flex { justify-content: center; } }
+/* About → your card: a stage lit in the card's own colors, the card big, its story beside it. */
+.card-about { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 36px; padding: 32px 28px; border-radius: 18px; overflow: hidden; isolation: isolate;
+  background: radial-gradient(60% 80% at 22% 30%, color-mix(in oklch, var(--glow-1) 34%, transparent), transparent 70%), radial-gradient(55% 70% at 30% 90%, color-mix(in oklch, var(--glow-2) 28%, transparent), transparent 70%), var(--surface-1); }
+.card-about-card { width: 220px; flex: none; }
+.card-about-card .profile-card { max-width: 220px; }
+.card-about-info { min-width: 220px; flex: 1; }
+.card-about-eyebrow { font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--fg-3); }
+.card-about-number { margin-top: 4px; font-size: 44px; line-height: 1; font-weight: 700; letter-spacing: -.04em; color: var(--fg); }
+.card-about-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+@media (max-width: 600px) { .card-about { flex-direction: column; justify-content: center; text-align: center; padding: 28px 18px; } .card-about-info { min-width: 0; } .card-about-actions { justify-content: center; } }
 
 /* Arc-style ornaments: hand-drawn wavy lines beside small uppercase labels, and a wavy header edge. */
 .squiggle { flex: 1; min-width: 32px; height: 10px; background: currentColor; opacity: .45;
@@ -572,14 +584,19 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .share-tab:hover { color: var(--fg); }
 .share-tab[aria-selected="true"] { color: var(--fg); }
 .share-tab[aria-selected="true"]::after { content: ""; position: absolute; inset: auto 6px -1px; height: 2px; border-radius: 2px; background: var(--fg); }
-.card-about-from { margin-top: 2px; font-family: var(--font-hand), "Segoe Script", cursive; font-size: 20px; color: var(--fg-2); }
+.card-about-from { margin-top: 10px; font-family: var(--font-hand), "Segoe Script", cursive; font-size: 21px; line-height: 1.2; color: var(--fg-2); }
 /* The sidebar scrolls without showing a bar. */
 .scroll-none { scrollbar-width: none; }
 .scroll-none::-webkit-scrollbar { display: none; }
 
 /* The space editor floats over the app, so you can see your space change as you edit it (like Arc). */
-.space-panel { position: fixed; z-index: 60; left: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; scrollbar-width: none; border-radius: 20px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line), 0 24px 60px -20px rgb(0 0 0 / .35); animation: max-panel-arrive 200ms ease-out; }
-.space-panel .space-editor { max-width: none; background: none; box-shadow: none; }
+.space-panel { position: fixed; z-index: 60; left: 50%; bottom: 20px; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 40px); overflow-y: auto; scrollbar-width: none; border-radius: 22px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line), 0 24px 60px -20px rgb(0 0 0 / .4); transform: translateX(-50%); animation: space-panel-in 220ms cubic-bezier(.2,.8,.2,1); }
+@keyframes space-panel-in { from { opacity: 0; transform: translate(-50%, 12px) scale(.98); } }
+.space-panel .space-editor { max-width: none; gap: 12px; padding: 12px 14px; background: none; box-shadow: none; }
+.space-panel .space-field { height: 168px; }
+.space-panel .space-mode { height: 44px; }
+.space-panel .space-dial { width: 52px; height: 52px; }
+@media (min-width: 768px) { .space-panel { bottom: 28px; } }
 .workspace-initial { display: inline-grid; place-items: center; flex: none; border-radius: 6px; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--tint-1, #7b8cff), var(--tint-2, #c27bff)); }
 /* Invitation: the inviter's own card, tilted a little, floating on the paper. */
 .invite-card { width: min(300px, 72vw); flex: none; transform: rotate(-4deg); filter: drop-shadow(0 30px 40px rgb(0 0 0 / .22)) drop-shadow(0 4px 10px rgb(0 0 0 / .08)); transition: transform 400ms cubic-bezier(.2,.8,.2,1); }
@@ -620,3 +637,12 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
   .site-search { max-width: none; height: 100dvh; border-radius: 0; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); }
   .site-search-list { max-height: none; flex: 1; }
 }
+
+/* Arc-style workspaces: icons at the foot of the sidebar; swiping slides the sidebar away. */
+.workspace-dock { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 2px 0 8px; }
+.workspace-dock-item { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: var(--fg-3); opacity: .55; filter: grayscale(.6); transition: opacity 150ms, background 150ms, filter 150ms, transform 150ms; }
+.workspace-dock-item:hover { opacity: .9; filter: none; background: var(--hover); }
+.workspace-dock-item[aria-selected="true"] { opacity: 1; filter: none; background: var(--hover); box-shadow: inset 0 0 0 1px var(--line); }
+.workspace-dock-add { font-size: 16px; line-height: 1; }
+[data-sidebar] { transition: transform 160ms ease, opacity 160ms ease; }
+[data-sidebar][data-leaving] { transform: translateX(calc(var(--swipe) * -24px)); opacity: 0; }

@@ -32,14 +32,14 @@ export function SpacePanel() {
   if (!open) return null;
   return (
     <section className="space-panel" role="dialog" aria-modal="false" aria-label="Edit your space">
-      <header className="flex items-center justify-between px-4 pt-3">
+      <header className="flex items-center justify-between ps-4 pe-2 pt-2">
         <h2 className="text-[13.5px] font-semibold">Your space</h2>
         <IconButton label="Close" size="md" onClick={() => setOpen(false)}>
           <X className="size-4" />
         </IconButton>
       </header>
       <SpaceEditor />
-      <div className="flex justify-end px-4 pb-4">
+      <div className="flex justify-end px-3.5 pb-3.5">
         <Button size="sm" variant="primary" onClick={() => setOpen(false)}>
           Done
         </Button>

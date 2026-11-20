@@ -23,6 +23,17 @@ test("create a personal workspace, keep its pages separate, and switch back", as
   await page.reload();
   await expect(sidebar.getByText("Only in the side workspace")).toBeVisible();
 
+  // Arc-style: the workspace icons at the foot of the sidebar switch between them.
+  const dock = page.getByRole("tablist", { name: "Workspaces" });
+  await expect(dock.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
+  // A sideways two-finger swipe over the sidebar goes to the previous workspace (Personal).
+  await sidebar.hover();
+  for (let i = 0; i < 4; i++) await page.mouse.wheel(-60, 0);
+  await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText("Personal");
+  await expect(dock.getByRole("tab", { name: "Personal" })).toHaveAttribute("aria-selected", "true");
+  await dock.getByRole("tab", { name }).click();
+  await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText(name);
+
   // Back to the main workspace: the side page isn't there.
   await page.getByRole("button", { name: /workspace menu$/ }).click();
   await page.getByRole("menuitem", { name: "Personal" }).click();

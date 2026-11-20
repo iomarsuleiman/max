@@ -46,8 +46,9 @@ const settingsPatch = z.object({
   showRecents: z.boolean().optional(),
   reduceMotion: z.enum(["system", "on"]).optional(),
   sidebarWidth: z.number().int().min(200).max(480).optional(),
-  sidebarSections: z.array(z.enum(["favorites", "recents", "pages", "databases"])).optional(),
-  collapsedSections: z.array(z.enum(["favorites", "recents", "pages", "databases"])).optional(),
+  sidebarSections: z.array(z.enum(["favorites", "recents", "teamspaces", "shared", "pages", "databases"])).optional(),
+  collapsedSections: z.array(z.enum(["favorites", "recents", "teamspaces", "shared", "pages", "databases"])).optional(),
+  hiddenSections: z.array(z.enum(["favorites", "recents", "teamspaces", "shared", "pages"])).optional(),
   expandedPageIds: z.array(z.string()).max(2000).optional(),
   displayName: z.string().max(80).nullable().optional(),
   profileCard: profileCardSchema.nullable().optional(),
@@ -90,9 +91,10 @@ export const settingsUpdate = defineOp({
   input: settingsPatch,
   async run(ctx, patch) {
     if (patch.sidebarSections) {
-      const listed = patch.sidebarSections.filter((s) => DEFAULT_SIDEBAR.includes(s));
+      // Older apps send the order without the newer sections; add them in their default place.
+      const listed = normalizeSidebar(patch.sidebarSections.filter((s) => DEFAULT_SIDEBAR.includes(s)));
       if (new Set(listed).size !== listed.length || listed.length !== DEFAULT_SIDEBAR.length) {
-        throw new MaxError("VALIDATION", "The sidebar order must list favorites, recents and pages once each.");
+        throw new MaxError("VALIDATION", "The sidebar order must list each section once.");
       }
       patch.sidebarSections = listed;
     }
@@ -126,7 +128,7 @@ export const settingsReset = defineOp({
     const current = await getSettingsRow(ctx);
     const patch =
       scope === "sidebar"
-        ? { sidebarSections: defaults.sidebarSections, collapsedSections: [], sidebarWidth: defaults.sidebarWidth }
+        ? { sidebarSections: defaults.sidebarSections, collapsedSections: [], hiddenSections: [], showRecents: true, sidebarWidth: defaults.sidebarWidth }
         : { ...defaults, displayName: current?.displayName ?? null, onboarded: true, expandedPageIds: current?.expandedPageIds ?? [] };
     const settings = await upsertSettings(ctx, patch);
     return { settings };

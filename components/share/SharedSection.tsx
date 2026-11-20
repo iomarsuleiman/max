@@ -23,30 +23,23 @@ interface SharedRoot {
 }
 
 /** Notion's "Shared" sidebar section: pages other people shared with you, with their sub-pages. */
-export function SharedSection() {
+/** Pages (not teamspaces) people shared with you. */
+export function useSharedPages() {
   const q = useSharing<SharedRoot[]>("withMe", {});
-  const [open, setOpen] = useState(true);
-  // Teamspaces shared with you are listed under Teamspaces instead.
-  const pages = q.data?.filter((p) => !p.teamspace) ?? [];
-  if (!pages.length) return null;
+  return q.data?.filter((p) => !p.teamspace) ?? [];
+}
+
+/** The Shared section's contents. The header comes from the sidebar. */
+export function SharedList() {
+  const pages = useSharedPages();
   return (
-    <section className="relative mt-3" aria-label="Shared with you">
-      <div className="flex h-7 items-center rounded-md ps-1 pe-1 hover:bg-hover">
-        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex flex-1 items-center gap-1 self-stretch text-start text-xs font-medium text-fg-3 hover:text-fg-2">
-          <ChevronRight className={cn("size-3.5 shrink-0 transition-transform duration-150 flip-rtl", open && "rotate-90")} />
-          Shared
-        </button>
-      </div>
-      {open && (
-        <ul role="tree" aria-label="Pages shared with you" className="mt-px">
-          {pages.map((p) => (
-            <ShareScope key={p._id} value={{ pageId: p._id, linkToken: null }}>
-              <SharedRow page={p} depth={0} owner={p.ownerName} />
-            </ShareScope>
-          ))}
-        </ul>
-      )}
-    </section>
+    <ul role="tree" aria-label="Pages shared with you" className="mt-px">
+      {pages.map((p) => (
+        <ShareScope key={p._id} value={{ pageId: p._id, linkToken: null }}>
+          <SharedRow page={p} depth={0} owner={p.ownerName} />
+        </ShareScope>
+      ))}
+    </ul>
   );
 }
 
