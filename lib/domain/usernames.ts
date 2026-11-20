@@ -84,3 +84,9 @@ export async function profileByUsername(db: Db, wanted: string): Promise<PublicP
   const card = { ...(saved.success ? saved.data : defaultProfileCard(display)), name: display, createdAt: settings?.joinedAt, memberNumber: memberNumber ?? undefined };
   return { username: name, name: display, memberNumber, card };
 }
+
+/** The username of a published site's owner (sites live at /<username>/<slug>), or null. */
+export async function siteHandle(db: Db, slug: string): Promise<string | null> {
+  const site = (await db.findBy("sites", "slug", slug.toLowerCase()))[0];
+  return site ? usernameOf(db, site.ownerId) : null;
+}

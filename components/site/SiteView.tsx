@@ -31,7 +31,9 @@ type NavItem = SiteNav["nav"][number];
 export function SiteView({ slug, pageParam }: { slug: string; pageParam: string | null }) {
   const q = useSiteNav(slug);
   const pathname = usePathname();
-  const base = pathname?.startsWith("/site/") ? `/site/${slug}` : "";
+  // /<username>/<slug> (the usual address), /site/<slug> (older links) or <slug>.<domain>.
+  const at = pathname?.split("/") ?? [];
+  const base = pathname?.startsWith("/site/") ? `/site/${slug}` : at[2]?.toLowerCase() === slug ? `/${at[1]}/${slug}` : "";
   const hrefFor = useMemo(() => (id: string, title: string, rootId: string) => (id === rootId ? base || "/" : `${base}/${encodeURI(pageSlug(title))}-${id}`), [base]);
   if (q.error) {
     return (
