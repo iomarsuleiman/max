@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, EyeOff, Filter, GripVertical, Plus, Trash2, X } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, EyeOff, Filter, GripVertical, Plus, Trash2, X } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Input, Popover, PopoverClose, Select, Textarea, confirmAction, cn } from "@/components/ui";
 import type { DatabaseView, PropertyDef, PropertyType, RollupFn, SelectOption } from "@/lib/domain/types";

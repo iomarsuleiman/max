@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronRight, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Users } from "@/components/icons";
 import { cn } from "@/components/ui";
 import { ShareScope, useOp, useSharing } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";

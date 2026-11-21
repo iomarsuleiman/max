@@ -21,7 +21,7 @@ import {
   ArrowUpRight,
   type LucideIcon,
   UserRound,
-} from "lucide-react";
+} from "@/components/icons";
 import type { OptionColor, PropertyDef, PropertyType } from "@/lib/domain/types";
 
 export const TYPE_META: Record<PropertyType, { label: string; icon: LucideIcon; help: string }> = {

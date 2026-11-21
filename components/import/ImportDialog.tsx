@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileArchive, FileJson, FileText, Upload } from "lucide-react";
+import { FileArchive, FileJson, FileText, Upload } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Dialog, Notice, Segmented } from "@/components/ui";
 import { useUploader } from "@/lib/client/upload";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { CloudOff, RefreshCw } from "lucide-react";
+import { CloudOff, RefreshCw } from "@/components/icons";
 import { PublicFrame } from "@/components/marketing/PublicFrame";
 import { BackToPages, RecoveryPanel, recoveryLinkClass } from "./RecoveryPanel";
 import dynamic from "next/dynamic";

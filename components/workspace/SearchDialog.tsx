@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Dialog as D } from "radix-ui";
-import { ArrowRightLeft, Building2, Clock, CornerDownLeft, Database, FilePlus, LayoutTemplate, Moon, Plug, Search, Settings, Sun, Trash2, UserPlus, Waypoints, X } from "lucide-react";
+import { ArrowRightLeft, Building2, Clock, CornerDownLeft, Database, FilePlus, LayoutTemplate, Moon, Plug, Search, Settings, Sun, Trash2, UserPlus, Waypoints, X } from "@/components/icons";
 import { switchWorkspace } from "@/lib/client/workspace";
 import { useWorkspaces } from "./Workspaces";
 import { useOp } from "@/lib/client/data";

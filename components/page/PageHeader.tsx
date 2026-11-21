@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ImagePlus, MessageSquare, SmilePlus } from "lucide-react";
-import { BadgeCheck } from "lucide-react";
+import { ImagePlus, MessageSquare, SmilePlus } from "@/components/icons";
+import { BadgeCheck } from "@/components/icons";
 import { requestComment } from "./CommentsPanel";
 import { cn } from "@/components/ui";
 import { useUploader } from "@/lib/client/upload";

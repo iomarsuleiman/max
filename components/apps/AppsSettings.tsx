@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Blocks, Bot, Code2, Copy, FileInput, Plug, Trash2 } from "lucide-react";
+import { Blocks, Bot, Code2, Copy, FileInput, Plug, Trash2 } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Dialog, Field, Input, Textarea, confirmAction } from "@/components/ui";
 import { notifyError } from "@/components/workspace/context";

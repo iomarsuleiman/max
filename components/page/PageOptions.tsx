@@ -18,9 +18,9 @@ import {
   Trash2,
   Type,
   MoveHorizontal,
-  Unlock, Printer, Waypoints } from "lucide-react";
+  Unlock, Printer, Waypoints } from "@/components/icons";
 import { toast } from "sonner";
-import { BadgeCheck, Flag, UsersRound } from "lucide-react";
+import { BadgeCheck, Flag, UsersRound } from "@/components/icons";
 import { SHARING_ENABLED } from "@/lib/config";
 import { IconButton, Menu, MenuCheckItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui";
 import { useRead } from "@/lib/client/data";

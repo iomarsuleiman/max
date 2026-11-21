@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FilePlus2 } from "lucide-react";
+import { FilePlus2 } from "@/components/icons";
 import { Button, EmptyState, Spinner } from "@/components/ui";
 import { compareRank } from "@/lib/domain/rank";
 import { pageHref } from "@/lib/pageUrl";

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Search, Trash2 } from "lucide-react";
+import { RotateCcw, Search, Trash2 } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Skeleton, Tooltip, cn, confirmAction } from "@/components/ui";
 import { useOp } from "@/lib/client/data";

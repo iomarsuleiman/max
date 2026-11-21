@@ -5,7 +5,7 @@ import { firstDayOfWeek } from "@/lib/client/datePrefs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "@/components/icons";
 import { Button, IconButton, Select, cn } from "@/components/ui";
 import type { DatabaseView, PageRow, PropertyDef, SelectOption } from "@/lib/domain/types";
 import type { RecordView } from "@/lib/client/types";

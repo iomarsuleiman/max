@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Database, FileText, Link2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Check, Database, FileText, Link2, RefreshCw } from "@/components/icons";
 import { Button, Input, Notice, Select, Spinner } from "@/components/ui";
 import { useWorkspace } from "@/components/workspace/context";
 

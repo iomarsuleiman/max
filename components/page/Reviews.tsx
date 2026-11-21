@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { ClipboardCheck, FilePenLine, Megaphone, ShieldCheck } from "lucide-react";
+import { ClipboardCheck, FilePenLine, Megaphone, ShieldCheck } from "@/components/icons";
 import { useWorkspaces } from "@/components/workspace/Workspaces";
 import { useOrgDetails } from "@/lib/client/organizations";
 import { toast } from "sonner";

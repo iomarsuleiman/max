@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, LayoutTemplate, Pencil, Plus } from "lucide-react";
+import { Download, LayoutTemplate, Pencil, Plus } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, EmptyState, Segmented, Skeleton } from "@/components/ui";
 import { useOp } from "@/lib/client/data";

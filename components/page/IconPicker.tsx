@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Search, Shuffle, Upload } from "lucide-react";
-import { DynamicIcon, iconNames, type IconName } from "lucide-react/dynamic";
+import { Search, Shuffle, Upload } from "@/components/icons";
+import { iconNames, type IconName } from "lucide-react/dynamic";
+import { DynamicIcon } from "@/components/icons/DynamicIcon";
 import { Button, Input, Popover, PopoverClose, Switch, cn } from "@/components/ui";
 import { readLocal, writeLocal } from "@/lib/client/storage";
 import { useUploader } from "@/lib/client/upload";

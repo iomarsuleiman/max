@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Select as S } from "radix-ui";
-import { Check, ChevronDown, Plus } from "lucide-react";
+import { Check, ChevronDown, Plus } from "@/components/icons";
 import { cn } from "./cn";
 
 export interface SelectChoice<T extends string = string> {

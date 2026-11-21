@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from "d3-force";
-import { List, Maximize2, Pause, Play, RotateCcw, Settings2, X } from "lucide-react";
+import { List, Maximize2, Pause, Play, RotateCcw, Settings2, X } from "@/components/icons";
 import { IconButton, Input, Switch, cn } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";

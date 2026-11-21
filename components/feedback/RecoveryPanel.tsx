@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "@/components/icons";
 import { WaveRule } from "@/components/brand/WaveRule";
 
 export const recoveryLinkClass =

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Bot, Copy, Globe, Users } from "lucide-react";
+import { Bot, Copy, Globe, Users } from "@/components/icons";
 import { SquiggleLabel } from "./Squiggle";
 
 /** Hand-drawn style cursor with a name tag, as people see each other in a shared page. */

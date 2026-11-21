@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Link2 } from "lucide-react";
+import { Link2 } from "@/components/icons";
 import { PublicFrame } from "@/components/marketing/PublicFrame";
 import { RecoveryPanel, recoveryLinkClass, recoverySecondaryClass } from "@/components/feedback/RecoveryPanel";
 import { connectionMessage } from "@/components/feedback/connectionState";

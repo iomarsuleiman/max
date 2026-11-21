@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronRight, GripVertical, MoreHorizontal, Plus } from "lucide-react";
+import { ChevronRight, GripVertical, MoreHorizontal, Plus } from "@/components/icons";
 import { toast } from "sonner";
 import { IconButton, cn } from "@/components/ui";
 import { prefetchOp } from "@/lib/client/data";

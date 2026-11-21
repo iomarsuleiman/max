@@ -87,6 +87,31 @@ test("mobile keyboard toolbar formats, inserts blocks and saves without losing f
   await expect(editor.locator('[data-content-type="codeBlock"]')).toHaveCount(2);
   await toolbar.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(editor.locator('[data-content-type="codeBlock"]')).toHaveCount(1);
+  // Selection handles must own scrolling, even when the selected range extends under the keyboard.
+  const selectionScrolls = await editor.evaluate(async (element) => {
+    const scroller = element.closest<HTMLElement>("#page-scroll");
+    if (!scroller) throw new Error("Missing page scroller");
+    const original = scroller.scrollBy;
+    let calls = 0;
+    scroller.scrollBy = () => { calls++; };
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const selection = window.getSelection();
+      if (!selection) throw new Error("Missing native selection");
+      selection.removeAllRanges();
+      selection.addRange(range);
+      for (let i = 0; i < 4; i++) {
+        document.dispatchEvent(new Event("selectionchange"));
+        window.visualViewport?.dispatchEvent(new Event("scroll"));
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      }
+      return calls;
+    } finally {
+      scroller.scrollBy = original;
+    }
+  });
+  expect(selectionScrolls).toBe(0);
   // The line being typed stays above the keyboard and the formatting row.
   await editor.press("Control+End");
   await page.keyboard.insertText(" tail");

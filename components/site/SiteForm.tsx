@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Copy, ExternalLink, Globe } from "lucide-react";
+import { Copy, ExternalLink, Globe } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Field, Input, Switch } from "@/components/ui";
 import { useOp } from "@/lib/client/data";

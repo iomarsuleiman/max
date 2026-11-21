@@ -2,7 +2,7 @@
 
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { getDefaultReactSlashMenuItems, type DefaultReactSuggestionItem } from "@blocknote/react";
-import { RefreshCw, AppWindow, AtSign, FilePlus2, Globe, Lightbulb, Link2, ListTree, Network, PlayCircle, Sheet, Sigma } from "lucide-react";
+import { RefreshCw, AppWindow, AtSign, FilePlus2, Globe, Lightbulb, Link2, ListTree, Network, PlayCircle, Sheet, Sigma } from "@/components/icons";
 import type { MaxEditorType } from "./blocks";
 
 /**

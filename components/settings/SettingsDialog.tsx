@@ -6,7 +6,7 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { zipSync, strToU8 } from "fflate";
-import { ArrowDown, ArrowUp, Bot, Building2, Plus, Check, Copy, Database, Download, Globe, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Search as SearchIcon, Settings2, Trash2, Upload, User, Users, UsersRound, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, Building2, Plus, Check, Copy, Database, Download, Globe, GripVertical, Info, Keyboard, LogOut, PanelLeft, PenLine, Search as SearchIcon, Settings2, Trash2, Upload, User, Users, UsersRound, X } from "@/components/icons";
 import { DOODLE, Doodle } from "@/components/icons/Doodle";
 import { toast } from "sonner";
 import { Button, Field, IconButton, Input, Kbd, Notice, Segmented, Select, SettingRow, Skeleton, Switch, cn, confirmAction } from "@/components/ui";

@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { activeWorkspace, switchWorkspace } from "@/lib/client/workspace";
-import { ArrowUpRight, FileQuestion, Link2, Lock, MessageSquare, Star } from "lucide-react";
+import { ArrowUpRight, FileQuestion, Link2, Lock, MessageSquare, Star } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Notice, Skeleton, cn } from "@/components/ui";
 import { ShareScope, useOp, useSharing } from "@/lib/client/data";

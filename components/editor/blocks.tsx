@@ -13,7 +13,7 @@ import {
 } from "@blocknote/core";
 import { createReactBlockSpec, createReactInlineContentSpec, ResizableFileBlockWrapper, SourceBlockWithPreview, useEditorChange, useResolveUrl } from "@blocknote/react";
 import { CODE_LANGUAGES } from "./codeLanguages";
-import { RefreshCw, AlertTriangle, FileText, Globe, Image as ImageIcon, Info, Lightbulb, Link2, ListTree, Octagon, PlayCircle, Sheet, Star, StickyNote, Video } from "lucide-react";
+import { RefreshCw, AlertTriangle, FileText, Globe, Image as ImageIcon, Info, Lightbulb, Link2, ListTree, Octagon, PlayCircle, Sheet, Star, StickyNote, Video } from "@/components/icons";
 import { withMultiColumn } from "@blocknote/xl-multi-column";
 import Diagram from "./Diagram";
 import { EMBED_PROVIDERS, toEmbed } from "./embeds";

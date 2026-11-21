@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, PauseCircle } from "lucide-react";
+import { Ban, PauseCircle } from "@/components/icons";
 import { Button } from "@/components/ui";
 import { LogoMark } from "@/components/brand/Logo";
 import { useOp } from "@/lib/client/data";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ChevronDown, Globe, Link2, Lock, UserPlus, Users } from "lucide-react";
+import { ChevronDown, Globe, Link2, Lock, UserPlus, Users } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Popover, Select, Spinner, cn } from "@/components/ui";
 import { useOp } from "@/lib/client/data";

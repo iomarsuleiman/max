@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, FileText, LayoutTemplate, Search, Table2, Waypoints } from "lucide-react";
+import { ChevronRight, FileText, LayoutTemplate, Search, Table2, Waypoints } from "@/components/icons";
 import { LogoMark } from "@/components/brand/Logo";
 import { CLOUD } from "@/lib/config";
 

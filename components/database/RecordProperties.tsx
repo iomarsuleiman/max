@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus } from "@/components/icons";
 import { useOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";
 import type { PageRow, PropertyDef } from "@/lib/domain/types";

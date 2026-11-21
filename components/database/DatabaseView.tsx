@@ -4,8 +4,8 @@ import Link from "next/link";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, ChevronDown, Columns3, Copy, FileText, LayoutGrid, LayoutTemplate, List, Maximize2, MoreHorizontal, PanelRight, Pencil, Plus, RectangleHorizontal, Table2, Trash2 } from "lucide-react";
-import { ClipboardList } from "lucide-react";
+import { Calendar, ChevronDown, Columns3, Copy, FileText, LayoutGrid, LayoutTemplate, List, Maximize2, MoreHorizontal, PanelRight, Pencil, Plus, RectangleHorizontal, Table2, Trash2 } from "@/components/icons";
+import { ClipboardList } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Skeleton, cn, confirmAction } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
