@@ -34,7 +34,7 @@ function world() {
 describe("connectors", () => {
   it("gives apps only what was granted, never private pages, and signs webhooks", async () => {
     const { h, now, op, asApp } = world();
-    const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
+    const { id: acme } = (await orgs.setAccountOrganizations(h.db, { id: "root" }, "ann", true, now()), await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now()));
     const { page: open } = await op("ann", acme, "pages.create", { title: "Roadmap" });
     const { page: secret } = await op("ann", acme, "pages.create", { title: "Salaries" });
     await op("ann", acme, "access.set", { pageId: secret._id, memberIds: ["ann"] });
@@ -79,10 +79,22 @@ describe("connectors", () => {
   });
 });
 
+describe("platform admin", () => {
+  it("switches organizations on per person over MCP, and only for Max's admins", async () => {
+    const { h, now } = world();
+    await h.db.transaction(() => execute("settings.update", { displayName: "Ann" }, { db: h.db, storage: h.storage, ownerId: "ann", now: now(), source: "ui" }));
+    const call = (admin: boolean, args: Record<string, unknown>) => h.db.transaction(() => execute("admin.organizations", args, { db: h.db, storage: h.storage, ownerId: "root", now: now(), source: "mcp", platformAdmin: admin }));
+    await expect(call(false, { person: "ann", on: true })).rejects.toThrow(/platform admins/);
+    expect(await call(true, { person: "ann" })).toMatchObject({ organizations: false });
+    expect(await call(true, { person: "ann", on: true })).toMatchObject({ accountId: "ann", organizations: true });
+    expect(await orgs.canCreateOrganizations(h.db, "ann")).toBe(true);
+  });
+});
+
 describe("collaboration", () => {
   it("runs automations once, notifies assignees and mentions, and reviews with separation of duty", async () => {
     const { h, now, op, join } = world();
-    const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
+    const { id: acme } = (await orgs.setAccountOrganizations(h.db, { id: "root" }, "ann", true, now()), await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now()));
     await join(acme, "ann", "bob");
     const { database } = await op("ann", acme, "databases.create", { title: "Tasks" });
     const owner = (await op("ann", acme, "properties.add", { databaseId: database._id, name: "Owner", type: "person" })).property;

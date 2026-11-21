@@ -62,7 +62,8 @@ Platform roles are separate from organization roles: `MAX_ADMIN_EMAILS` may act 
 
 ## Rollout and rollback
 
-- On once deployed. `MAX_ORGANIZATIONS=off` (Convex env) hides organizations everywhere: requests to `org_…` fail closed and the UI disappears. No data is changed, and turning it back on restores everything.
+- **Off for every account by default.** A platform admin switches organizations on per person in Admin → Users (the Organizations switch, also `admin.setOrganizations`). Once on, that person can create organizations, invite people and use everything. People who were invited can join and work in an organization without the switch; only creating one needs it. Turning it off stops new organizations; existing ones keep working.
+- `MAX_ORGANIZATIONS=off` (Convex env) hides organizations everywhere: requests to `org_…` fail closed and the UI disappears. No data is changed, and turning it back on restores everything.
 - Schema changes are additive (new tables, one optional settings field). Existing personal data, IDs and URLs are unchanged.
 - Local mode works too (`/api/local/organizations`). With `MAX_LOCAL_MULTIUSER=true`, each pretend account has the verified email `<id>@local.max`.
 

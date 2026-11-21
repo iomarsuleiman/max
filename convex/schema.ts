@@ -379,6 +379,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_owner", ["ownerId"]),
+  // Per-account features switched on by Max's platform admins (organizations start off).
+  accountFeatures: defineTable({ ownerId: v.string(), organizations: v.boolean(), by: v.string(), updatedAt: v.number() }).index("by_owner", ["ownerId"]),
   // Recurring automations: when each next runs (lib/domain/ops/automations.ts, convex/crons.ts).
   schedules: defineTable({ ownerId: v.string(), databaseId: v.string(), ruleId: v.string(), nextAt: v.number() }).index("by_owner", ["ownerId"]),
   // Connectors (lib/domain/integrations.ts): apps, where they're connected, and webhook outbox.

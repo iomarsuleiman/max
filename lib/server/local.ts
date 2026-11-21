@@ -96,7 +96,7 @@ export async function runLocal(op: string, args: unknown, source: Source, accoun
   const org = scope.org ? { org: { role: scope.org.role }, actor: { id: account, name: actorName ?? scope.org.name ?? account, image: null } } : {};
   const outbox = { queued: 0 };
   // Local mode: whoever runs this server (the local owner) is its admin.
-  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source, outbox, platformAdmin: source === "ui" && account === LOCAL_OWNER, ...org };
+  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source, outbox, platformAdmin: account === LOCAL_OWNER, ...org };
   const { registry } = await import("@/lib/domain/ops");
   const def = registry.get(op);
   // Local mode has no background jobs: recurring automations catch up when the sidebar loads.
@@ -233,12 +233,13 @@ type AdminCall =
   | { fn: "audit"; scope?: string; action?: string; actor?: string; before?: number; limit?: number }
   | { fn: "orgAction"; orgId: string; action: "moderate" | "recover" | "limits" | "removeMember" | "delete"; status?: "active" | "suspended" | "banned"; reason?: string; accountId?: string; maxMembers?: number | null; confirmName?: string }
   | { fn: "apps" }
+  | { fn: "setOrganizations"; userId: string; on: boolean }
   | { fn: "reviewApp"; appId: string; decision: "published" | "rejected" | "suspended"; note?: string }
   | { fn: "setStatus"; userId: string; status: "active" | "suspended" | "banned"; reason: string }
   | { fn: "setReport"; id: string; status: "open" | "resolved" }
   | { fn: "report"; kind: "bug" | "content" | "other"; message: string; url?: string | null; pageId?: string | null; siteSlug?: string | null };
 
-export const LOCAL_ADMIN_FNS = ["apps", "reviewApp", "check", "overview", "reports", "users", "user", "organizations", "organization", "audit", "orgAction", "setStatus", "setReport", "report"];
+export const LOCAL_ADMIN_FNS = ["setOrganizations", "apps", "reviewApp", "check", "overview", "reports", "users", "user", "organizations", "organization", "audit", "orgAction", "setStatus", "setReport", "report"];
 
 function localWriter(op: string) {
   const s = state();
@@ -278,6 +279,10 @@ export async function runLocalAdmin(call: AdminCall, actor: { id: string; name: 
   if (call.fn === "organizations") return admin.adminOrganizations(s.db, call, now);
   if (call.fn === "organization") return admin.adminOrganization(s.db, call.orgId, now);
   if (call.fn === "audit") return admin.adminAudit(s.db, call);
+  if (call.fn === "setOrganizations") {
+    const { setAccountOrganizations } = await import("@/lib/domain/organizations");
+    return write(() => setAccountOrganizations(s.db, actor, call.userId, !!call.on, now));
+  }
   if (call.fn === "apps") return (await import("@/lib/domain/integrations")).reviewQueue(s.db);
   if (call.fn === "reviewApp") {
     const { reviewIntegration } = await import("@/lib/domain/integrations");

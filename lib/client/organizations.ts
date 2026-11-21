@@ -39,6 +39,8 @@ export interface OrgInvitation {
 }
 export interface MyOrgs {
   enabled: boolean;
+  /** Organizations are switched on for this account (by Max's admins): it may create them. */
+  canCreate?: boolean;
   organizations: MyOrg[];
   invitations: OrgInvitation[];
   /** Organizations your verified email's domain lets you join directly. */

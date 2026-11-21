@@ -5,6 +5,7 @@ type State = { [T in TableName]: Map<string, Tables[T]> };
 
 const emptyState = (): State => ({
   orgs: new Map(),
+  accountFeatures: new Map(),
   schedules: new Map(),
   integrations: new Map(),
   installations: new Map(),

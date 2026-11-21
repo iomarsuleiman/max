@@ -5,6 +5,7 @@ import { listReports, platformRole, setModeration, setReportStatus, submitReport
 import { convexDb } from "./convexDb";
 import { purger } from "./organizations";
 import { reviewIntegration, reviewQueue } from "../lib/domain/integrations";
+import { setAccountOrganizations } from "../lib/domain/organizations";
 import { guard } from "./sharing";
 
 /**
@@ -108,6 +109,15 @@ export const orgAction = mutationGeneric({
       if (a.action === "removeMember") return admin.adminRemoveOrgMember(db, me.actor, a.orgId, a.accountId ?? "", reason, now);
       return admin.adminDeleteOrg(db, me.actor, a.orgId, a.confirmName ?? "", reason, purger(ctx as GenericMutationCtx<GenericDataModel>), now);
     });
+  },
+});
+
+/** Switches organizations on or off for one account (off for everyone until switched on). */
+export const setOrganizations = mutationGeneric({
+  args: { userId: v.string(), on: v.boolean() },
+  handler: async (ctx, a) => {
+    const me = await adminOf(ctx);
+    return guard(() => setAccountOrganizations(writer(ctx), me.actor, a.userId, a.on, Date.now()));
   },
 });
 

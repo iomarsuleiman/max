@@ -12,6 +12,7 @@ import { hiddenFor, restrictedDb } from "../orgPageAccess";
 /** Account-level operations: inside an organization they act on the caller's own account. */
 const PERSONAL = new Set([
   "account.username",
+  "admin.organizations",
   "account.setUsername",
   "tokens.create",
   "tokens.list",

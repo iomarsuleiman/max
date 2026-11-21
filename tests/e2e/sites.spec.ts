@@ -12,7 +12,7 @@ test("publish a page as a website and browse it as a visitor", async ({ page, br
   await page.getByRole("button", { name: "Share", exact: true }).click();
   await page.getByRole("tab", { name: "Publish" }).click();
   const dialog = page.getByRole("form", { name: "Publish as a site" });
-  await dialog.getByLabel("Address").fill("field-guide");
+  await dialog.getByRole("textbox", { name: "Address" }).fill("field-guide");
   await dialog.getByRole("button", { name: "Publish site" }).click();
   await expect(page.getByText("Your site is live")).toBeVisible();
 

@@ -700,7 +700,17 @@ export interface ScheduleRow {
   nextAt: number;
 }
 
+/** Features Max's platform admins switch on per account (organizations start off for everyone). */
+export interface AccountFeatureRow {
+  _id: string;
+  ownerId: string;
+  organizations: boolean;
+  by: string;
+  updatedAt: number;
+}
+
 export interface Tables {
+  accountFeatures: AccountFeatureRow;
   schedules: ScheduleRow;
   integrations: IntegrationRow;
   installations: InstallationRow;
