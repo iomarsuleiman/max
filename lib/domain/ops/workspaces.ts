@@ -6,6 +6,7 @@ import { confirm, defineOp, type OpContext } from "./define";
 import { defaultSettings } from "./helpers";
 import { accountDeleteAllData } from "./account";
 import { pagesCreate } from "./pages";
+import { getOrg, isOrgNamespace, organizationsEnabled } from "../organizations";
 
 const name = z.string().trim().min(1, "Give the workspace a name.").max(60);
 const icon = z.string().max(64).nullable().optional();
@@ -34,15 +35,29 @@ export const workspacesList = defineOp({
   name: "workspaces.list",
   kind: "query",
   title: "List workspaces",
-  description: "Lists the user's personal workspaces (the main one has id null) and which one this call ran in. Every other tool takes an optional `workspace` (id or name) to work in that workspace; without it, tools use the main workspace.",
+  description:
+    "Lists the user's personal workspaces (the main one has id null) and the organizations they belong to (ids start with org_, with the user's role), and which one this call ran in. Every other tool takes an optional `workspace` (id or name) to work in that workspace; without it, tools use the main workspace.",
   input: z.object({}),
   async run(ctx) {
-    const row = (await ctx.db.list("settings", accountOf(ctx.ownerId)))[0];
+    const inOrg = isOrgNamespace(ctx.ownerId);
+    // Inside an organization, the personal workspaces listed are the caller's own.
+    const account = inOrg ? ctx.actor?.id ?? "" : accountOf(ctx.ownerId);
+    const row = (await ctx.db.list("settings", account))[0];
+    const organizations = [];
+    if (organizationsEnabled()) {
+      for (const m of await ctx.db.findBy("orgMembers", "accountId", account)) {
+        if (m.status !== "active" || m.role === "guest") continue;
+        const org = await getOrg(ctx.db, m.ownerId);
+        if (org) organizations.push({ id: org.ownerId as string | null, name: org.name, icon: org.icon, kind: "organization" as const, role: m.role });
+      }
+      organizations.sort((a, b) => a.name.localeCompare(b.name));
+    }
     return {
-      current: workspaceOf(ctx.ownerId),
+      current: inOrg ? ctx.ownerId : workspaceOf(ctx.ownerId),
       workspaces: [
-        { id: null as string | null, name: row?.workspaceName?.trim() || "Personal", icon: row?.workspaceIcon ?? null },
-        ...(row?.workspaces ?? []).map((w) => ({ id: w.id as string | null, name: w.name, icon: w.icon })),
+        { id: null as string | null, name: row?.workspaceName?.trim() || "Personal", icon: row?.workspaceIcon ?? null, kind: "personal" as const },
+        ...(row?.workspaces ?? []).map((w) => ({ id: w.id as string | null, name: w.name, icon: w.icon, kind: "personal" as const })),
+        ...organizations,
       ],
     };
   },

@@ -44,3 +44,36 @@ export async function ownerForToken(token: string): Promise<string | null> {
   const client = new ConvexHttpClient(CONVEX_URL);
   return (await client.mutation(anyApi.ops.resolveToken, { secret: serverSecret(), hash })) as string | null;
 }
+
+/** Runs an operation for a connected app's token (app/api/v1). Scope checks happen in execute(). */
+export async function runForApp(token: string, op: string, args: unknown): Promise<unknown> {
+  if (!registry.get(op)) throw new MaxError("NOT_FOUND", `Unknown operation "${op}".`);
+  if (!CLOUD) {
+    if (!localModeAllowed()) throw new MaxError("INTERNAL", "Max isn't configured on this server yet.");
+    const { runLocalApp } = await import("./local");
+    return runLocalApp(token, op, args);
+  }
+  const client = new ConvexHttpClient(CONVEX_URL);
+  try {
+    return await client.mutation(anyApi.integrations.appRun, { secret: serverSecret(), token, op, args: args ?? {} });
+  } catch (err) {
+    const e = serializeError(err);
+    throw new MaxError(e.code, e.message, e.details);
+  }
+}
+
+/** OAuth code exchange for apps (app/api/v1/oauth/token). */
+export async function exchangeAppCode(input: { clientId: string; clientSecret: string; code: string; redirectUri?: string | null }): Promise<unknown> {
+  if (!CLOUD) {
+    if (!localModeAllowed()) throw new MaxError("INTERNAL", "Max isn't configured on this server yet.");
+    const { runLocalExchange } = await import("./local");
+    return runLocalExchange(input);
+  }
+  const client = new ConvexHttpClient(CONVEX_URL);
+  try {
+    return await client.mutation(anyApi.integrations.exchange, { secret: serverSecret(), ...input });
+  } catch (err) {
+    const e = serializeError(err);
+    throw new MaxError(e.code, e.message, e.details);
+  }
+}

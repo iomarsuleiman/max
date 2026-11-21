@@ -1,5 +1,6 @@
 import { MaxError, notFound } from "../errors";
 import { accountOf, workspaceOf, WORKSPACE_FIELDS } from "../workspaces";
+import { isOrgNamespace } from "../organizations";
 import { compareRank, rankBetween } from "../rank";
 import type { PageRow, SettingsRow, SidebarSectionId } from "../types";
 import type { OpContext } from "./define";
@@ -212,31 +213,47 @@ export function defaultSettings(ownerId: string, now: number): Omit<SettingsRow,
  * sidebar and space settings on top (see lib/domain/workspaces.ts).
  */
 export async function getSettingsRow(ctx: OpContext): Promise<SettingsRow | null> {
-  const row = (await ctx.db.list("settings", accountOf(ctx.ownerId)))[0] ?? null;
-  const ws = workspaceOf(ctx.ownerId);
-  if (!ws || !row) return row;
+  const { account, ws, org } = settingsScope(ctx);
+  const row = (await ctx.db.list("settings", account))[0] ?? null;
+  if ((!ws && !org) || !row) return row;
   const defaults = defaultSettings(ctx.ownerId, ctx.now) as Partial<SettingsRow>;
   const base = Object.fromEntries(WORKSPACE_FIELDS.map((f) => [f, defaults[f] ?? null]));
-  const prefs = row.workspaces?.find((w) => w.id === ws)?.prefs ?? {};
+  const prefs = org ? (row.orgPrefs?.[org] ?? {}) : (row.workspaces?.find((w) => w.id === ws)?.prefs ?? {});
   return { ...row, ...base, ...prefs };
 }
 
-export async function upsertSettings(ctx: OpContext, patch: Partial<Omit<SettingsRow, "_id" | "ownerId">>): Promise<SettingsRow> {
-  const account = accountOf(ctx.ownerId);
-  const ws = workspaceOf(ctx.ownerId);
+/** Whose settings row a call reads, and which workspace's or organization's own prefs sit on top. */
+function settingsScope(ctx: OpContext): { account: string; ws: string | null; org: string | null } {
+  if (isOrgNamespace(ctx.ownerId)) {
+    if (!ctx.actor?.id) throw new MaxError("FORBIDDEN", "Sign in to use this organization.");
+    return { account: ctx.actor.id, ws: null, org: ctx.ownerId };
+  }
+  return { account: accountOf(ctx.ownerId), ws: workspaceOf(ctx.ownerId), org: null };
+}
+
+export async function upsertSettings(ctx: OpContext, input: Partial<Omit<SettingsRow, "_id" | "ownerId">>): Promise<SettingsRow> {
+  const { account, ws, org } = settingsScope(ctx);
+  // A row's identity never changes through a patch (defaults carry an ownerId of their own).
+  const { ownerId: _o, _id: _i, ...rest } = input as Partial<SettingsRow>;
+  let patch: Partial<Omit<SettingsRow, "_id" | "ownerId">> = rest;
   let existing = (await ctx.db.list("settings", account))[0] ?? null;
   if (!existing) {
-    const row = { ...defaultSettings(account, ctx.now), ...(ws ? {} : patch) };
+    const row = { ...defaultSettings(account, ctx.now), ...(ws || org ? {} : patch) };
     const _id = await ctx.db.insert("settings", row);
     existing = { _id, ...row } as SettingsRow;
-    if (!ws) return existing;
+    if (!ws && !org) return existing;
   }
-  if (ws) {
-    // Workspace fields go to this workspace; the rest to the account.
+  if (ws || org) {
+    // Workspace fields go to this workspace (or organization); the rest to the account.
     const own = Object.fromEntries(Object.entries(patch).filter(([k]) => (WORKSPACE_FIELDS as readonly string[]).includes(k)));
     const shared = Object.fromEntries(Object.entries(patch).filter(([k]) => !(WORKSPACE_FIELDS as readonly string[]).includes(k)));
-    const workspaces = (existing.workspaces ?? []).map((w) => (w.id === ws ? { ...w, prefs: { ...w.prefs, ...own } } : w));
-    await ctx.db.patch("settings", existing._id, { ...shared, workspaces, joinedAt: existing.joinedAt, updatedAt: ctx.now });
+    if (org) {
+      const orgPrefs = { ...(existing.orgPrefs ?? {}), [org]: { ...(existing.orgPrefs?.[org] ?? {}), ...own } };
+      await ctx.db.patch("settings", existing._id, { ...shared, orgPrefs, joinedAt: existing.joinedAt, updatedAt: ctx.now });
+    } else {
+      const workspaces = (existing.workspaces ?? []).map((w) => (w.id === ws ? { ...w, prefs: { ...w.prefs, ...own } } : w));
+      await ctx.db.patch("settings", existing._id, { ...shared, workspaces, joinedAt: existing.joinedAt, updatedAt: ctx.now });
+    }
     return (await getSettingsRow(ctx))!;
   }
   patch = { ...patch, joinedAt: existing.joinedAt };
@@ -268,8 +285,16 @@ export function newPageRow(ctx: OpContext, fields: Partial<PageRow> & { rank: st
     isTemplate: false,
     createdAt: ctx.now,
     updatedAt: ctx.now,
+    createdBy: actorOf(ctx),
+    updatedBy: actorOf(ctx),
     ...fields,
   };
+}
+
+/** The person acting: whoever is signed in (a member, a share guest), else the workspace's account. */
+export function actorOf(ctx: OpContext): string | null {
+  if (ctx.actor?.id && ctx.actor.id !== "anon") return ctx.actor.id;
+  return isOrgNamespace(ctx.ownerId) ? null : accountOf(ctx.ownerId);
 }
 
 export async function randomToken(bytes = 24): Promise<string> {

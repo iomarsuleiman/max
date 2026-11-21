@@ -15,10 +15,18 @@ import * as profileCard from "./profileCard";
 import * as shares from "./shares";
 import * as sites from "./sites";
 import * as workspaces from "./workspaces";
+import * as inboxOps from "./inbox";
+import * as peopleOps from "./people";
+import * as automationOps from "./automations";
+import * as orgAccessOps from "./orgAccess";
+import * as approvalOps from "./approvals";
+import * as insightOps from "./insights";
 import { accountOf } from "../workspaces";
+import { orgGate } from "./orgGate";
+import { queueEvents, scopeFor, SCOPES } from "../integrations";
 
 const all: OpDef[] = [];
-for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares, sites, workspaces]) {
+for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares, sites, workspaces, inboxOps, peopleOps, automationOps, orgAccessOps, approvalOps, insightOps]) {
   for (const value of Object.values(mod)) {
     if (value && typeof value === "object" && "name" in value && "run" in value && "input" in value) all.push(value as OpDef);
   }
@@ -40,7 +48,8 @@ export const batch = defineOp({
       }
       if (def.uiOnly && ctx.source === "mcp") throw new MaxError("VALIDATION", `"${item.op}" isn't available to assistants.`, { failedIndex: index });
       try {
-        results.push(await runOp(def, item.args ?? {}, ctx));
+        const gate = await orgGate(item.op, def, item.args, ctx);
+        results.push(gate.skip ? gate.skip.result : await runOp(def, item.args ?? {}, gate.ctx));
       } catch (err) {
         const e = serializeError(err);
         throw new MaxError(e.code, `Operation ${index + 1} (${item.op}) failed: ${e.message} Nothing in this batch was applied.`, { ...e.details, failedIndex: index });
@@ -99,9 +108,18 @@ export async function execute(name: string, args: unknown, ctx: OpContext, expec
   if (!def) throw new MaxError("NOT_FOUND", `Unknown operation "${name}".`);
   if (expectKind && def.kind !== expectKind) throw new MaxError("VALIDATION", `"${name}" is a ${def.kind}, not a ${expectKind}.`);
   if (def.uiOnly && ctx.source === "mcp") throw new MaxError("VALIDATION", `"${name}" isn't available to assistants.`);
+  // Connected apps: only operations their granted permissions cover; never destructive ones.
+  if (ctx.source === "app") {
+    const need = scopeFor(name, def.kind);
+    if (!need || def.destructive || def.uiOnly || !ctx.appScopes?.includes(need)) throw new MaxError("FORBIDDEN", need ? `This app wasn't given permission to ${SCOPES[need].label.toLowerCase()}.` : `Apps can't use "${name}".`);
+  }
+  // Organizations: membership, role and policy checks; may re-scope account-level ops to the caller.
+  const gate = await orgGate(name, def, args, ctx);
+  if (gate.skip) return gate.skip.result;
+  ctx = gate.ctx;
   // Your own standing is always readable, so a suspended or banned account can see why.
   if (name !== "account.standing") await assertInGoodStanding(ctx, def.kind);
-  const audit = ctx.source === "mcp" && def.kind === "mutation";
+  const audit = (ctx.source === "mcp" || ctx.source === "app") && def.kind === "mutation";
   // Writes may carry an idempotency key: a retry with the same key returns the first result.
   const raw = (args ?? {}) as Record<string, unknown>;
   const key = def.kind === "mutation" && typeof raw.idempotencyKey === "string" ? raw.idempotencyKey.slice(0, 200) : null;
@@ -121,6 +139,8 @@ export async function execute(name: string, args: unknown, ctx: OpContext, expec
       await ctx.db.insert("idempotency", { ownerId: ctx.ownerId, key, op: name, result: JSON.stringify(result ?? null), at: ctx.now });
     }
     if (audit) await ctx.db.insert("audit", { ownerId: ctx.ownerId, op: name, source: ctx.source, targetId: targetOf(args), ok: true, code: null, at: ctx.now });
+    // Webhooks for connected apps, queued in this same transaction.
+    if (def.kind === "mutation" && ctx.outbox) ctx.outbox.queued += await queueEvents(ctx.db, ctx.ownerId, name, args, result, ctx.now, ctx.actor?.name ?? null);
     return result;
   } catch (err) {
     // Failed mutations roll back, so failures are logged by the transport (see lib/server).

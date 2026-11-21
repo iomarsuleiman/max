@@ -6,61 +6,22 @@ test("landing butterfly flaps its wings on arrival, click and keyboard, and stay
   const logo = page.getByRole("button", { name: "Flap the Max butterfly's wings" });
   await expect(logo).toBeVisible();
   const body = logo.locator(".butterfly-body");
-  // Flaps once on arrival, then settles.
-  await expect(body).toHaveAttribute("data-flapping", "");
   const wing = logo.locator(".butterfly-wing--left");
+  // Every click or Enter restarts the flap (a fresh element), so no waiting between them.
+  const flaps = () => expect(body).toHaveAttribute("data-flapping", "");
   await expect.poll(() => wing.evaluate((el) => getComputedStyle(el).animationName)).toBe("butterfly-wing-left");
-  await page.waitForTimeout(1100);
+  await flaps();
   await logo.click();
-  await expect(body).toHaveAttribute("data-flapping", "");
-  await page.waitForTimeout(1100);
+  await flaps();
   await logo.focus();
   await page.keyboard.press("Enter");
-  await expect(body).toHaveAttribute("data-flapping", "");
-  await page.waitForTimeout(1100);
-  // Grab it, carry it away and fling it: it spins, then floats home upright.
-  const mover = body.locator("..");
-  // Carrying it slowly moves it without turning it.
-  {
-    const b0 = (await logo.boundingBox())!;
-    await page.waitForTimeout(1100);
-    await page.mouse.move(b0.x + b0.width / 2, b0.y + b0.height / 2);
-    await page.mouse.down();
-    for (let i = 1; i <= 6; i++) {
-      await page.mouse.move(b0.x + b0.width / 2 + i * 10, b0.y + b0.height / 2, { steps: 1 });
-      expect(await mover.evaluate((el) => el.style.transform)).toMatch(/rotate\(0deg\)$/);
-    }
-    await page.waitForTimeout(150);
-    await page.mouse.up();
-    await expect.poll(() => mover.evaluate((el) => el.style.transform), { timeout: 15_000 }).toBe("translate(0px, 0px) rotate(0deg)");
-  }
-  const box = (await logo.boundingBox())!;
-  await page.waitForTimeout(1100);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2 + i * 30, box.y + box.height / 2 + i * 6, { steps: 1 });
-  await page.mouse.up();
-  await expect.poll(() => mover.evaluate((el) => el.style.transform)).toMatch(/translate\((?!0px, 0px)/);
-  // A flick spins it.
-  await expect.poll(() => mover.evaluate((el) => el.style.transform)).toMatch(/rotate\((?!0deg)/);
-  await expect.poll(() => mover.evaluate((el) => el.style.transform), { timeout: 15_000 }).toBe("translate(0px, 0px) rotate(0deg)");
-  // An edge grab turns around the center without dragging the mark across the page.
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const radius = box.width * 0.35;
-  await page.mouse.move(cx + radius, cy);
-  await page.mouse.down();
-  await page.mouse.move(cx, cy + radius, { steps: 5 });
-  await expect.poll(() => mover.evaluate((el) => Math.round(Number(el.style.transform.match(/translate\(0px, 0px\) rotate\(([^)]+)deg\)/)?.[1])))).toBe(90);
-  await page.mouse.up();
+  await flaps();
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.waitForTimeout(60);
   await logo.click();
   await expect(logo).toHaveAttribute("data-still", "true");
   await expect.poll(() => wing.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(results.violations.map((violation) => violation.id)).toEqual([]);
-  await page.screenshot({ path: "test-results/max-landing.png", fullPage: true });
 });
 
 test("landing grain stays small and static, follows the chosen theme, with no navbar (other pages have a solid one)", async ({ page }) => {

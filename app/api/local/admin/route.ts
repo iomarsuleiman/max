@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { serializeError } from "@/lib/domain/errors";
 import { CLOUD } from "@/lib/config";
-import { localActor, localModeAllowed, runLocalAdmin } from "@/lib/server/local";
+import { LOCAL_ADMIN_FNS, localActor, localModeAllowed, runLocalAdmin } from "@/lib/server/local";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
   }
-  if (!body || !["check", "overview", "reports", "setStatus", "setReport", "report"].includes(body.fn)) return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
+  if (!body || !LOCAL_ADMIN_FNS.includes(body.fn)) return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
   try {
     return NextResponse.json({ result: (await runLocalAdmin(body, localActor(request))) ?? null });
   } catch (err) {

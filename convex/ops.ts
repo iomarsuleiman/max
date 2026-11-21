@@ -6,7 +6,8 @@ import { convexDb, convexStorage } from "./convexDb";
 import { makeFunctionReference } from "convex/server";
 
 const deleteR2Object = makeFunctionReference<"action", { key: string }>("r2:deleteObject");
-import { accountOf, resolveOwner } from "../lib/domain/workspaces";
+const deliverWebhooks = makeFunctionReference<"action">("integrations:deliver");
+import { accountOf, resolveScope, type RequestScope } from "../lib/domain/workspaces";
 import { purgeNotionAccount } from "./notionCleanup";
 
 /**
@@ -16,10 +17,13 @@ import { purgeNotionAccount } from "./notionCleanup";
  * domain operations, so UI and MCP behaviour can't drift apart.
  */
 
-async function ownerFromAuth(ctx: { auth: { getUserIdentity(): Promise<{ subject: string } | null> } }) {
+type Identity = { subject: string; name?: string; givenName?: string; email?: string; pictureUrl?: string };
+type Auth = { auth: { getUserIdentity(): Promise<Identity | null> } };
+
+async function identityOf(ctx: Auth) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Your session has ended. Sign in again to continue." });
-  return identity.subject;
+  return identity;
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -29,7 +33,7 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-function checkSecret(secret: string) {
+export function checkSecret(secret: string) {
   const expected = process.env.MAX_SERVER_SECRET;
   if (!expected || expected.length < 32 || !constantTimeEqual(secret, expected)) {
     throw new ConvexError({ code: "UNAUTHENTICATED", message: "Server credentials are not configured." });
@@ -40,14 +44,23 @@ async function run(
   ctx: { db: never; storage: never; scheduler: GenericMutationCtx<GenericDataModel>["scheduler"] },
   op: string,
   args: unknown,
-  ownerId: string,
+  scope: RequestScope & { actor?: { id: string; name: string; image: string | null } },
   source: "ui" | "mcp",
   kind: "query" | "mutation",
 ) {
+  const ownerId = scope.ownerId;
   try {
     // R2 files are deleted by a background action (mutations can't make network calls).
     const schedule = kind === "mutation" && ctx.scheduler ? (key: string) => ctx.scheduler.runAfter(0, deleteR2Object, { key }) : undefined;
-    const result = await execute(op, args, { db: convexDb(ctx.db), storage: convexStorage(ctx.storage, schedule), ownerId, now: Date.now(), source }, kind);
+    const outbox = { queued: 0 };
+    const result = await execute(
+      op,
+      args,
+      { db: convexDb(ctx.db), storage: convexStorage(ctx.storage, schedule), ownerId, now: Date.now(), source, ...(kind === "mutation" ? { outbox } : {}), ...(scope.org ? { org: { role: scope.org.role }, actor: scope.actor } : {}) },
+      kind,
+    );
+    // Connected apps hear about the change (webhooks go out from an action, after this commits).
+    if (outbox.queued && ctx.scheduler) await ctx.scheduler.runAfter(0, deliverWebhooks, {});
     if (op === "account.deleteAllData") await purgeNotionAccount(ctx, ownerId);
     return result;
   } catch (err) {
@@ -58,11 +71,13 @@ async function run(
   }
 }
 
-/** The signed-in account, in the workspace the browser has open (`ws`; the main one when absent). */
-async function ownerOf(ctx: { auth: { getUserIdentity(): Promise<{ subject: string } | null> }; db: unknown }, ws: string | undefined) {
-  const account = await ownerFromAuth(ctx);
+/** The signed-in account, in the workspace or organization the browser has open (`ws`; the main one when absent). */
+async function ownerOf(ctx: Auth & { db: unknown }, ws: string | undefined) {
+  const identity = await identityOf(ctx);
   try {
-    return await resolveOwner(convexDb(ctx.db as never), account, ws);
+    const scope = await resolveScope(convexDb(ctx.db as never), identity.subject, ws);
+    const name = (identity.name || identity.givenName || identity.email?.split("@")[0] || "Someone").slice(0, 120);
+    return { ...scope, actor: { id: identity.subject, name, image: identity.pictureUrl ?? null } };
   } catch (err) {
     throw new ConvexError(serializeError(err) as never);
   }
@@ -78,10 +93,12 @@ export const mutation = mutationGeneric({
   handler: async (ctx, { op, args, ws }) => run(ctx as never, op, args, await ownerOf(ctx, ws), "ui", "mutation"),
 });
 
-/** An assistant's account, in the workspace it asked for (`ws`; the main one when absent). */
+/** An assistant's account, in the workspace or organization it asked for (`ws`; the main one when absent). */
 async function serverOwner(ctx: { db: unknown }, ownerId: string, ws: string | undefined) {
   try {
-    return await resolveOwner(convexDb(ctx.db as never), accountOf(ownerId), ws);
+    const account = accountOf(ownerId);
+    const scope = await resolveScope(convexDb(ctx.db as never), account, ws);
+    return { ...scope, actor: { id: account, name: scope.org?.name ?? "Assistant", image: null } };
   } catch (err) {
     throw new ConvexError(serializeError(err) as never);
   }

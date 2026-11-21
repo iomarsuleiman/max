@@ -239,7 +239,7 @@ function Frame({ children }: { children: ReactNode }) {
           </D.Content>
         </D.Portal>
       </D.Root>
-      <main id="main" tabIndex={-1} className="max-panel relative flex min-w-0 flex-1 flex-col outline-none" data-alone={!ws.sidebarOpen || undefined} data-frame={ws.settings?.frame === "floating" ? undefined : "full"}>
+      <main id="main" tabIndex={-1} className="max-panel relative flex min-w-0 flex-1 flex-col outline-none md:[margin-inline-end:var(--max-split,0px)]" data-alone={!ws.sidebarOpen || undefined} data-frame={ws.settings?.frame === "floating" ? undefined : "full"}>
         <OfflineNotice />
         {standing?.status === "suspended" && <SuspendedBanner standing={standing} />}
         {children}

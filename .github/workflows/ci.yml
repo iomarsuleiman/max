@@ -24,15 +24,12 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:backup
-      - run: node --test experiments/max-v2-pr21/recovery.test.mjs
-      - run: node --test experiments/max-v2-pr22/recovery-evidence.test.mjs
       - run: pnpm build
         env:
           MAX_LOCAL_MODE: "true"
 
   e2e:
     runs-on: ubuntu-latest
-    needs: check
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -61,120 +58,9 @@ jobs:
       - run: pnpm audit --prod --audit-level high
         continue-on-error: true
 
-  # PR15: no live Convex deployment, app routes, editor migrations or credentials.
-  # Pinned direct dependencies are installed only in a disposable CI directory.
-  provider-probe:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
-        working-directory: experiments/max-v2-pr15
-      - run: npm ls --depth=0
-        working-directory: experiments/max-v2-pr15
-      - run: npm test
-        working-directory: experiments/max-v2-pr15
-
-
-  # PR16 disposable browser lab. Intentionally does not start Convex or
-  # exercise production workspaces; no real user data or credentials involved.
-  blocknote-browser-lab:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
-        working-directory: experiments/max-v2-pr16
-      - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm exec playwright test --config experiments/max-v2-pr16/playwright.config.mjs
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: pr16-browser-lab-results
-          path: test-results/
-          retention-days: 7
-
-  # PR18: node-level simulated transport plus a static build of the real
-  # Max-schema browser entry. No live Convex/Clerk credentials or deployment.
-  remote-provider-contract:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
-        working-directory: experiments/max-v2-pr18
-      - run: npm test
-        working-directory: experiments/max-v2-pr18
-      - run: npm run build
-        working-directory: experiments/max-v2-pr18
-
-  # PR19: actual IndexedDB persistence in Chromium/WebKit, not a mocked
-  # journal. This is still synthetic: no live Clerk/Convex credentials.
-  durable-offline-browser:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
-        working-directory: experiments/max-v2-pr18
-      - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm exec playwright test --config experiments/max-v2-pr19/journal.playwright.config.mjs
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: pr19-indexeddb-browser-results
-          path: test-results/
-          retention-days: 7
-
-  # PR23: native Web Locks + shared IndexedDB across actual browser tabs.
-  # Synthetic same-origin fixtures only; no real Clerk/Convex credentials.
-  pr23-multitab-browser:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
-        working-directory: experiments/max-v2-pr18
-      - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm exec playwright test --config experiments/max-v2-pr23/room.playwright.config.mjs
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: pr23-multitab-results
-          path: test-results/
-          retention-days: 7
+  # The experiments/ spikes (PR15–PR23) are not shipped code. Their suites still run locally:
+  #   cd experiments/max-v2-pr18 && npm install && npm test   (see each folder's README)
+  # They're kept out of CI so every push doesn't install browsers five extra times.
 
   # PR44: green means release remains blocked until separately reviewed.
   # This check does not attest to evidence, approve deployment or enable a flag.

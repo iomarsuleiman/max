@@ -12,6 +12,9 @@ import { notifyError, useWorkspace } from "@/components/workspace/context";
 import { Avatar } from "@/components/workspace/Sidebar";
 import { SiteForm } from "@/components/site/SiteForm";
 import { can, usePageAccess } from "./access";
+import { OrgAccessSection } from "@/components/org/PageAccess";
+import { isOrgId, useOrgDetails } from "@/lib/client/organizations";
+import { activeWorkspace } from "@/lib/client/workspace";
 
 const LEVEL_OPTIONS: { value: ShareLevel; label: string; hint: string }[] = [
   { value: "full_access", label: "Full access", hint: "Edit, comment and share with others" },
@@ -25,7 +28,7 @@ interface ShareList {
   ownerId: string;
   direct: ShareRow[];
   inherited: (ShareRow & { fromTitle: string })[];
-  link: { token: string; level: ShareLevel; public: boolean; pageId: string; fromTitle: string | null } | null;
+  link: { token: string; level: ShareLevel; public: boolean; pageId: string; fromTitle: string | null; expiresAt?: number | null } | null;
 }
 
 interface Person {
@@ -51,6 +54,10 @@ export function ShareMenu({ page }: { page: SharePage }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"share" | "publish">("share");
   const canPublish = manage && !page.isTemplate && (page.kind ?? "page") === "page";
+  // Organization pages: who inside the organization can see it, above sharing with others.
+  const orgId = activeWorkspace();
+  const inOrg = isOrgId(orgId);
+  const orgTeams = useOrgDetails(inOrg && open ? orgId : null).data?.teams.filter((t) => !t.archivedAt).map((t) => ({ id: t.id, name: t.name }));
   return (
     <Popover
       open={open}
@@ -72,6 +79,7 @@ export function ShareMenu({ page }: { page: SharePage }) {
           ))}
         </div>
       )}
+      {open && inOrg && tab === "share" && access.level === "owner" && <OrgAccessSection pageId={page._id} teams={orgTeams} />}
       {open && (canPublish && tab === "publish" ? <PublishPanel page={page} /> : manage ? <ManageShares page={page} /> : <SharedWithYou page={page} />)}
     </Popover>
   );
@@ -100,6 +108,7 @@ function SharedWithYou({ page }: { page: { _id: string; title: string } }) {
 }
 
 function ManageShares({ page }: { page: SharePage }) {
+  const orgPage = isOrgId(activeWorkspace());
   const ws = useWorkspace();
   const access = usePageAccess();
   const q = useOp<ShareList>("shares.list", { pageId: page._id });
@@ -160,7 +169,7 @@ function ManageShares({ page }: { page: SharePage }) {
       </form>
 
       <div className="scroll-quiet max-h-[min(50dvh,360px)] overflow-y-auto p-2" aria-label="People with access" role="list">
-        <Row name={`${ws.settings?.displayName || ws.identity.name} ${access.level === "owner" ? "(You)" : ""}`.trim()} detail={access.level === "owner" ? ws.identity.email ?? null : null} image={access.level === "owner" ? ws.identity.imageUrl ?? null : null} right={<span className="px-2 text-[12.5px] text-fg-3">{access.level === "owner" ? "Owner" : LABEL[access.level as ShareLevel]}</span>} />
+        <Row name={`${ws.settings?.displayName || ws.identity.name} ${access.level === "owner" ? "(You)" : ""}`.trim()} detail={access.level === "owner" ? ws.identity.email ?? null : null} image={access.level === "owner" ? ws.identity.imageUrl ?? null : null} right={<span className="px-2 text-[12.5px] text-fg-3">{access.level === "owner" ? (orgPage ? "Member" : "Owner") : LABEL[access.level as ShareLevel]}</span>} />
         {!q.data && <div className="grid place-items-center py-4"><Spinner label="Loading people" /></div>}
         {q.data?.direct.map((s) => (
           <Row
@@ -204,7 +213,7 @@ function ManageShares({ page }: { page: SharePage }) {
               onChange={(v) => void (v === "restricted" ? setLink(null) : setLink("view", v === "web"))}
               disabled={!!link && !linkHere}
               options={[
-                { value: "restricted", label: "Only people invited" },
+                { value: "restricted", label: orgPage ? "The organization and people invited" : "Only people invited" },
                 { value: "link", label: "Anyone in Max with the link" },
                 ...(link?.public ? [{ value: "web", label: "Published to the web" }] : []),
               ]}
@@ -218,7 +227,9 @@ function ManageShares({ page }: { page: SharePage }) {
                     : page.teamspace
                       ? "Anyone signed in to Max with the link can open it and join the teamspace."
                       : "Anyone signed in to Max with the link can open it and add it to their sidebar."
-                : "Only people listed above can open this page."}
+                : orgPage
+                  ? "People in the organization (as set above) and the people listed here can open it."
+                  : "Only people listed above can open this page."}
             </p>
           </div>
           {linkHere && link.public && <span className="px-2 text-[12.5px] text-fg-3">Can view</span>}
@@ -233,6 +244,19 @@ function ManageShares({ page }: { page: SharePage }) {
             />
           )}
         </div>
+        {linkHere && (
+          <div className="mt-2 flex items-center gap-2 ps-[42px] text-[12px] text-fg-3">
+            <span>{link.expiresAt ? `Stops working ${new Date(link.expiresAt).toLocaleDateString()}` : "Never expires"}</span>
+            <Select
+              label="Link expiry"
+              size="sm"
+              variant="ghost"
+              value={""}
+              onChange={(v) => void ws.call("shares.setLink", { pageId: page._id, level: link.level, web: !!link.public, expiresInDays: v === "never" ? null : Number(v) }).catch((err) => notifyError(err))}
+              options={[{ value: "", label: "Change…" }, { value: "1", label: "Expire in 1 day" }, { value: "7", label: "Expire in 7 days" }, { value: "30", label: "Expire in 30 days" }, { value: "never", label: "Never expire" }]}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-line px-3 py-2.5">

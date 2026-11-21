@@ -56,7 +56,7 @@ interface WorkspaceValue {
   setImportAsTemplates: (v: boolean) => void;
   /** Opens a page in side peek, center peek or full page (⌘/Ctrl-click always opens full page). */
   openPage: (id: string, opts?: { mode?: PeekMode; list?: string[]; event?: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean } }) => void;
-  peek: { id: string; mode: "side" | "center" } | null;
+  peek: { id: string; mode: "side" | "center" | "split" } | null;
   peekList: string[];
   closePeek: () => void;
   /** The page the keyboard shortcuts act on: the peeked page, else the open page. */
@@ -64,7 +64,7 @@ interface WorkspaceValue {
   setActivePageId: (id: string | null) => void;
 }
 
-export type PeekMode = "side" | "center" | "full";
+export type PeekMode = "side" | "center" | "split" | "full";
 
 const Ctx = createContext<WorkspaceValue | null>(null);
 
@@ -200,7 +200,8 @@ export function WorkspaceProvider({ identity, children }: { identity: Identity; 
   const [peekList, setPeekList] = useState<string[]>([]);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const peekParam = params.get("peek");
-  const peekMode = params.get("pm") === "center" ? ("center" as const) : ("side" as const);
+  const pm = params.get("pm");
+  const peekMode = pm === "center" ? ("center" as const) : pm === "split" ? ("split" as const) : ("side" as const);
   const peek = useMemo(() => (peekParam ? { id: peekParam, mode: peekMode } : null), [peekParam, peekMode]);
   // Readable page links (/p/<title-words>-<id>); titles come from the sidebar tree.
   const titlesRef = useRef<Map<string, PageSummary>>(new Map());

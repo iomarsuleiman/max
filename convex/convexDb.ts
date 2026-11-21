@@ -1,7 +1,7 @@
 import type { GenericDatabaseReader, GenericDatabaseWriter, GenericDataModel, StorageReader, StorageWriter } from "convex/server";
 import { newObjectKey, presign, R2_PREFIX, r2ConfigFromEnv } from "../lib/domain/r2";
 import { accountOf } from "../lib/domain/workspaces";
-import type { CrossField, CrossTable, Db, IndexedField, NewRow, Storage } from "../lib/domain/db";
+import type { CrossField, CrossTable, Db, IndexedField, ListAllTable, NewRow, Storage } from "../lib/domain/db";
 import type { TableName, Tables } from "../lib/domain/types";
 
 type Reader = GenericDatabaseReader<GenericDataModel>;
@@ -66,7 +66,7 @@ export function convexDb(db: Reader | Writer): Db {
         .collect();
       return earlier.length + 1;
     },
-    async listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number) {
+    async listAll<T extends ListAllTable>(table: T, limit: number) {
       const rows = await db.query(table).order("desc").take(limit);
       return rows.map((r) => strip(r, table) as unknown as Tables[T]);
     },

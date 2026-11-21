@@ -25,7 +25,7 @@ const INSTRUCTIONS = `Max is the user's private notes workspace: nested pages, r
 - Templates: templates_list / templates_apply; gallery_list / gallery_install for built-in templates.
 - Tools marked destructive need confirm: true, only after the user has agreed. Trashing (pages_archive) is reversible with pages_restore.
 - Use batch for several writes that must all succeed together.
-- The user may have several personal workspaces. workspaces_list shows them; pass \`workspace\` (its id or name) to any tool to work there. Without it, tools use the main workspace.`;
+- The user may have several personal workspaces and belong to organizations (shared workspaces, ids starting org_). workspaces_list shows them with the user's role; pass \`workspace\` (its id or name) to any tool to work there. The user's organization role applies to every call. Without it, tools use the main workspace.`;
 
 const WORKSPACE = z
   .string()

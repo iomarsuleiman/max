@@ -98,8 +98,8 @@ export const duplicate = mutationGeneric({
   handler: async (ctx, a) => {
     const actor = await actorOf(ctx);
     const db = convexDb((ctx as GenericMutationCtx<GenericDataModel>).db);
-    // Into the workspace the person has open.
-    return guard(async () => duplicateShared(db, actor, a.pageId, Date.now(), a.linkToken, await resolveOwner(db, actor.id, a.ws)));
+    // Into the personal workspace the person has open (their main one while in an organization).
+    return guard(async () => duplicateShared(db, actor, a.pageId, Date.now(), a.linkToken, await resolveOwner(db, actor.id, a.ws?.startsWith("org_") ? undefined : a.ws)));
   },
 });
 

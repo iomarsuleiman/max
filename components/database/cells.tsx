@@ -59,6 +59,8 @@ export function ValueView({ prop, value, record, compact }: { prop: PropertyDef;
       return typeof value === "string" ? <a href={`tel:${value}`} className="truncate" dir="ltr" onClick={(e) => e.stopPropagation()}>{value}</a> : null;
     case "relation":
       return <RelationChips ids={Array.isArray(value) ? value : []} />;
+    case "person":
+      return <PeopleChips ids={Array.isArray(value) ? value : []} compact={compact} />;
     case "formula":
     case "rollup":
       if (value === null || value === undefined || value === "") return null;
@@ -68,6 +70,71 @@ export function ValueView({ prop, value, record, compact }: { prop: PropertyDef;
     default:
       return value === null || value === undefined ? null : <span className="truncate">{String(value)}</span>;
   }
+}
+
+type Person = { id: string; name: string; email: string | null; image: string | null };
+
+/** People who can be assigned here (an organization's members, or you). */
+function usePeople() {
+  return useOp<{ people: Person[] }>("people.list", {}).data?.people ?? [];
+}
+
+function PersonAvatar({ person, size = 18 }: { person: Person | undefined; size?: number }) {
+  if (person?.image) return <img src={person.image} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
+  return (
+    <span className="grid shrink-0 place-items-center rounded-full bg-surface-2 font-semibold text-fg-2 shadow-[inset_0_0_0_1px_var(--line)]" style={{ width: size, height: size, fontSize: size * 0.5 }} aria-hidden>
+      {(person?.name ?? "?").charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+function PeopleChips({ ids, compact }: { ids: string[]; compact?: boolean }) {
+  const people = usePeople();
+  const byId = new Map(people.map((p) => [p.id, p]));
+  return (
+    <span className={cn("flex gap-1.5", compact ? "overflow-hidden" : "flex-wrap")}>
+      {ids.map((id) => {
+        const p = byId.get(id);
+        return (
+          <span key={id} className="inline-flex max-w-full items-center gap-1 truncate text-[13px]">
+            <PersonAvatar person={p} />
+            <span className="truncate">{p?.name ?? "Someone"}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function PersonEditor({ value, onSave }: { value: Value; onSave: (v: unknown) => void }) {
+  const people = usePeople();
+  const [q, setQ] = useState("");
+  const chosen = new Set(Array.isArray(value) ? value : []);
+  const shown = people.filter((p) => !q.trim() || `${p.name} ${p.email ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const toggle = (id: string) => {
+    const next = new Set(chosen);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSave(next.size ? [...next] : null);
+  };
+  return (
+    <div className="w-64 p-1.5">
+      <label className="mb-1 flex h-8 items-center gap-2 rounded-md bg-surface-2 px-2">
+        <Search className="size-3.5 text-fg-3" aria-hidden />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people" aria-label="Search people" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" />
+      </label>
+      <div role="listbox" aria-label="People" aria-multiselectable className="max-h-64 overflow-y-auto">
+        {shown.map((p) => (
+          <button key={p.id} type="button" role="option" aria-selected={chosen.has(p.id)} onClick={() => toggle(p.id)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-[13px] hover:bg-hover">
+            <PersonAvatar person={p} size={20} />
+            <span className="min-w-0 flex-1 truncate">{p.name}</span>
+            {chosen.has(p.id) && <Check className="size-3.5 text-accent-text" aria-hidden />}
+          </button>
+        ))}
+        {!shown.length && <p className="px-2 py-3 text-[13px] text-fg-3">No one matches.</p>}
+      </div>
+    </div>
+  );
 }
 
 function RelationChips({ ids }: { ids: string[] }) {
@@ -112,6 +179,8 @@ export function ValueEditor({ prop, value, onSave, onCreateOption, onClose, data
       return <OptionsEditor prop={prop} value={value} onSave={onSave} />;
     case "relation":
       return <RelationEditor prop={prop} value={value} onSave={onSave} databaseId={databaseId} />;
+    case "person":
+      return <PersonEditor value={value} onSave={onSave} />;
     case "date":
       return <DateEditor value={typeof value === "string" ? value : ""} onSave={(v) => (onSave(v || null), onClose())} />;
     case "checkbox":

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { setup } from "./harness";
-import { adminOverview } from "@/lib/domain/admin";
+import { adminUsers } from "@/lib/domain/admin";
 import { importSourceOf } from "@/lib/client/importKinds";
 
 describe("people who joined from your link", () => {
@@ -22,7 +22,7 @@ describe("people who joined from your link", () => {
     expect(JSON.stringify(mine)).not.toMatch(/Ada|Ben|user_a|user_b/);
     expect((await h.as("user_c")<{ invited: number }>("profileCard.get")).invited).toBe(0);
 
-    const overview = await adminOverview(h.db, Date.now());
+    const overview = await adminUsers(h.db, {});
     const byId = Object.fromEntries(overview.users.map((u) => [u.id, u]));
     expect(byId.user_omar.invited).toBe(2);
     expect(byId.user_a.invited).toBe(0);

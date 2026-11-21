@@ -3,7 +3,11 @@ import { MaxError } from "../errors";
 import { findBlock, parseContent, blockText } from "../blocks";
 import type { CommentRow } from "../types";
 import { confirm, defineOp, id, type OpContext } from "./define";
-import { requirePage } from "./helpers";
+import { actorOf, requirePage } from "./helpers";
+import { people } from "./people";
+import { notify } from "../notifications";
+import { isOrgNamespace } from "../organizations";
+import { accountOf } from "../workspaces";
 
 /** Personal comments on pages and blocks: notes to yourself, resolvable like Notion's. */
 const body = z.string().trim().min(1, "Write something first.").max(5000);
@@ -44,9 +48,26 @@ export const commentsAdd = defineOp({
   kind: "mutation",
   title: "Add comment",
   description: "Adds a comment to a page, or to one block when blockId is given.",
-  input: z.object({ pageId: id, blockId: z.string().max(64).nullable().optional(), body }),
-  async run(ctx, { pageId, blockId = null, body: text }) {
-    await requirePage(ctx, pageId);
+  input: z.object({
+    pageId: id,
+    blockId: z.string().max(64).nullable().optional(),
+    body,
+    parentId: id.nullable().optional().describe("Reply to this comment (a thread)."),
+    mentions: z.array(z.string().max(256)).max(20).optional().describe("Ids of people @mentioned (from people.list); they're notified."),
+  }),
+  async run(ctx, { pageId, blockId = null, body: text, parentId = null, mentions = [] }) {
+    const page = await requirePage(ctx, pageId);
+    let parent: CommentRow | null = null;
+    if (parentId) {
+      parent = await requireComment(ctx, parentId);
+      if (parent.pageId !== pageId) throw new MaxError("VALIDATION", "You can only reply to a comment on the same page.");
+      // Threads are one level deep: a reply to a reply joins the same thread.
+      if (parent.parentId) parent = await requireComment(ctx, parent.parentId);
+      blockId = parent.blockId;
+    }
+    const existing = await ctx.db.list("comments", ctx.ownerId, { field: "pageId", value: pageId });
+    const allowed = new Set([...(await people(ctx)).map((p) => p.id), ...existing.map((c) => c.authorId).filter((x): x is string => !!x)]);
+    const mentioned = [...new Set(mentions)].filter((m) => allowed.has(m));
     if (blockId) {
       const doc = (await ctx.db.list("documents", ctx.ownerId, { field: "pageId", value: pageId }))[0];
       if (!findBlock(parseContent(doc?.content ?? "[]"), blockId)) throw new MaxError("NOT_FOUND", "That block isn't on this page anymore.");
@@ -64,8 +85,21 @@ export const commentsAdd = defineOp({
       authorId: ctx.actor?.id ?? null,
       authorName: ctx.actor?.name ?? null,
       authorImage: ctx.actor?.image ?? null,
+      parentId: parent?._id ?? null,
+      reactions: {},
+      mentions: mentioned,
     };
     const commentId = await ctx.db.insert("comments", row);
+    // Mentioned people, then everyone else in the conversation (the thread, or the page's
+    // commenters), and the page's owner in a personal workspace.
+    const actor = { id: actorOf(ctx) ?? "", name: ctx.actor?.name ?? null };
+    const where = page.title || "Untitled";
+    await notify(ctx.db, mentioned, { kind: "mention", ownerId: ctx.ownerId, pageId, actor, title: `${actor.name ?? "Someone"} mentioned you on “${where}”`, body: text }, ctx.now);
+    const thread = parent ? existing.filter((c) => c._id === parent!._id || c.parentId === parent!._id) : existing;
+    const others = new Set(thread.map((c) => c.authorId ?? (isOrgNamespace(ctx.ownerId) ? null : accountOf(ctx.ownerId))).filter((x): x is string => !!x));
+    if (!isOrgNamespace(ctx.ownerId)) others.add(accountOf(ctx.ownerId));
+    for (const m of mentioned) others.delete(m);
+    await notify(ctx.db, others, { kind: "comment", ownerId: ctx.ownerId, pageId, actor, title: `${actor.name ?? "Someone"} ${parent ? "replied" : "commented"} on “${where}”`, body: text, key: `comment:${pageId}:${parent?._id ?? "page"}` }, ctx.now);
     return { comment: { _id: commentId, ...row } };
   },
 });
@@ -80,6 +114,26 @@ export const commentsUpdate = defineOp({
     const c = await requireComment(ctx, commentId);
     await ctx.db.patch("comments", c._id, { body: text, updatedAt: ctx.now });
     return { comment: { ...c, body: text, updatedAt: ctx.now } };
+  },
+});
+
+export const commentsReact = defineOp({
+  name: "comments.react",
+  kind: "mutation",
+  title: "React to a comment",
+  description: "Adds your emoji reaction to a comment, or removes it if you already reacted with that emoji.",
+  input: z.object({ id, emoji: z.string().min(1).max(16) }),
+  async run(ctx, { id: commentId, emoji }) {
+    const c = await requireComment(ctx, commentId);
+    const me = actorOf(ctx);
+    if (!me) throw new MaxError("FORBIDDEN", "Sign in to react.");
+    const reactions = { ...(c.reactions ?? {}) };
+    const list = reactions[emoji] ?? [];
+    reactions[emoji] = list.includes(me) ? list.filter((x) => x !== me) : [...list, me];
+    if (!reactions[emoji].length) delete reactions[emoji];
+    if (Object.keys(reactions).length > 20) throw new MaxError("LIMIT", "That comment has enough kinds of reactions.");
+    await ctx.db.patch("comments", c._id, { reactions });
+    return { reactions };
   },
 });
 
@@ -106,6 +160,8 @@ export const commentsDelete = defineOp({
   async run(ctx, { id: commentId }) {
     const c = await requireComment(ctx, commentId);
     await ctx.db.delete("comments", c._id);
+    // Deleting a thread's first comment removes its replies with it.
+    for (const r of await ctx.db.list("comments", ctx.ownerId, { field: "pageId", value: c.pageId })) if (r.parentId === c._id) await ctx.db.delete("comments", r._id);
     return { deleted: true };
   },
 });

@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, ChevronDown, Columns3, Copy, FileText, LayoutGrid, LayoutTemplate, List, Maximize2, MoreHorizontal, PanelRight, Pencil, Plus, RectangleHorizontal, Table2, Trash2 } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Skeleton, cn, confirmAction } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
@@ -16,6 +19,7 @@ import { PageIcon } from "@/components/workspace/PageIcon";
 import { TableView } from "./TableView";
 import { BoardView, CalendarView, GalleryView, ListView } from "./OtherViews";
 import { FilterButton, PropertiesButton, SearchBox, SortButton } from "./Toolbar";
+import { AutomationsButton } from "./Automations";
 
 const VIEW_ICON: Record<ViewType, typeof Table2> = { table: Table2, board: Columns3, list: List, gallery: LayoutGrid, calendar: Calendar };
 const VIEW_LABEL: Record<ViewType, string> = { table: "Table", board: "Board", list: "List", gallery: "Gallery", calendar: "Calendar" };
@@ -140,6 +144,12 @@ export function DatabaseView({ database, readOnly }: { database: PageRow; readOn
           <FilterButton view={view} properties={allProps} onChange={(filters) => db.updateView({ filters })} />
           <SortButton view={view} properties={allProps} onChange={(sorts) => db.updateView({ sorts })} />
           <SearchBox value={search} onChange={setSearch} />
+          {!readOnly && <AutomationsButton databaseId={database._id} properties={allProps} />}
+          {!readOnly && (
+            <Link href={`/forms/${database._id}`} aria-label="Open as a form" title="Open as a form: share it so people add rows" className="grid size-8 place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg">
+              <ClipboardList className="size-4" />
+            </Link>
+          )}
           {(view.type === "table" || view.type === "gallery" || view.type === "list") && <PropertiesButton view={view} properties={allProps} onChange={(hiddenPropertyIds) => db.updateView({ hiddenPropertyIds })} />}
           {!readOnly && (
             <div className="ms-1 flex">

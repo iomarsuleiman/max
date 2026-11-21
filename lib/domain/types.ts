@@ -16,6 +16,7 @@ export type PropertyType =
   | "url"
   | "email"
   | "relation"
+  | "person"
   | "phone"
   | "formula"
   | "rollup"
@@ -52,6 +53,30 @@ export interface PropertyDef {
   /** Rollup properties: which relation to follow, which target property, and how to aggregate. */
   rollup?: { relationPropertyId: string; targetPropertyId: string; fn: RollupFn };
 }
+
+/**
+ * A database automation (lib/domain/ops/recordHooks.ts): deterministic, runs in the same
+ * transaction as the change that triggers it, never triggers other rules.
+ */
+export interface AutomationRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  trigger:
+    | { type: "created" }
+    | { type: "changed"; propertyId: string; to?: string | boolean | null }
+    | { type: "button"; label: string }
+    | { type: "schedule"; every: "day" | "week" | "month"; title: string };
+  actions: AutomationAction[];
+  runs?: number;
+  lastRunAt?: number | null;
+  lastError?: string | null;
+}
+export type AutomationAction =
+  | { type: "set"; propertyId: string; value: unknown }
+  | { type: "set_now"; propertyId: string }
+  | { type: "assign_actor"; propertyId: string }
+  | { type: "notify"; to: "assignees" | "creator" | string[]; message: string };
 
 export type RollupFn = "count" | "count_values" | "sum" | "average" | "min" | "max" | "percent_checked" | "show_original";
 
@@ -126,6 +151,13 @@ export type PropertyValue = string | number | boolean | string[] | null;
 
 export interface PageRow {
   _id: string;
+  /** Who created it and who last changed it (set where an acting person is known). */
+  createdBy?: string | null;
+  updatedBy?: string | null;
+  /** Databases only: their automations. */
+  automations?: AutomationRule[];
+  /** Wiki verification: who vouches for this page and until when. */
+  verification?: { by: string; byName: string | null; at: number; until: number } | null;
   ownerId: string;
   kind: PageKind;
   parentId: string | null;
@@ -219,6 +251,10 @@ export interface SettingsRow {
   workspaceIcon?: string | null;
   /** Extra personal workspaces, each a private namespace of its own (see lib/domain/workspaces.ts). */
   workspaces?: import("./workspaces").WorkspaceEntry[];
+  /** Inbox kinds turned off (false); everything else is on. */
+  notificationPrefs?: Partial<Record<NotificationKind, boolean>>;
+  /** This person's own sidebar and space settings inside each organization they belong to. */
+  orgPrefs?: Record<string, Partial<SettingsRow>>;
   onboarded: boolean;
   updatedAt: number;
 }
@@ -261,7 +297,7 @@ export interface AuditRow {
   at: number;
 }
 
-export type Source = "ui" | "mcp";
+export type Source = "ui" | "mcp" | "app";
 
 /** A personal note on a page or on one of its blocks (Max has no collaborators: comments are for you). */
 export interface CommentRow {
@@ -279,6 +315,12 @@ export interface CommentRow {
   authorId?: string | null;
   authorName?: string | null;
   authorImage?: string | null;
+  /** A reply: the comment it answers (threads are one level deep, like Notion's). */
+  parentId?: string | null;
+  /** Emoji reactions: emoji → the accounts who reacted. */
+  reactions?: Record<string, string[]>;
+  /** People @mentioned in the comment (they're notified). */
+  mentions?: string[];
 }
 
 /** A saved earlier state of a page's content (page history). */
@@ -333,6 +375,8 @@ export interface ShareLinkRow {
   level: Exclude<ShareLevel, "full_access">;
   /** Published to the web: anyone with the link can view, no Max account needed. */
   public?: boolean;
+  /** The link stops working at this time (null: never). */
+  expiresAt?: number | null;
   createdAt: number;
 }
 
@@ -437,7 +481,236 @@ export interface CollabAwarenessRow {
   at: number;
 }
 
+/* ── Organizations (lib/domain/organizations.ts) ─────────────────────────────
+ * Every org row is owned by the organization's namespace (`org_<id>`), so the same
+ * ownership-scoped reads that keep personal data apart keep organizations apart. */
+export type OrgRole = "owner" | "admin" | "member" | "guest";
+
+export interface OrgPolicies {
+  /** Members (not only admins) may invite people to join as members. */
+  membersCanInvite: boolean;
+  /** Pages may be shared with people outside the organization (they join as page guests). */
+  allowGuests: boolean;
+  /** Pages may be published to the web with a public link. */
+  allowPublicLinks: boolean;
+  /** Pages may be published as websites (admins only). */
+  allowSites: boolean;
+  /** Trashed pages are deleted for good after this many days (null: kept until someone deletes them). */
+  trashRetentionDays?: number | null;
+  /** Page history older than this many days is removed, keeping each page's latest version (null: kept). */
+  versionRetentionDays?: number | null;
+  /** People with a verified email at this domain may join as members without an invitation. */
+  autoJoinDomain?: string | null;
+}
+
+export interface OrgRow {
+  _id: string;
+  /** The organization's namespace, `org_<id>`: the ownerId of all its content. */
+  ownerId: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  description: string;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+  policies: OrgPolicies;
+  /** Platform-set operational limits (null: Max's defaults). */
+  maxMembers: number | null;
+  /**
+   * The owner's security phrase (PBKDF2 hash and salt), asked before ownership transfer and
+   * deletion. Works with any sign-in method, Google included: no password or email needed.
+   */
+  /** The auto-join domain, mirrored from policies for an indexed lookup. */
+  joinDomain?: string | null;
+  phraseHash?: string | null;
+  phraseSalt?: string | null;
+  phraseFailures?: number;
+  phraseLockedUntil?: number | null;
+}
+
+export interface OrgMemberRow {
+  _id: string;
+  ownerId: string;
+  accountId: string;
+  role: OrgRole;
+  status: "active" | "suspended";
+  name: string | null;
+  email: string | null;
+  image: string | null;
+  invitedBy: string | null;
+  joinedAt: number;
+  updatedAt: number;
+}
+
+export interface OrgInviteRow {
+  _id: string;
+  ownerId: string;
+  /** Normalized (lower-case) email. Accepting requires this verified email on the sign-in. */
+  email: string;
+  role: Exclude<OrgRole, "owner">;
+  status: "pending" | "accepted" | "declined" | "revoked";
+  invitedBy: string;
+  invitedByName: string | null;
+  createdAt: number;
+  expiresAt: number;
+  resolvedAt: number | null;
+  resolvedBy: string | null;
+}
+
+export interface OrgTeamRow {
+  _id: string;
+  ownerId: string;
+  name: string;
+  description: string;
+  memberIds: string[];
+  archivedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Append-only audit trail. ownerId is the organization's namespace, or "platform" for Max's admins. */
+export interface OrgEventRow {
+  _id: string;
+  ownerId: string;
+  actorId: string;
+  actorName: string | null;
+  action: string;
+  targetId: string | null;
+  detail: string | null;
+  at: number;
+}
+
+/** A page (and everything inside it) limited to chosen members and teams of its organization. */
+export interface OrgPageAccessRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  memberIds: string[];
+  teamIds: string[];
+  /** What everyone else in the organization gets: nothing (hidden), view or comment. */
+  othersLevel?: "none" | "view" | "comment";
+  /** Closed: hidden, but listed by name so people can ask to join. */
+  listed?: boolean;
+  createdBy: string;
+  updatedAt: number;
+}
+
+export type NotificationKind = "mention" | "comment" | "assigned" | "approval" | "access" | "membership" | "automation" | "reminder" | "announcement";
+
+/** One inbox item (lib/domain/notifications.ts). ownerId is the RECIPIENT account. */
+export interface NotificationRow {
+  _id: string;
+  ownerId: string;
+  kind: NotificationKind;
+  /** The namespace it's about: an organization or a personal workspace. */
+  scope: string | null;
+  pageId: string | null;
+  actorId: string | null;
+  actorName: string | null;
+  title: string;
+  body: string | null;
+  key: string | null;
+  readAt: number | null;
+  at: number;
+}
+
+/**
+ * A review request on a page, or a suggested edit awaiting review (lib/domain/ops/approvals.ts).
+ * Decisions are append-only: nothing in the history is ever rewritten.
+ */
+export interface ApprovalRow {
+  _id: string;
+  ownerId: string;
+  pageId: string;
+  kind: "review" | "suggestion";
+  requestedBy: string;
+  requestedByName: string | null;
+  reviewers: string[];
+  message: string;
+  status: "pending" | "approved" | "changes_requested" | "cancelled";
+  decisions: { by: string; byName: string | null; decision: "approved" | "changes_requested" | "cancelled"; note: string; at: number }[];
+  /** Suggested edits: the proposed blocks (JSON) and the revision they were made from. */
+  proposal: string | null;
+  baseRevision: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** A connector (app) registered by a developer (lib/domain/integrations.ts). ownerId: the developer's account. */
+export interface IntegrationRow {
+  _id: string;
+  ownerId: string;
+  name: string;
+  description: string;
+  icon: string | null;
+  website: string | null;
+  scopes: string[];
+  redirectUris: string[];
+  webhookUrl: string | null;
+  events: string[];
+  clientSecretHash: string;
+  signingSecret: string;
+  status: "private" | "submitted" | "published" | "rejected" | "suspended";
+  reviewNote: string | null;
+  installs?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** An app connected to one workspace or organization (ownerId: that namespace). */
+export interface InstallationRow {
+  _id: string;
+  ownerId: string;
+  integrationId: string;
+  installedBy: string;
+  scopes: string[];
+  tokenHash: string | null;
+  tokenPrefix: string | null;
+  codeHash: string | null;
+  codeExpiresAt: number | null;
+  redirectUri: string | null;
+  revokedAt: number | null;
+  lastUsedAt: number | null;
+  createdAt: number;
+}
+
+export interface WebhookDeliveryRow {
+  _id: string;
+  ownerId: string;
+  installationId: string;
+  integrationId: string;
+  event: string;
+  payload: string;
+  status: "pending" | "delivered" | "failed";
+  attempts: number;
+  nextAt: number;
+  lastError: string | null;
+  createdAt: number;
+}
+
+/** When a recurring automation next creates its row (one per schedule rule). ownerId: its namespace. */
+export interface ScheduleRow {
+  _id: string;
+  ownerId: string;
+  databaseId: string;
+  ruleId: string;
+  nextAt: number;
+}
+
 export interface Tables {
+  schedules: ScheduleRow;
+  integrations: IntegrationRow;
+  installations: InstallationRow;
+  webhookDeliveries: WebhookDeliveryRow;
+  approvals: ApprovalRow;
+  notifications: NotificationRow;
+  orgPageAccess: OrgPageAccessRow;
+  orgs: OrgRow;
+  orgMembers: OrgMemberRow;
+  orgInvites: OrgInviteRow;
+  orgTeams: OrgTeamRow;
+  orgEvents: OrgEventRow;
   pages: PageRow;
   documents: DocumentRow;
   settings: SettingsRow;

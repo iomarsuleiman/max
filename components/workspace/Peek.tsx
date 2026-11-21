@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog as D } from "radix-ui";
-import { ChevronDown, ChevronUp, ChevronsRight, Maximize2, PanelRight, RectangleHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsRight, Columns2, Maximize2, PanelRight, RectangleHorizontal } from "lucide-react";
 import { IconButton, Tooltip, cn } from "@/components/ui";
 import { readLocal, writeLocal } from "@/lib/client/storage";
 import { pageTitle } from "@/lib/client/format";
@@ -46,6 +46,15 @@ export function PeekHost() {
     return () => window.removeEventListener("keydown", onKey);
   }, [peek, go, ws]);
 
+  // Split view: the page sits beside the current one as a second pane, and the main page makes room.
+  const split = peek?.mode === "split";
+  useEffect(() => {
+    const root = document.documentElement;
+    if (split) root.style.setProperty("--max-split", `${Math.round(width)}px`);
+    else root.style.removeProperty("--max-split");
+    return () => void root.style.removeProperty("--max-split");
+  }, [split, width]);
+
   if (!peek) return null;
   const center = peek.mode === "center";
 
@@ -63,6 +72,9 @@ export function PeekHost() {
       </IconButton>
       <IconButton label={center ? "Switch to side peek" : "Switch to center peek"} size="md" onClick={() => ws.openPage(peek.id, { mode: center ? "side" : "center", list })}>
         {center ? <PanelRight className="size-4" /> : <RectangleHorizontal className="size-4" />}
+      </IconButton>
+      <IconButton label={split ? "Back to side peek" : "Open in split view"} size="md" aria-pressed={split} onClick={() => ws.openPage(peek.id, { mode: split ? "side" : "split", list })}>
+        <Columns2 className="size-4" />
       </IconButton>
       {list.length > 1 && index >= 0 && (
         <>
@@ -95,6 +107,8 @@ export function PeekHost() {
             (e.currentTarget as HTMLElement).focus();
           }}
           onInteractOutside={(e) => {
+            // Split view stays open while you work in the other pane; close it with its button or Esc.
+            if (split) return e.preventDefault();
             // In side peek, clicks on menus/toasts opened from the peek shouldn't close it.
             const t = e.target as HTMLElement;
             if (t.closest("[data-radix-popper-content-wrapper], [data-sonner-toaster], [role=dialog]")) e.preventDefault();
@@ -104,11 +118,13 @@ export function PeekHost() {
             "fixed z-[51] flex flex-col overflow-hidden bg-canvas outline-none",
             center
               ? "start-1/2 top-1/2 h-[min(92dvh,1000px)] w-[min(980px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-xl shadow-dialog [animation:max-in_160ms_var(--ease)] rtl:translate-x-1/2"
-              : "inset-y-0 end-0 max-w-[100vw] border-s border-line shadow-dialog [animation:max-fade_120ms_ease] max-md:!w-full",
+              : split
+                ? "inset-y-0 end-0 max-w-[100vw] border-s border-line [animation:max-fade_120ms_ease] max-md:!w-full"
+                : "inset-y-0 end-0 max-w-[100vw] border-s border-line shadow-dialog [animation:max-fade_120ms_ease] max-md:!w-full",
           )}
           style={center ? undefined : { width }}
         >
-          <D.Title className="sr-only">{center ? "Center peek" : "Side peek"}</D.Title>
+          <D.Title className="sr-only">{center ? "Center peek" : split ? "Split view" : "Side peek"}</D.Title>
           {!center && (
             <div
               role="separator"

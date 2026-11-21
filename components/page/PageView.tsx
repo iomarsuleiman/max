@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { activeWorkspace, switchWorkspace } from "@/lib/client/workspace";
 import { ArrowUpRight, FileQuestion, Link2, Lock, MessageSquare, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Notice, Skeleton, cn } from "@/components/ui";
@@ -33,6 +34,8 @@ import { SaveStatus } from "./SaveStatus";
 import { ImageDetailsDialog } from "./ImageDetailsDialog";
 import { useDocumentSync } from "./useDocumentSync";
 import { useLiveRoom } from "./useLiveRoom";
+import { ReviewBanner, ReviewMenu } from "./Reviews";
+import { SyncedContent } from "./SyncedContent";
 import { CommentsPanel, requestComment, useCommentCount, type CommentsData } from "./CommentsPanel";
 import { requestEditorFocus, takeEditorFocusRequest } from "@/lib/client/editorFocus";
 import { registerEditor } from "@/lib/client/saveFlush";
@@ -63,6 +66,8 @@ interface AccessInfo {
   you: string;
   level: ShareLevel | "owner";
   ownerId: string;
+  /** Set when you reach the page as a member of the organization that owns it. */
+  orgId?: string | null;
   ownerName: string | null;
   rootId: string | null;
   invite: PageAccess["invite"];
@@ -77,6 +82,12 @@ export function PageView(props: { pageId: string; renderHeader?: (data: PageGetR
   const access = useSharing<AccessInfo>("access", { pageId: props.pageId, linkToken });
   const level = access.data?.level;
   const scope = useMemo(() => (level && level !== "owner" ? { pageId: props.pageId, linkToken } : null), [level, props.pageId, linkToken]);
+  // A page of yours, or of an organization you belong to, that lives in another workspace than the
+  // one open here (a link from a teammate, a bookmark): open that workspace at this page.
+  const home = level === "owner" && access.data ? (access.data.orgId ?? (access.data.ownerId.includes("~") ? access.data.ownerId.split("~")[1] : null)) : undefined;
+  useEffect(() => {
+    if (home !== undefined && home !== activeWorkspace()) switchWorkspace(home, window.location.pathname + window.location.search);
+  }, [home]);
   if (!scope) return <PageViewInner {...props} accessPending={access.isLoading} />;
   return (
     <ShareScope value={scope}>
@@ -213,6 +224,7 @@ function PageViewInner({ pageId, renderHeader, accessPending }: { pageId: string
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" id={embedded ? undefined : "page-scroll"}>
         {page.archivedAt && <TrashBanner data={data} />}
         {access.invite && !embedded && <JoinBanner invite={access.invite} />}
+        {!embedded && !isDatabase && !page.isTemplate && !page.archivedAt && <ReviewBanner pageId={pageId} />}
         {page.isTemplate && (
           <div className="bg-accent-soft px-4 py-2 text-center text-[13px] text-fg">
             You&apos;re editing a template. New {page.databaseId ? "rows" : "pages"} made from it copy this content. Use {"{{today}}"} to insert the date.
@@ -266,6 +278,7 @@ export function PageTopbarActions({ page, saveSlotId, isShared: isSharedProp, co
     <>
       <div id={saveSlotId} className="flex items-center" />
       {SHARING_ENABLED && <PresenceStack pageId={page._id} linkToken={linkToken} active={isShared && !page.archivedAt} />}
+      {!page.isTemplate && !page.archivedAt && page.kind !== "database" && <ReviewMenu pageId={page._id} />}
       {SHARING_ENABLED && !page.archivedAt && <ShareMenu page={page} />}
       {access.shared && !page.archivedAt && <DuplicateShared pageId={page._id} linkToken={linkToken} />}
       {onToggleComments && (
@@ -617,6 +630,7 @@ function DocumentEditor({ pageId, saveSlotId, doc, readOnly, smallText, outline,
           pages={pages}
           navigate={(id) => router.push(pageHref(id, ws.byId.get(id)?.title))}
           renderDatabase={(id, ro) => <InlineDatabase databaseId={id} readOnly={ro} />}
+          renderSynced={(id) => (id === pageId ? <p className="text-[13px] text-fg-3">A page can&apos;t show itself.</p> : <SyncedContent pageId={id} />)}
           createDatabase={async () => {
             try {
               const { database } = await ws.call<{ database: { _id: string } }>("databases.create", { parentId: pageId, title: "" });

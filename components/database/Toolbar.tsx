@@ -1,5 +1,7 @@
 "use client";
 
+import { useOp } from "@/lib/client/data";
+
 import { useEffect, useState } from "react";
 import { ArrowUpDown, Eye, EyeOff, Filter, Plus, Search, X } from "lucide-react";
 import { ActionSelect, Button, Popover, Select, cn } from "@/components/ui";
@@ -48,6 +50,7 @@ const OPS_BY_TYPE: Record<string, { op: FilterOperator; label: string; needsValu
 };
 export function operatorsFor(prop: PropertyDef) {
   if (prop.type === "status") return OPS_BY_TYPE.select;
+  if (prop.type === "person") return OPS_BY_TYPE.multi_select;
   if (prop.type in OPS_BY_TYPE) return OPS_BY_TYPE[prop.type];
   if (prop.type === "created_time" || prop.type === "updated_time") return OPS_BY_TYPE.date;
   return OPS_BY_TYPE.text;
@@ -87,6 +90,7 @@ export function SearchBox({ value, onChange }: { value: string; onChange: (v: st
 }
 
 export function FilterButton({ view, properties, onChange }: { view: DatabaseView; properties: PropertyDef[]; onChange: (filters: ViewFilter[]) => void }) {
+  const people = useOp<{ people: { id: string; name: string }[] }>("people.list", properties.some((p) => p.type === "person") ? {} : "skip").data?.people ?? [];
   const filters = view.filters;
   const add = (propertyId: string) => {
     const prop = properties.find((p) => p.id === propertyId)!;
@@ -125,7 +129,9 @@ export function FilterButton({ view, properties, onChange }: { view: DatabaseVie
               />
               <Select label="Condition" size="sm" variant="filled" value={f.operator} onChange={(op) => set({ operator: op as FilterOperator })} options={ops.map((o) => ({ value: o.op, label: o.label }))} />
               {needs &&
-                (prop.type === "select" || prop.type === "status" || prop.type === "multi_select" ? (
+                (prop.type === "person" ? (
+                  <Select label="Value" size="sm" variant="filled" className="max-w-36" value={String(f.value ?? "")} onChange={(v) => set({ value: v })} options={people.map((p) => ({ value: p.id, label: p.name }))} />
+                ) : prop.type === "select" || prop.type === "status" || prop.type === "multi_select" ? (
                   <Select label="Value" size="sm" variant="filled" className="max-w-36" value={String(f.value ?? "")} onChange={(v) => set({ value: v })} options={(prop.options ?? []).map((o) => ({ value: o.name, label: o.name }))} />
                 ) : (
                   <input

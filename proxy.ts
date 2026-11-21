@@ -2,7 +2,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
 const cloud = !!(process.env.NEXT_PUBLIC_CONVEX_URL && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-const WORKSPACE = /^\/(home|p|trash|templates|admin)(\/|$)/;
+const WORKSPACE = /^\/(home|p|trash|templates|admin|org|apps|forms)(\/|$)/;
 const PREVIEW_ROUTE = /^\/w(?:\/|$)/;
 
 const clerk = clerkMiddleware(async (auth, req) => {

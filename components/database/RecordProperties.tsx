@@ -11,6 +11,7 @@ import { EditableValue } from "./cells";
 import { PropIcon } from "./meta";
 import { AddProperty, PropertyMenu } from "./PropertyMenu";
 import { orderedProperties } from "./useDatabase";
+import { RowButtons } from "./Automations";
 import { PageIcon } from "@/components/workspace/PageIcon";
 
 /** Property panel at the top of a database row's page. */
@@ -29,7 +30,8 @@ export function RecordProperties({ record, readOnly }: { record: PageRow; readOn
           <PageIcon icon={db.data.database.icon} kind="database" size={13} className="me-0.5 inline-grid align-[-2px]" />{pageTitle(db.data.database.title)}
         </Link>
       </p>
-      <dl className="grid gap-0.5">
+      {!readOnly && record.databaseId && <RowButtons recordId={record._id} databaseId={record.databaseId} />}
+      <dl className="mt-2 grid gap-0.5">
         {props.map((p) => (
           <div key={p.id} className="grid grid-cols-[minmax(110px,160px)_1fr] items-start max-sm:grid-cols-[110px_1fr]">
             <dt>

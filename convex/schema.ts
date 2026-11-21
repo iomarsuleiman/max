@@ -311,6 +311,183 @@ export default defineSchema({
     updatedAt: v.number(),
     archivedAt: nullableNumber,
   }).index("by_workspace_database", ["workspaceId", "databaseId"]),
+  // Organizations (lib/domain/organizations.ts). Every row is owned by the organization's
+  // namespace ("org_<id>"), the same ownerId its pages, files and history carry.
+  orgs: defineTable({
+    ownerId: v.string(),
+    name: v.string(),
+    slug: v.string(),
+    icon: nullableString,
+    description: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    policies: v.object({
+      membersCanInvite: v.boolean(),
+      allowGuests: v.boolean(),
+      allowPublicLinks: v.boolean(),
+      allowSites: v.boolean(),
+      trashRetentionDays: v.optional(v.union(v.number(), v.null())),
+      versionRetentionDays: v.optional(v.union(v.number(), v.null())),
+      autoJoinDomain: v.optional(v.union(v.string(), v.null())),
+    }),
+    maxMembers: nullableNumber,
+    joinDomain: v.optional(nullableString),
+    phraseHash: v.optional(nullableString),
+    phraseSalt: v.optional(nullableString),
+    phraseFailures: v.optional(v.number()),
+    phraseLockedUntil: v.optional(nullableNumber),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_slug", ["slug"])
+    .index("by_joinDomain", ["joinDomain"]),
+  orgMembers: defineTable({
+    ownerId: v.string(),
+    accountId: v.string(),
+    role: v.union(v.literal("owner"), v.literal("admin"), v.literal("member"), v.literal("guest")),
+    status: v.union(v.literal("active"), v.literal("suspended")),
+    name: nullableString,
+    email: nullableString,
+    image: nullableString,
+    invitedBy: nullableString,
+    joinedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_accountId", ["ownerId", "accountId"])
+    .index("by_accountId", ["accountId"]),
+  orgInvites: defineTable({
+    ownerId: v.string(),
+    email: v.string(),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("guest")),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("declined"), v.literal("revoked")),
+    invitedBy: v.string(),
+    invitedByName: nullableString,
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    resolvedAt: nullableNumber,
+    resolvedBy: nullableString,
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_email", ["email"]),
+  orgTeams: defineTable({
+    ownerId: v.string(),
+    name: v.string(),
+    description: v.string(),
+    memberIds: v.array(v.string()),
+    archivedAt: nullableNumber,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
+  // Recurring automations: when each next runs (lib/domain/ops/automations.ts, convex/crons.ts).
+  schedules: defineTable({ ownerId: v.string(), databaseId: v.string(), ruleId: v.string(), nextAt: v.number() }).index("by_owner", ["ownerId"]),
+  // Connectors (lib/domain/integrations.ts): apps, where they're connected, and webhook outbox.
+  integrations: defineTable({
+    ownerId: v.string(),
+    name: v.string(),
+    description: v.string(),
+    icon: nullableString,
+    website: nullableString,
+    scopes: v.array(v.string()),
+    redirectUris: v.array(v.string()),
+    webhookUrl: nullableString,
+    events: v.array(v.string()),
+    clientSecretHash: v.string(),
+    signingSecret: v.string(),
+    status: v.union(v.literal("private"), v.literal("submitted"), v.literal("published"), v.literal("rejected"), v.literal("suspended")),
+    reviewNote: nullableString,
+    installs: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_status", ["status"]),
+  installations: defineTable({
+    ownerId: v.string(),
+    integrationId: v.string(),
+    installedBy: v.string(),
+    scopes: v.array(v.string()),
+    tokenHash: nullableString,
+    tokenPrefix: nullableString,
+    codeHash: nullableString,
+    codeExpiresAt: nullableNumber,
+    redirectUri: nullableString,
+    revokedAt: nullableNumber,
+    lastUsedAt: nullableNumber,
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_codeHash", ["codeHash"])
+    .index("by_integrationId", ["integrationId"]),
+  webhookDeliveries: defineTable({
+    ownerId: v.string(),
+    installationId: v.string(),
+    integrationId: v.string(),
+    event: v.string(),
+    payload: v.string(),
+    status: v.union(v.literal("pending"), v.literal("delivered"), v.literal("failed")),
+    attempts: v.number(),
+    nextAt: v.number(),
+    lastError: nullableString,
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_status", ["status"]),
+  // Review requests and suggested edits (lib/domain/ops/approvals.ts). Decisions are append-only.
+  approvals: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    kind: v.union(v.literal("review"), v.literal("suggestion")),
+    requestedBy: v.string(),
+    requestedByName: nullableString,
+    reviewers: v.array(v.string()),
+    message: v.string(),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("changes_requested"), v.literal("cancelled")),
+    decisions: v.array(v.object({ by: v.string(), byName: nullableString, decision: v.union(v.literal("approved"), v.literal("changes_requested"), v.literal("cancelled")), note: v.string(), at: v.number() })),
+    proposal: nullableString,
+    baseRevision: nullableNumber,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"]),
+  // The inbox (lib/domain/notifications.ts). ownerId is the recipient account.
+  notifications: defineTable({
+    ownerId: v.string(),
+    kind: v.string(),
+    scope: nullableString,
+    pageId: nullableString,
+    actorId: nullableString,
+    actorName: nullableString,
+    title: v.string(),
+    body: nullableString,
+    key: nullableString,
+    readAt: nullableNumber,
+    at: v.number(),
+  }).index("by_owner", ["ownerId"]),
+  // Private pages inside an organization (lib/domain/orgPageAccess.ts).
+  orgPageAccess: defineTable({
+    ownerId: v.string(),
+    pageId: v.string(),
+    memberIds: v.array(v.string()),
+    teamIds: v.array(v.string()),
+    othersLevel: v.optional(v.union(v.literal("none"), v.literal("view"), v.literal("comment"))),
+    listed: v.optional(v.boolean()),
+    createdBy: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_pageId", ["ownerId", "pageId"]),
+  orgEvents: defineTable({
+    ownerId: v.string(),
+    actorId: v.string(),
+    actorName: nullableString,
+    action: v.string(),
+    targetId: nullableString,
+    detail: nullableString,
+    at: v.number(),
+  }).index("by_owner", ["ownerId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),
@@ -335,6 +512,10 @@ export default defineSchema({
     properties: v.optional(v.any()),
     views: v.optional(v.any()),
     values: v.optional(v.any()),
+    createdBy: v.optional(nullableString),
+    updatedBy: v.optional(nullableString),
+    automations: v.optional(v.any()),
+    verification: v.optional(v.any()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_parentId", ["ownerId", "parentId"])
@@ -388,6 +569,9 @@ export default defineSchema({
     authorId: v.optional(v.union(v.string(), v.null())),
     authorName: v.optional(v.union(v.string(), v.null())),
     authorImage: v.optional(v.union(v.string(), v.null())),
+    parentId: v.optional(v.union(v.string(), v.null())),
+    reactions: v.optional(v.any()),
+    mentions: v.optional(v.array(v.string())),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_pageId", ["ownerId", "pageId"]),
@@ -412,6 +596,7 @@ export default defineSchema({
     token: v.string(),
     level: v.union(v.literal("view"), v.literal("comment"), v.literal("edit")),
     public: v.optional(v.boolean()),
+    expiresAt: v.optional(nullableNumber),
     createdAt: v.number(),
   })
     .index("by_owner", ["ownerId"])

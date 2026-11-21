@@ -10,22 +10,28 @@ import dynamic from "next/dynamic";
 const IconPicker = dynamic(() => import("@/components/page/IconPicker").then((m) => m.IconPicker), { ssr: false });
 import { PageIcon } from "./PageIcon";
 import { useOp } from "@/lib/client/data";
-import { switchWorkspace } from "@/lib/client/workspace";
+import { activeWorkspace, switchWorkspace } from "@/lib/client/workspace";
 import { notifyError, useWorkspace } from "./context";
 
 export interface WorkspaceItem {
   id: string | null;
   name: string;
   icon: string | null;
+  /** Personal workspaces are yours alone; organizations are shared with their members. */
+  kind?: "personal" | "organization";
+  role?: "owner" | "admin" | "member" | "guest";
 }
 
-/** Your personal workspaces, and the one open in this browser. */
+/** Your personal workspaces and organizations, and the one open in this browser. */
 export function useWorkspaces() {
   const q = useOp<{ current: string | null; workspaces: WorkspaceItem[] }>("workspaces.list", {});
   // The workspace this browser remembered was deleted (maybe on another device): go back to the main one.
   const missing = (q.error as { details?: { workspace?: string } } | null)?.details?.workspace === "missing";
   useEffect(() => {
-    if (missing) switchWorkspace(null);
+    if (!missing) return;
+    // Removed from an organization (or the workspace was deleted elsewhere): say so, then go home.
+    if (/^org_/.test(activeWorkspace() ?? "")) toast.message("You no longer have access to that organization.", { description: "You're back in your own workspace." });
+    switchWorkspace(null);
   }, [missing]);
   const list = q.data?.workspaces ?? [];
   const current = list.find((w) => w.id === (q.data?.current ?? null)) ?? null;
@@ -37,7 +43,7 @@ export function WorkspaceIcon({ workspace, size = 22 }: { workspace: WorkspaceIt
   if (workspace?.icon) return <PageIcon icon={workspace.icon} size={size} />;
   if (!workspace || workspace.id === null) return <LogoMark className="shrink-0" style={{ width: size, height: size }} />;
   return (
-    <span className="workspace-initial" style={{ width: size, height: size, fontSize: size * 0.55 }} aria-hidden>
+    <span className={workspace.kind === "organization" ? "workspace-initial workspace-initial--org" : "workspace-initial"} style={{ width: size, height: size, fontSize: size * 0.55 }} aria-hidden>
       {Array.from(workspace.name.trim())[0]?.toUpperCase() ?? "W"}
     </span>
   );
@@ -123,9 +129,9 @@ export function WorkspaceDock({ onCreate }: { onCreate: () => void }) {
           type="button"
           role="tab"
           aria-selected={i === here}
-          aria-label={w.name}
+          aria-label={w.kind === "organization" ? `${w.name}, organization` : w.name}
           aria-keyshortcuts={i < 9 ? (isMac() ? `Control+${i + 1}` : `Alt+${i + 1}`) : undefined}
-          title={i < 9 ? `${w.name}  ${workspaceKey(i + 1)}` : w.name}
+          title={`${w.name}${w.kind === "organization" ? " · Organization" : ""}${i < 9 ? `  ${workspaceKey(i + 1)}` : ""} · Shift+scroll to switch`}
           className="workspace-dock-item"
           onClick={() => i !== here && goTo(w.id, i > here ? 1 : -1)}
         >
@@ -197,7 +203,25 @@ export function useWorkspaceSwipe() {
   const touch = useRef({ x: 0, y: 0 }).current;
   return {
     onWheel(e: React.WheelEvent) {
-      if (list.length < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      if (list.length < 2) return;
+      // Shift + scroll (the page-15 gesture): one deliberate turn of the wheel = one workspace.
+      // Never while typing, in a menu or dialog, or dragging.
+      const t = e.target as HTMLElement;
+      if (t.closest("input, textarea, [contenteditable=true], [role=menu], [role=dialog], [data-dragging]")) return;
+      if (e.shiftKey) {
+        // Most browsers turn Shift+vertical scrolling into horizontal; accept either axis.
+        const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        clearTimeout(wheel.timer);
+        wheel.timer = setTimeout(() => ((wheel.dx = 0), (wheel.locked = false)), 260);
+        if (wheel.locked) return;
+        wheel.dx += d;
+        if (Math.abs(wheel.dx) > 60) {
+          wheel.locked = true;
+          step(wheel.dx > 0 ? 1 : -1);
+        }
+        return;
+      }
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       clearTimeout(wheel.timer);
       wheel.timer = setTimeout(() => ((wheel.dx = 0), (wheel.locked = false)), 220);
       if (wheel.locked) return;

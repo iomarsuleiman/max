@@ -2,8 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 async function audit(page: Page, name: string) {
-  // Let toasts finish animating in, so contrast is measured on the settled UI.
-  await page.waitForTimeout(400);
+  // Measure contrast on the settled UI: wait for running animations (toasts, peeks) to finish.
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity), null, { timeout: 5_000 });
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   const problems = results.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.length} × ${v.help} → ${v.nodes.slice(0, 3).map((n) => n.target.join(" ") + " " + n.html.slice(0, 160)).join(" | ")}`);
   expect(problems, `${name}\n${problems.join("\n")}`).toEqual([]);
@@ -16,7 +16,6 @@ test.describe("accessibility (axe, WCAG 2.2 AA)", () => {
       for (const path of ["/welcome", "/privacy", "/join?from=7"]) {
         await page.goto(path);
         await page.mouse.wheel(0, 4000);
-        await page.waitForTimeout(500);
         await audit(page, `${path} (${scheme})`);
       }
     }
@@ -38,7 +37,6 @@ test.describe("accessibility (axe, WCAG 2.2 AA)", () => {
 
     await page.getByRole("button", { name: /^Open / }).first().click();
     await expect(page.getByRole("dialog", { name: "Side peek" })).toBeVisible();
-    await page.waitForTimeout(800);
     await audit(page, "side peek");
     await page.keyboard.press("Escape");
 

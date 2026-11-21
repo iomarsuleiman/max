@@ -1,9 +1,21 @@
-import type { CrossField, CrossTable, Db, IndexedField, NewRow } from "./db";
+import type { CrossField, CrossTable, Db, IndexedField, ListAllTable, NewRow } from "./db";
 import type { TableName, Tables } from "./types";
 
 type State = { [T in TableName]: Map<string, Tables[T]> };
 
 const emptyState = (): State => ({
+  orgs: new Map(),
+  schedules: new Map(),
+  integrations: new Map(),
+  installations: new Map(),
+  webhookDeliveries: new Map(),
+  approvals: new Map(),
+  notifications: new Map(),
+  orgPageAccess: new Map(),
+  orgMembers: new Map(),
+  orgInvites: new Map(),
+  orgTeams: new Map(),
+  orgEvents: new Map(),
   pages: new Map(),
   documents: new Map(),
   settings: new Map(),
@@ -83,7 +95,7 @@ export class MemoryDb implements Db {
     return at < 0 ? null : at + 1;
   }
 
-  async listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number) {
+  async listAll<T extends ListAllTable>(table: T, limit: number) {
     return ([...this.state[table].values()] as Tables[T][]).map((r) => clone(r)).reverse().slice(0, limit);
   }
 

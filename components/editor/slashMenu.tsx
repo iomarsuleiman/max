@@ -2,7 +2,7 @@
 
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { getDefaultReactSlashMenuItems, type DefaultReactSuggestionItem } from "@blocknote/react";
-import { AppWindow, AtSign, FilePlus2, Globe, Lightbulb, Link2, ListTree, Network, PlayCircle, Sheet, Sigma } from "lucide-react";
+import { RefreshCw, AppWindow, AtSign, FilePlus2, Globe, Lightbulb, Link2, ListTree, Network, PlayCircle, Sheet, Sigma } from "lucide-react";
 import type { MaxEditorType } from "./blocks";
 
 /**
@@ -46,7 +46,7 @@ export interface MaxSlashItem extends DefaultReactSuggestionItem {
 export function maxSlashItems(
   editor: MaxEditorType,
   columnItems: (DefaultReactSuggestionItem & { key?: string })[],
-  actions: { createSubpage: () => void; linkPage: () => void; createDatabase: () => void; linkDatabase: () => void },
+  actions: { createSubpage: () => void; linkPage: () => void; createDatabase: () => void; linkDatabase: () => void; syncPage: () => void },
 ): MaxSlashItem[] {
   const base = (getDefaultReactSlashMenuItems(editor) as (DefaultReactSuggestionItem & { key: string })[])
     .filter((item) => !UNSUPPORTED_SLASH_KEYS.has(item.key))
@@ -72,6 +72,7 @@ export function maxSlashItems(
     item("embed", "media", "Embed", "Figma, Maps, Docs, Loom, Spotify and more", ["iframe", "figma", "maps", "loom", "vimeo", "spotify", "codepen", "تضمين"], <AppWindow size={18} />, insert("embed")),
     item("database_inline", "pages", "Database – inline", "A table, board or calendar inside this page", ["table", "database", "board", "قاعدة بيانات"], <Sheet size={18} />, actions.createDatabase),
     item("database_linked", "pages", "Linked view of database", "Show an existing database here", ["linked", "view", "database"], <Link2 size={18} />, actions.linkDatabase),
+    item("synced_page", "pages", "Synced page", "Show another page's content here, always up to date", ["synced", "sync", "transclude", "embed page", "reuse"], <RefreshCw size={18} />, actions.syncPage),
     ...columnItems.map((c, i) => {
       const n = /three|3/i.test(`${c.key ?? ""} ${c.title}`) ? 3 : 2;
       return { ...c, key: c.key ?? `columns_${i}`, slashGroup: "basic" as SlashGroup, group: LABELS.basic, aliases: [...(c.aliases ?? []), `${n} columns`, `${n} cols`, "columns", "layout", "side by side", "أعمدة"] };
