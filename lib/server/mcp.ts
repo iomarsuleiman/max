@@ -19,6 +19,8 @@ export function mcpTools() {
 const INSTRUCTIONS = `Max is the user's private notes workspace: nested pages, rich documents and personal databases.
 - Start with pages_tree or search_query to find pages; documents_get returns content as blocks with stable ids (format "markdown" for reading).
 - Edit content with blocks_* tools (by block id) or documents_writeMarkdown. Pass baseRevision from documents_get to avoid overwriting newer edits; on CONFLICT, read again.
+- Images & migrations: to move images from Notion or other external/expiring URLs, call assets_upload (pass url or base64, plus pageId and workspace) to store each image permanently as a max-asset:// URL, then insert it via an image block or Markdown (![alt](max-asset://...) or <image source="max-asset://...">caption</image>). If the user has Notion connected in Max Settings, notion_sources and notion_start can import pages, databases, colors and images directly.
+- Colors & inline formatting: Markdown supports <span color="red">...</span> (text color), <span color="blue_bg">...</span> (background highlight; colors: gray, brown, orange, yellow, green, blue, purple, pink, red), <u>underline</u>, and <callout icon="💡" color="yellow_bg">...</callout>. blocks_formatText and blocks_update also accept textColor and backgroundColor.
 - Databases: databases_get for properties and views, databases_query for rows, records_* to change rows. Values are keyed by property name or id.
 - Templates: templates_list / templates_apply; gallery_list / gallery_install for built-in templates.
 - Tools marked destructive need confirm: true, only after the user has agreed. Trashing (pages_archive) is reversible with pages_restore.
@@ -162,19 +164,21 @@ export function createMcpServer(ownerId: string) {
     {
       title: "Upload an image",
       description:
-        "Stores an image from a public https URL or base64 data (PNG, JPEG, WebP, GIF, AVIF or SVG, up to 20 MB) and returns a max-asset:// URL to use in an image block's url prop or as a page cover.",
+        "Stores an image from a public https URL (including expiring Notion signed image URLs) or base64 data (PNG, JPEG, WebP, GIF or AVIF, up to 20 MB) and returns a permanent max-asset:// URL to use in an image block's url prop, Markdown (![alt](max-asset://...)), or as a page cover.",
       inputSchema: z.object({
         url: z.string().url().optional(),
         base64: z.string().max(28_000_000).optional(),
         name: z.string().max(200).optional(),
         pageId: z.string().max(64).nullable().optional(),
         alt: z.string().max(500).optional(),
+        workspace: WORKSPACE,
       }),
       annotations: { title: "Upload an image", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
-    (async (args: Parameters<typeof uploadAsset>[1]) => {
+    (async (args: Parameters<typeof uploadAsset>[1] & { workspace?: string }) => {
       try {
-        return toolResult(await uploadAsset(ownerId, args));
+        const { workspace, ...rest } = args;
+        return toolResult(await uploadAsset(ownerId, rest, await workspaceId(ownerId, workspace)));
       } catch (err) {
         return toolError(err);
       }
@@ -191,12 +195,14 @@ export function createMcpServer(ownerId: string) {
         url: z.string().url().optional(),
         title: z.string().max(500).optional(),
         parentId: z.string().max(64).nullable().optional(),
+        workspace: WORKSPACE,
       }),
       annotations: { title: "Import HTML", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
-    (async (args: Parameters<typeof importHtml>[1]) => {
+    (async (args: Parameters<typeof importHtml>[1] & { workspace?: string }) => {
       try {
-        return toolResult(await importHtml(ownerId, args));
+        const { workspace, ...rest } = args;
+        return toolResult(await importHtml(ownerId, rest, await workspaceId(ownerId, workspace)));
       } catch (err) {
         return toolError(err);
       }

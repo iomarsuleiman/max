@@ -656,15 +656,12 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 @keyframes workspace-in { from { opacity: 0; transform: translateX(8px); } }
 @media (prefers-reduced-motion: reduce) { [data-sidebar] > * { animation: none; } }
 
-/* Moving a page to the trash: its sidebar row goes poof, like an icon dragged off the macOS Dock. */
-.max-poofing { animation: max-poof-row 110ms ease-in forwards; pointer-events: none; }
-@keyframes max-poof-row { to { opacity: 0; transform: scale(.7); } }
-.max-poof { position: fixed; z-index: 90; width: 0; height: 0; pointer-events: none; }
-.max-poof i, .max-poof b { position: absolute; left: 0; top: 0; border-radius: 50%; opacity: 0; background: radial-gradient(circle at 40% 33%, #fff, #eff1f3 55%, #c9ced4 100%); box-shadow: 0 1px 2px rgb(0 0 0 / .12); animation: max-poof-cloud 420ms cubic-bezier(.16,.8,.32,1) forwards; }
-.max-poof b { width: 34px; height: 34px; margin: -17px 0 0 -17px; animation: max-poof-core 280ms cubic-bezier(.16,.8,.32,1) forwards; }
-.dark .max-poof i, .dark .max-poof b { background: radial-gradient(circle at 42% 38%, #eef0f2, #c6cad0 58%, #9aa0a8 100%); }
-@keyframes max-poof-cloud { 0% { opacity: .85; transform: scale(.25); } 33% { opacity: 1; transform: translate(calc(var(--dx) * .63), calc(var(--dy) * .63)) scale(.95); } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) - 10px)) scale(1.3); } }
-@keyframes max-poof-core { 0% { opacity: 1; transform: scale(.2); } 50% { opacity: 1; transform: scale(1.15); } 100% { opacity: 0; transform: scale(.6); } }
+/* Moving a page to the trash: its sidebar row goes poof, cloned from an icon dragged off the macOS
+   Dock. The row vanishes at once; a five-frame cartoon cloud sprite steps (not tweens) where it was. */
+.max-poofing { animation: max-poof-row 50ms linear forwards; pointer-events: none; }
+@keyframes max-poof-row { to { opacity: 0; } }
+.max-poof { --poof-size: 72px; position: fixed; z-index: 90; width: var(--poof-size); height: var(--poof-size); margin: calc(var(--poof-size) / -2) 0 0 calc(var(--poof-size) / -2); pointer-events: none; background: url(/sfx/poof.svg) 0 0 / calc(var(--poof-size) * var(--poof-frames, 5)) var(--poof-size) no-repeat; animation: max-poof 400ms steps(var(--poof-frames, 5), end) forwards; }
+@keyframes max-poof { to { background-position: calc(var(--poof-size) * var(--poof-frames, 5) * -1) 0; } }
 
 
 /* Page title: grows with its text without JavaScript resizing (iOS-friendly). The textarea and a

@@ -55,6 +55,25 @@ describe("documents", () => {
     expect(blocksToMarkdown(markdownToBlocks(out))).toBe(out);
   });
 
+  it("parses and round-trips Notion-flavored colors, underline, callouts and images", () => {
+    const md = [
+      '- **Brand:** <span color="red">`#EA4E43`</span> and <span color="blue_bg"><u>highlight</u></span>',
+      '<image source="max-asset://img1">Palette diagram</image>',
+      '<callout icon="💡" color="yellow_bg">Use the darker red for buttons.</callout>',
+    ].join("\n\n");
+    const blocks = markdownToBlocks(md);
+    expect(blocks).toHaveLength(3);
+    const items = blocks[0].content as Array<{ type: string; text?: string; styles?: Record<string, unknown> }>;
+    expect(items.find((i) => i.text === "#EA4E43")?.styles).toEqual({ code: true, textColor: "red" });
+    expect(items.find((i) => i.text === "highlight")?.styles).toEqual({ backgroundColor: "blue", underline: true });
+    expect(blocks[1]).toMatchObject({ type: "image", props: { url: "max-asset://img1", caption: "Palette diagram", alt: "Palette diagram" } });
+    expect(blocks[2]).toMatchObject({ type: "callout", props: { tone: "warning", icon: "💡" } });
+    const roundTripped = blocksToMarkdown(blocks);
+    expect(roundTripped).toContain('<span color="red">`#EA4E43`</span>');
+    expect(roundTripped).toContain('<span color="blue_bg"><u>highlight</u></span>');
+    expect(blocksToMarkdown(markdownToBlocks(roundTripped))).toBe(roundTripped);
+  });
+
   it("searches titles and content", async () => {
     const { as } = setup();
     const call = as("alice");

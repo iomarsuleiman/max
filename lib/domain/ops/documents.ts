@@ -119,7 +119,8 @@ export const documentsWriteMarkdown = defineOp({
   name: "documents.writeMarkdown",
   kind: "mutation",
   title: "Write page content as Markdown",
-  description: "Replaces a page's content with Markdown, or appends Markdown to the end. Supports headings, lists, to-dos, quotes, callouts (> [!TIP]), code, math ($$), tables, images, dividers and links.",
+  description:
+    "Replaces a page's content with Markdown, or appends Markdown to the end. Supports headings, lists, to-dos, quotes, callouts (> [!TIP] or <callout icon=\"💡\" color=\"yellow_bg\">), inline colors (<span color=\"red\"> / <span color=\"blue_bg\">), underline (<u>), code, math ($$), tables, images (![alt](url) or <image source=\"url\">caption</image>), dividers and links.",
   input: z.object({ pageId: id, markdown: z.string().max(400_000), mode: z.enum(["replace", "append"]).optional(), baseRevision }),
   async run(ctx, { pageId, markdown, mode = "replace", baseRevision: base }) {
     const incoming = markdownToBlocks(markdown);

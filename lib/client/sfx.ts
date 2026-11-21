@@ -5,6 +5,8 @@ let enabled = true;
 
 export function setSoundsEnabled(on: boolean) {
   enabled = on;
+  if (on) preloadSounds();
+  preloadPoof();
 }
 
 function audio(): AudioContext | null {
@@ -16,44 +18,57 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
-/** A short air pop with a soft low end, synthesized from a filtered burst and a falling tone. */
+// A warm recorded air whoosh (public/sfx/poof.wav, CC0, see public/sfx/CREDITS.md).
+const TRASH_SOUND = "/sfx/poof.wav";
+let trashBytes: Promise<ArrayBuffer | null> | null = null;
+let trashBuffer: Promise<AudioBuffer | null> | null = null;
+
+/** Fetch the sound files ahead of time so the first delete plays without a gap. */
+export function preloadSounds() {
+  if (typeof window === "undefined") return;
+  trashBytes ??= fetch(TRASH_SOUND)
+    .then((r) => (r.ok ? r.arrayBuffer() : null))
+    .catch(() => null);
+}
+
+function trashSound(a: AudioContext): Promise<AudioBuffer | null> {
+  preloadSounds();
+  trashBuffer ??= trashBytes!.then((bytes) => (bytes ? a.decodeAudioData(bytes.slice(0)) : null)).catch(() => null);
+  return trashBuffer;
+}
+
+/** The poof of a page going to the trash. */
 export function playTrash() {
   const a = audio();
   if (!a) return;
-  const t = a.currentTime;
-  const end = t + 0.26;
-  const buffer = a.createBuffer(1, Math.ceil(a.sampleRate * 0.26), a.sampleRate);
-  const samples = buffer.getChannelData(0);
-  for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+  void trashSound(a).then((buffer) => {
+    if (!buffer) return;
+    const source = a.createBufferSource();
+    source.buffer = buffer;
+    const volume = a.createGain();
+    volume.gain.value = 0.75;
+    source.connect(volume).connect(a.destination);
+    source.start();
+  });
+}
 
-  const air = a.createBufferSource();
-  air.buffer = buffer;
-  const color = a.createBiquadFilter();
-  color.type = "lowpass";
-  color.frequency.setValueAtTime(2200, t);
-  color.frequency.exponentialRampToValueAtTime(400, end);
-  const breath = a.createGain();
-  breath.gain.setValueAtTime(0.001, t);
-  breath.gain.exponentialRampToValueAtTime(0.42, t + 0.016);
-  breath.gain.exponentialRampToValueAtTime(0.001, end);
-  air.connect(color).connect(breath).connect(a.destination);
+const POOF_FRAMES = 5;
+const POOF_FRAME_MS = 80;
+const POOF_SPRITE = "/sfx/poof.svg";
+let poofSprite: HTMLImageElement | null = null;
 
-  const pop = a.createOscillator();
-  pop.frequency.setValueAtTime(158, t);
-  pop.frequency.exponentialRampToValueAtTime(62, t + 0.1);
-  const body = a.createGain();
-  body.gain.setValueAtTime(0.001, t);
-  body.gain.exponentialRampToValueAtTime(0.12, t + 0.009);
-  body.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
-  pop.connect(body).connect(a.destination);
-  pop.start(t);
-  pop.stop(t + 0.11);
-  air.start(t);
+/** Decode the cloud sprite up front so the first poof doesn't flash empty frames. */
+function preloadPoof() {
+  if (typeof window === "undefined" || poofSprite) return;
+  poofSprite = new Image();
+  poofSprite.src = POOF_SPRITE;
 }
 
 /**
- * The page's row in the sidebar goes "poof" (like dragging something off the macOS Dock): it
- * shrinks away under a puff of smoke. The caller clears the row animation after the mutation.
+ * The page's row in the sidebar goes "poof", cloned from dragging an item off the macOS Dock:
+ * the row vanishes at once and a cartoon smoke cloud plays where it was, as five hand-drawn
+ * frames stepped through without tweening (public/sfx/poof.svg, made by
+ * scripts/generate-poof-sprite.mjs). The caller clears the row animation after the mutation.
  */
 export function poof(pageId: string): Promise<() => void> {
   const rows = [...document.querySelectorAll<HTMLElement>(`[data-page-id="${CSS.escape(pageId)}"]`)];
@@ -61,31 +76,17 @@ export function poof(pageId: string): Promise<() => void> {
   if (!rows.length || matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.reduceMotion === "on") return Promise.resolve(restore);
   for (const row of rows) {
     const box = row.getBoundingClientRect();
-    // The Dock's poof: a little cartoon cloud bursts where the item was, billows out and is gone.
+    if (!box.width && !box.height) continue;
     const puff = document.createElement("span");
     puff.className = "max-poof";
     puff.setAttribute("aria-hidden", "true");
     puff.style.left = `${box.left + Math.min(box.width, 160) / 2}px`;
     puff.style.top = `${box.top + box.height / 2}px`;
-    const count = 7;
-    for (let i = 0; i < count; i++) {
-      const cloud = document.createElement("i");
-      const angle = (i / count) * Math.PI * 2;
-      const reach = 17 + (i % 3) * 4;
-      const size = 21 + (i % 3) * 4;
-      cloud.style.width = cloud.style.height = `${size}px`;
-      cloud.style.marginLeft = cloud.style.marginTop = `${-size / 2}px`;
-      cloud.style.setProperty("--dx", `${Math.cos(angle) * reach}px`);
-      cloud.style.setProperty("--dy", `${Math.sin(angle) * reach * 0.7 - 8}px`);
-      cloud.style.animationDelay = `${(i % 3) * 13}ms`;
-      puff.appendChild(cloud);
-    }
-    // A brighter core that pops first, like the first frame of the Mac's cloud.
-    const core = document.createElement("b");
-    puff.appendChild(core);
+    puff.style.setProperty("--poof-frames", String(POOF_FRAMES));
+    puff.style.animationDuration = `${POOF_FRAMES * POOF_FRAME_MS}ms`;
     document.body.appendChild(puff);
-    window.setTimeout(() => puff.remove(), 490);
+    window.setTimeout(() => puff.remove(), POOF_FRAMES * POOF_FRAME_MS + 50);
     row.classList.add("max-poofing");
   }
-  return new Promise((resolve) => window.setTimeout(() => resolve(restore), 115));
+  return new Promise((resolve) => window.setTimeout(() => resolve(restore), 60));
 }

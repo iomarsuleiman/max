@@ -121,7 +121,7 @@ function sniffImageType(bytes: Uint8Array): string | null {
 }
 
 /** Uploads an image from a public URL or base64 data, using the app's own upload flow. */
-export async function uploadAsset(ownerId: string, input: { url?: string; base64?: string; name?: string; pageId?: string | null; alt?: string }) {
+export async function uploadAsset(ownerId: string, input: { url?: string; base64?: string; name?: string; pageId?: string | null; alt?: string }, workspaceId: string | null = null) {
   let bytes: Uint8Array;
   let name = input.name ?? "image";
   if (input.url) {
@@ -142,12 +142,12 @@ export async function uploadAsset(ownerId: string, input: { url?: string; base64
   if (!CLOUD) {
     storageId = await saveLocalFile(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, type);
   } else {
-    const start = (await runForOwner(ownerId, "assets.createUploadUrl", { type, size: bytes.byteLength })) as { uploadUrl: string; method?: "PUT"; headers?: Record<string, string>; storageId?: string };
+    const start = (await runForOwner(ownerId, "assets.createUploadUrl", { type, size: bytes.byteLength }, workspaceId)) as { uploadUrl: string; method?: "PUT"; headers?: Record<string, string>; storageId?: string };
     const res = await fetch(start.uploadUrl, { method: start.method ?? "POST", headers: start.headers ?? { "Content-Type": type }, body: bytes as BodyInit });
     if (!res.ok) throw new MaxError("INTERNAL", "Storing the image failed. Try again.");
     storageId = start.method === "PUT" && start.storageId ? start.storageId : ((await res.json()) as { storageId: string }).storageId;
   }
-  return runForOwner(ownerId, "assets.register", { storageId, pageId: input.pageId ?? null, name, type, size: bytes.byteLength, alt: input.alt ?? "" });
+  return runForOwner(ownerId, "assets.register", { storageId, pageId: input.pageId ?? null, name, type, size: bytes.byteLength, alt: input.alt ?? "" }, workspaceId);
 }
 
 const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-", emDelimiter: "*" });
@@ -158,7 +158,7 @@ export function htmlToMarkdown(html: string): string {
 }
 
 /** Imports HTML (pasted or from a public URL) as a new page. */
-export async function importHtml(ownerId: string, input: { html?: string; url?: string; title?: string; parentId?: string | null }) {
+export async function importHtml(ownerId: string, input: { html?: string; url?: string; title?: string; parentId?: string | null }, workspaceId: string | null = null) {
   let html = input.html;
   let title = input.title;
   if (!html && input.url) {
@@ -170,5 +170,5 @@ export async function importHtml(ownerId: string, input: { html?: string; url?: 
   if (!title) title = /<title[^>]*>([^<]{1,300})<\/title>/i.exec(html)?.[1]?.trim();
   const body = /<body[^>]*>([\s\S]*)<\/body>/i.exec(html)?.[1] ?? html;
   const markdown = htmlToMarkdown(body).slice(0, 400_000);
-  return runForOwner(ownerId, "import.markdown", { markdown, title, parentId: input.parentId ?? null });
+  return runForOwner(ownerId, "import.markdown", { markdown, title, parentId: input.parentId ?? null }, workspaceId);
 }

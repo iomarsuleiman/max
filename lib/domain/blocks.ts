@@ -241,6 +241,37 @@ const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
 /* ── Markdown ────────────────────────────────────────────────────────────── */
 
 const escapeMd = (s: string) => s.replace(/([\\`*_[\]])/g, "\\$1");
+const HIGHLIGHT_COLORS = new Set(["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"]);
+
+function parseColorAttr(raw: string): Record<string, string> {
+  const cleaned = raw.trim().toLowerCase().replace(/^grey/, "gray");
+  if (!cleaned || cleaned === "default") return {};
+  const isBg = /_(bg|background)$/.test(cleaned);
+  const base = cleaned.replace(/_(bg|background)$/, "");
+  if (!HIGHLIGHT_COLORS.has(base)) return {};
+  return isBg ? { backgroundColor: base } : { textColor: base };
+}
+
+function calloutToneFromColor(raw?: string): string {
+  const base = (raw ?? "").trim().toLowerCase().replace(/^grey/, "gray").replace(/_(bg|background)$/, "");
+  switch (base) {
+    case "green":
+      return "tip";
+    case "yellow":
+      return "warning";
+    case "red":
+    case "pink":
+      return "danger";
+    case "orange":
+    case "brown":
+    case "purple":
+      return "key";
+    case "gray":
+      return "note";
+    default:
+      return "info";
+  }
+}
 
 function inlineToMarkdown(items: Inline[] = [], resolveTitle?: (id: string) => string | undefined): string {
   return items
@@ -252,6 +283,9 @@ function inlineToMarkdown(items: Inline[] = [], resolveTitle?: (id: string) => s
         if (t.styles?.bold) s = `**${s}**`;
         if (t.styles?.italic) s = `*${s}*`;
         if (t.styles?.strike) s = `~~${s}~~`;
+        if (t.styles?.underline) s = `<u>${s}</u>`;
+        if (typeof t.styles?.textColor === "string" && t.styles.textColor !== "default") s = `<span color="${t.styles.textColor}">${s}</span>`;
+        if (typeof t.styles?.backgroundColor === "string" && t.styles.backgroundColor !== "default") s = `<span color="${t.styles.backgroundColor}_bg">${s}</span>`;
         return s;
       }
       if (item.type === "link") {
@@ -365,25 +399,38 @@ export function blocksToMarkdown(blocks: Block[], resolveTitle?: (id: string) =>
   return out.join("\n\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
-function parseInline(src: string): Inline[] {
+function parseInline(src: string, inherited: Record<string, boolean | string> = {}): Inline[] {
   const out: Inline[] = [];
-  const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|~~([^~]+)~~|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\))/g;
+  const re =
+    /(<span\b[^>]*\bcolor=["']([^"']+)["'][^>]*>([\s\S]*?)<\/span>|<(u|b|strong|i|em|s|del)>([\s\S]*?)<\/\4>|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|~~([^~]+)~~|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\))/gi;
   let last = 0;
   let m: RegExpExecArray | null;
-  const push = (text: string, styles: Record<string, boolean> = {}) => {
-    if (text) out.push({ type: "text", text: text.replace(/\\([\\`*_[\]])/g, "$1"), styles });
+  const push = (text: string, styles: Record<string, boolean | string> = inherited) => {
+    if (text) out.push({ type: "text", text: text.replace(/\\([\\`*_[\]])/g, "$1"), styles: { ...styles } });
   };
   while ((m = re.exec(src))) {
     push(src.slice(last, m.index));
-    if (m[2] !== undefined) push(m[2], { bold: true });
-    else if (m[3] !== undefined) push(m[3], { italic: true });
-    else if (m[4] !== undefined) push(m[4], { italic: true });
-    else if (m[5] !== undefined) push(m[5], { strike: true });
-    else if (m[6] !== undefined) out.push({ type: "text", text: m[6], styles: { code: true } });
-    else if (m[7] !== undefined) {
-      const internal = /^\/p\/([A-Za-z0-9_-]+)$/.exec(m[8]);
-      if (internal) out.push({ type: "pageMention", props: { pageId: internal[1], title: m[7] } });
-      else out.push({ type: "link", href: m[8], content: [{ type: "text", text: m[7], styles: {} }] });
+    if (m[2] !== undefined) {
+      out.push(...parseInline(m[3], { ...inherited, ...parseColorAttr(m[2]) }));
+    } else if (m[4] !== undefined) {
+      const tag = m[4].toLowerCase();
+      const extra: Record<string, boolean> =
+        tag === "u" ? { underline: true } : tag === "b" || tag === "strong" ? { bold: true } : tag === "i" || tag === "em" ? { italic: true } : { strike: true };
+      out.push(...parseInline(m[5], { ...inherited, ...extra }));
+    } else if (m[6] !== undefined) {
+      out.push(...parseInline(m[6], { ...inherited, bold: true }));
+    } else if (m[7] !== undefined) {
+      out.push(...parseInline(m[7], { ...inherited, italic: true }));
+    } else if (m[8] !== undefined) {
+      out.push(...parseInline(m[8], { ...inherited, italic: true }));
+    } else if (m[9] !== undefined) {
+      out.push(...parseInline(m[9], { ...inherited, strike: true }));
+    } else if (m[10] !== undefined) {
+      out.push({ type: "text", text: m[10], styles: { ...inherited, code: true } });
+    } else if (m[11] !== undefined) {
+      const internal = /^\/p\/([A-Za-z0-9_-]+)$/.exec(m[12]);
+      if (internal) out.push({ type: "pageMention", props: { pageId: internal[1], title: m[11] } });
+      else out.push({ type: "link", href: m[12], content: [{ type: "text", text: m[11], styles: { ...inherited } }] });
     }
     last = m.index + m[0].length;
   }
@@ -442,10 +489,50 @@ export function markdownToBlocks(markdown: string): Block[] {
       root.push(make("divider"));
       continue;
     }
-    const image = /^!\[([^\]]*)\]\(([^)\s]+)\)\s*$/.exec(line);
+    const image = /^!\[([^\]]*)\]\((?:<([^>\s]+)>|([^)\s]+))(?:\s+"[^"]*")?\)\s*$/.exec(line);
     if (image) {
       flushParagraph();
-      root.push(make("image", { url: image[2], alt: image[1], caption: "", name: image[1] }));
+      const url = image[2] ?? image[3];
+      root.push(make("image", { url, alt: image[1], caption: "", name: image[1] }));
+      continue;
+    }
+    const mediaTag = /^<(image|file|audio|video)\b([^>]*?)(?:\/>|>([\s\S]*?)<\/\1>)\s*$/i.exec(line.trim());
+    if (mediaTag) {
+      const src = /\bsource=["']([^"']+)["']/i.exec(mediaTag[2])?.[1] ?? /\bsrc=["']([^"']+)["']/i.exec(mediaTag[2])?.[1];
+      if (src) {
+        flushParagraph();
+        const kind = mediaTag[1].toLowerCase();
+        const label = (mediaTag[3] ?? "").trim();
+        if (kind === "image") root.push(make("image", { url: src, alt: label, caption: label, name: label }));
+        else root.push(make(kind, { url: src, name: label || kind, caption: label }));
+        continue;
+      }
+    }
+    const calloutOpen = /^<callout\b([^>]*)>(.*)$/i.exec(line.trim());
+    if (calloutOpen) {
+      flushParagraph();
+      listStack.length = 0;
+      const attrs = calloutOpen[1];
+      const icon = /\bicon=["']([^"']+)["']/i.exec(attrs)?.[1];
+      const color = /\bcolor=["']([^"']+)["']/i.exec(attrs)?.[1];
+      const body: string[] = [];
+      const rest = calloutOpen[2];
+      const sameLineClose = /^(.*)<\/callout>\s*$/i.exec(rest);
+      if (sameLineClose) {
+        if (sameLineClose[1].trim()) body.push(sameLineClose[1].trim());
+      } else {
+        if (rest.trim()) body.push(rest.trim());
+        i++;
+        while (i < lines.length && !/<\/callout>\s*$/i.test(lines[i])) {
+          if (lines[i].trim()) body.push(lines[i].trim());
+          i++;
+        }
+        if (i < lines.length) {
+          const tail = lines[i].replace(/<\/callout>\s*$/i, "").trim();
+          if (tail) body.push(tail);
+        }
+      }
+      root.push(make("callout", { tone: calloutToneFromColor(color), ...(icon ? { icon } : {}) }, parseInline(body.join(" "))));
       continue;
     }
     if (/^\|.*\|\s*$/.test(line)) {
