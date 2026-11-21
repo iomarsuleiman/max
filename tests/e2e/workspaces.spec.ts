@@ -1,8 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
-test("create a personal workspace, keep its pages separate, and switch back", async ({ page }) => {
+test("create a personal workspace, keep its pages separate, and switch back", async ({ page, baseURL }) => {
+  // Give each attempt its own account so organizations and failed retries cannot change
+  // which workspace the first/second keyboard shortcuts select.
+  await page.context().addCookies([{ name: "max-dev-user", value: `ws_${randomUUID().replaceAll("-", "")}`, url: baseURL! }]);
   const name = `Side ${Date.now().toString(36)}`;
   await page.goto("/home");
+  await expect(page.getByLabel("Page title")).toBeVisible();
   await page.getByRole("button", { name: /workspace menu$/ }).click();
   await page.getByRole("menuitem", { name: "New workspace" }).click();
   const dialog = page.getByRole("dialog", { name: "New workspace" });
@@ -41,16 +46,21 @@ test("create a personal workspace, keep its pages separate, and switch back", as
   await expect(dock.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
   // A sideways two-finger swipe over the sidebar goes to the previous workspace (Personal).
   await sidebar.hover();
-  for (let i = 0; i < 4; i++) await page.mouse.wheel(-60, 0);
+  // One gesture crosses the threshold even when CI delays delivery between commands.
+  await page.mouse.wheel(-180, 0);
   await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText("Personal");
   await expect(dock.getByRole("tab", { name: "Personal" })).toHaveAttribute("aria-selected", "true");
   await dock.getByRole("tab", { name }).click();
   await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText(name);
+  await expect(page).toHaveURL(new RegExp(`${firstPageId}$`));
+  await expect(page.getByLabel("Page title")).toBeVisible();
   // Keyboard, like Arc: ⌃1 on a Mac (Alt+1 elsewhere) opens the first workspace, ⌃2 the second.
   const mac = await page.evaluate(() => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
   await page.locator("body").click({ position: { x: 5, y: 5 } }).catch(() => undefined);
   await page.keyboard.press(mac ? "Control+1" : "Alt+1");
   await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText("Personal");
+  await expect(dock.getByRole("tab", { name: "Personal" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("Page title")).toBeVisible();
   await page.keyboard.press(mac ? "Control+2" : "Alt+2");
   await expect(page.getByRole("button", { name: /workspace menu$/ })).toContainText(name);
 
