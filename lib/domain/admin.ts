@@ -128,6 +128,7 @@ export async function adminUsers(db: Db, opts: { search?: string; offset?: numbe
       trashed: pages.length - live.length,
       workspaces: owners.length,
       organizations: memberships.length,
+      orgsOn: !!(await db.list("accountFeatures", s.ownerId))[0]?.organizations,
       sites: sites.filter((x) => accountOf(x.ownerId) === s.ownerId).length,
       invited: invited.get(s.ownerId) ?? 0,
       shares: shareLists.flat().length,

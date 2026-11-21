@@ -30,8 +30,10 @@ function world() {
 describe("organizations", () => {
   it("keeps content inside the organization, for members only, across every path", async () => {
     const { h, now, op, join } = world();
-    const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
-    const { id: other } = await orgs.createOrganization(h.db, person("zed"), { name: "Other Co" }, now());
+    // Organizations start off: nobody creates one until Max's admins switch it on for them.
+    await expect(orgs.createOrganization(h.db, person("ann"), { name: "Too soon" }, now())).rejects.toThrow(/switched on/);
+    const { id: acme } = (await orgs.setAccountOrganizations(h.db, { id: "root" }, "ann", true, now()), await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now()));
+    const { id: other } = (await orgs.setAccountOrganizations(h.db, { id: "root" }, "zed", true, now()), await orgs.createOrganization(h.db, person("zed"), { name: "Other Co" }, now()));
     await join(acme, "ann", "bob");
 
     const { page } = await op(ann(), acme, "pages.create", { title: "Plan" });
@@ -71,7 +73,7 @@ describe("organizations", () => {
 
   it("hides private pages from everyone not on their list, on every path", async () => {
     const { h, now, op, join } = world();
-    const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
+    const { id: acme } = (await orgs.setAccountOrganizations(h.db, { id: "root" }, "ann", true, now()), await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now()));
     await join(acme, "ann", "bob");
     await join(acme, "ann", "cy");
     const { page: hr } = await op("bob", acme, "pages.create", { title: "HR salaries", teamspace: true });
@@ -101,7 +103,7 @@ describe("organizations", () => {
 
   it("binds invitations to a verified email, and guests only see what is shared with them", async () => {
     const { h, now, op, join } = world();
-    const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
+    const { id: acme } = (await orgs.setAccountOrganizations(h.db, { id: "root" }, "ann", true, now()), await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now()));
     await orgs.inviteMembers(h.db, person("ann"), acme, ["cy@example.com"], "member", now());
     const [invite] = await orgs.myInvitations(h.db, person("cy"), now());
     // Someone else, or the same address unverified, can't answer it.
@@ -124,7 +126,7 @@ describe("organizations", () => {
 
   it("enforces who manages whom, keeps one owner, and records it all", async () => {
     const { h, now, join } = world();
-    const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
+    const { id: acme } = (await orgs.setAccountOrganizations(h.db, { id: "root" }, "ann", true, now()), await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now()));
     await join(acme, "ann", "ada", "admin");
     await join(acme, "ann", "bob");
     await expect(orgs.setMemberRole(h.db, person("ada"), acme, "bob", "admin", now())).rejects.toThrow(/owner/);
@@ -144,7 +146,7 @@ describe("organizations", () => {
 
   it("gives platform admins the whole picture and control, without page contents", async () => {
     const { h, now, op, join } = world();
-    const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
+    const { id: acme } = (await orgs.setAccountOrganizations(h.db, { id: "root" }, "ann", true, now()), await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now()));
     await join(acme, "ann", "bob");
     await op(ann(), acme, "pages.create", { title: "Secret plan" });
     expect((await adminOverview(h.db, now())).totals).toMatchObject({ organizations: 1, orgMembers: 2 });

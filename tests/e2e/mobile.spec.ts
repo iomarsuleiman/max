@@ -165,3 +165,19 @@ test("tapping a text field doesn't zoom the page on iPhone; Android keeps the pl
   if (info.project.name === "mobile-webkit") await expect(viewport).toHaveAttribute("content", /maximum-scale=1/);
   else await expect(viewport).not.toHaveAttribute("content", /maximum-scale/);
 });
+
+test("selecting text on a phone doesn't open the keyboard; a tap to type does", async ({ page }) => {
+  await page.goto("/home");
+  await page.waitForURL(/\/p\//);
+  const editable = page.locator(".bn-editor[contenteditable=true]");
+  await expect(editable).toBeVisible();
+  // Reading mode: selection handles work, but no on-screen keyboard.
+  await expect(editable).toHaveAttribute("inputmode", "none");
+  // A deliberate tap on text switches to typing (the keyboard opens there).
+  const box = (await editable.locator("p").first().boundingBox())!;
+  await page.touchscreen.tap(box.x + 8, box.y + box.height / 2);
+  await expect(editable).toHaveAttribute("inputmode", "text");
+  // Leaving the editor goes back to reading mode.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await expect(editable).toHaveAttribute("inputmode", "none");
+});

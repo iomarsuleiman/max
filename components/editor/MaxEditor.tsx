@@ -129,6 +129,65 @@ function useKeyboardAwareCaret(editor: MaxEditorType, editable: boolean) {
   }, [editor, editable]);
 }
 
+/**
+ * Phones and tablets: selecting text must not summon the keyboard. A long press (to select) on
+ * an editable page focuses it, and iOS then opens the keyboard and scrolls the page to the caret,
+ * fighting the selection. So on touch screens the editor starts in reading mode
+ * (inputmode="none": selection handles and Copy work, no keyboard). A quick tap that doesn't
+ * select anything switches to typing and opens the keyboard at that spot; leaving the editor (or
+ * "Done editing") goes back to reading mode. Hardware keyboards type in either mode.
+ */
+function useTouchReadingMode(editor: MaxEditorType, editable: boolean) {
+  useEffect(() => {
+    if (!editable || !window.matchMedia("(pointer: coarse)").matches) return;
+    const dom = editor.prosemirrorView?.dom as HTMLElement | undefined;
+    if (!dom) return;
+    const reading = () => {
+      dom.inputMode = "none";
+      dom.dataset.touchReading = "";
+    };
+    reading();
+    let start: { x: number; y: number; at: number } | null = null;
+    let switching = false;
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== "touch" || dom.inputMode !== "none") return;
+      start = { x: e.clientX, y: e.clientY, at: e.timeStamp };
+    };
+    const up = (e: PointerEvent) => {
+      const s = start;
+      start = null;
+      if (!s || e.pointerType !== "touch") return;
+      // A long press or a drag is selecting (or scrolling): stay in reading mode.
+      if (e.timeStamp - s.at > 450 || Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10) return;
+      // Let the browser place the caret first; a tap that made a selection isn't a request to type.
+      setTimeout(() => {
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed) return;
+        dom.inputMode = "text";
+        delete dom.dataset.touchReading;
+        // The keyboard only appears for a fresh focus after inputmode changes.
+        switching = true;
+        dom.blur();
+        editor.focus();
+        switching = false;
+      }, 0);
+    };
+    const out = () => {
+      if (!switching) reading();
+    };
+    dom.addEventListener("pointerdown", down, { passive: true });
+    dom.addEventListener("pointerup", up, { passive: true });
+    dom.addEventListener("focusout", out);
+    return () => {
+      dom.removeEventListener("pointerdown", down);
+      dom.removeEventListener("pointerup", up);
+      dom.removeEventListener("focusout", out);
+      dom.removeAttribute("inputmode");
+      delete dom.dataset.touchReading;
+    };
+  }, [editor, editable]);
+}
+
 export default function MaxEditor(props: MaxEditorProps) {
   const dark = useDarkMode();
   const propsRef = useRef(props);
@@ -208,6 +267,7 @@ export default function MaxEditor(props: MaxEditorProps) {
     props.onReady?.(editor);
   }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
   useKeyboardAwareCaret(editor, props.editable);
+  useTouchReadingMode(editor, props.editable);
 
   // Files dropped on the page outside the text (FileDrop) go at the end of it.
   useEffect(() => {

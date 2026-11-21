@@ -28,6 +28,7 @@ export async function usernameOf(db: Db, ownerId: string): Promise<string | null
 }
 
 async function taken(db: Db, name: string, account: string) {
+  if ((await db.findBy("sites", "slug", name)).some((s) => s.root)) return true; // a top-level site's address
   return (await db.findBy("usernames", "username", name)).some((r) => r.ownerId !== account);
 }
 
@@ -89,4 +90,9 @@ export async function profileByUsername(db: Db, wanted: string): Promise<PublicP
 export async function siteHandle(db: Db, slug: string): Promise<string | null> {
   const site = (await db.findBy("sites", "slug", slug.toLowerCase()))[0];
   return site ? usernameOf(db, site.ownerId) : null;
+}
+
+/** Whether a slug is a top-level site (max.chaos.fail/<slug>), published by one of Max's admins. */
+export async function isRootSite(db: Db, slug: string): Promise<boolean> {
+  return (await db.findBy("sites", "slug", slug.toLowerCase())).some((s) => s.root);
 }

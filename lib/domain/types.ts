@@ -429,6 +429,8 @@ export interface SiteRow {
   search: boolean;
   createdAt: number;
   updatedAt: number;
+  /** Published at the top level (max.chaos.fail/<slug>): Max's platform admins only. */
+  root?: boolean;
 }
 
 export interface PresenceRow {
@@ -698,7 +700,17 @@ export interface ScheduleRow {
   nextAt: number;
 }
 
+/** Features Max's platform admins switch on per account (organizations start off for everyone). */
+export interface AccountFeatureRow {
+  _id: string;
+  ownerId: string;
+  organizations: boolean;
+  by: string;
+  updatedAt: number;
+}
+
 export interface Tables {
+  accountFeatures: AccountFeatureRow;
   schedules: ScheduleRow;
   integrations: IntegrationRow;
   installations: InstallationRow;

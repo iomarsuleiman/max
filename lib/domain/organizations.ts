@@ -137,6 +137,24 @@ const live = (i: OrgInviteRow, now: number) => i.status === "pending" && i.expir
 
 /* ── Your organizations ───────────────────────────────────────────────────── */
 
+/**
+ * Organizations start switched off for every account. Max's platform admins switch them on per
+ * account (Admin → Users); with it on, the account can create organizations and run them. Being
+ * invited into someone's organization doesn't need it: joining is the inviter's decision.
+ */
+export async function canCreateOrganizations(db: Db, accountId: string): Promise<boolean> {
+  return organizationsEnabled() && !!(await db.list("accountFeatures", accountId))[0]?.organizations;
+}
+
+export async function setAccountOrganizations(db: Db, admin: { id: string; name?: string | null }, accountId: string, on: boolean, now: number) {
+  if (!accountId || isOrgNamespace(accountId)) throw notFound("account");
+  const row = (await db.list("accountFeatures", accountId))[0];
+  if (row) await db.patch("accountFeatures", row._id, { organizations: on, by: admin.id, updatedAt: now });
+  else await db.insert("accountFeatures", { ownerId: accountId, organizations: on, by: admin.id, updatedAt: now });
+  await logEvent(db, PLATFORM, admin, on ? "user.organizations_on" : "user.organizations_off", accountId, null, now);
+  return { organizations: on };
+}
+
 export async function myOrganizations(db: Db, actor: OrgActor, now: number) {
   const memberships = await db.findBy("orgMembers", "accountId", actor.id);
   const organizations = [];
@@ -146,7 +164,7 @@ export async function myOrganizations(db: Db, actor: OrgActor, now: number) {
     organizations.push({ id: org.ownerId, name: org.name, icon: org.icon, slug: org.slug, role: m.role, status: m.status, standing: await orgStanding(db, org.ownerId) });
   }
   organizations.sort((a, b) => a.name.localeCompare(b.name));
-  return { organizations, invitations: await myInvitations(db, actor, now), joinable: await joinableByDomain(db, actor) };
+  return { canCreate: await canCreateOrganizations(db, actor.id), organizations, invitations: await myInvitations(db, actor, now), joinable: await joinableByDomain(db, actor) };
 }
 
 /** Pending invitations for the caller's verified email. Unverified emails see none. */
@@ -165,6 +183,7 @@ export async function myInvitations(db: Db, actor: OrgActor, now: number) {
 }
 
 export async function createOrganization(db: Db, actor: OrgActor, input: { name: string; icon?: string | null; description?: string }, now: number) {
+  if (!(await canCreateOrganizations(db, actor.id))) throw new MaxError("FORBIDDEN", "Organizations aren't switched on for your account yet. Ask Max's admins.");
   const name = cleanName(input.name);
   const memberships = await db.findBy("orgMembers", "accountId", actor.id);
   if (memberships.length >= ORG_LIMITS.membershipsPerAccount) throw new MaxError("LIMIT", `You can belong to up to ${ORG_LIMITS.membershipsPerAccount} organizations.`);

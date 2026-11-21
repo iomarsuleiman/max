@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Activity as ActivityIcon, Ban, Building2, CircleCheck, ExternalLink, Flag, Globe as GlobeIcon, Mail as MailIcon, PauseCircle, RotateCcw, Search, ShieldAlert, Sparkles as SparklesIcon, Users as UsersIcon } from "@/components/icons";
 import { toast } from "sonner";
-import { Button, Dialog, EmptyState, Segmented, Skeleton, cn } from "@/components/ui";
+import { Button, Dialog, EmptyState, Segmented, Skeleton, Switch, cn } from "@/components/ui";
 import { Topbar } from "@/components/workspace/Topbar";
 import { notifyError } from "@/components/workspace/context";
 import { DOODLE, Doodle } from "@/components/icons/Doodle";
@@ -220,7 +220,7 @@ function Users({ readOnly, onChanged, onOpenOrg }: { readOnly: boolean; onChange
           <table className="w-full min-w-[980px] border-collapse text-[13.5px]" aria-label="Users">
             <thead>
               <tr className="text-start text-[12px] text-fg-3">
-                {["Person", "Pages", "Databases", "Orgs", "Sites", "Shared", "Invited", "Joined", "Last active", "Status", ""].map((h) => (
+                {["Person", "Pages", "Databases", "Orgs", "Organizations", "Sites", "Shared", "Invited", "Joined", "Last active", "Status", ""].map((h) => (
                   <th key={h} className="border-b border-line px-3 py-2 text-start font-medium">{h}</th>
                 ))}
               </tr>
@@ -237,6 +237,22 @@ function Users({ readOnly, onChanged, onOpenOrg }: { readOnly: boolean; onChange
                   <td className="border-b border-line px-3 py-2 tabular-nums">{u.pages}{u.rows ? <span className="text-fg-3"> + {u.rows} rows</span> : null}</td>
                   <td className="border-b border-line px-3 py-2 tabular-nums">{u.databases}</td>
                   <td className="border-b border-line px-3 py-2 tabular-nums">{u.organizations}</td>
+                  <td className="border-b border-line px-3 py-2">
+                    <Switch
+                      checked={u.orgsOn}
+                      disabled={readOnly}
+                      label={`Organizations for ${u.name || u.email || u.id}`}
+                      onCheckedChange={async (on) => {
+                        try {
+                          await api.setOrganizations(u.id, on);
+                          toast.success(on ? "Organizations switched on: they can create and invite" : "Organizations switched off for them");
+                          void load();
+                        } catch (err) {
+                          notifyError(err);
+                        }
+                      }}
+                    />
+                  </td>
                   <td className="border-b border-line px-3 py-2 tabular-nums">{u.sites}</td>
                   <td className="border-b border-line px-3 py-2 tabular-nums">{u.shares}</td>
                   <td className="border-b border-line px-3 py-2 tabular-nums" title="People who joined Max through their link">{u.invited}</td>
@@ -256,7 +272,7 @@ function Users({ readOnly, onChanged, onOpenOrg }: { readOnly: boolean; onChange
                 </tr>
               ))}
               {!shown.length && (
-                <tr><td colSpan={11} className="px-3 py-10 text-center text-fg-3">No one matches.</td></tr>
+                <tr><td colSpan={12} className="px-3 py-10 text-center text-fg-3">No one matches.</td></tr>
               )}
             </tbody>
           </table>

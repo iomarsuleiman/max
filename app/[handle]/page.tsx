@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { InvitePage } from "@/components/marketing/InvitePage";
-import { publicProfile } from "@/lib/server/invites";
+import { isRootSite, publicProfile } from "@/lib/server/invites";
+import { SiteView } from "@/components/site/SiteView";
+import { AppRoot } from "@/components/AppRoot";
 import { USERNAME } from "@/lib/domain/usernames";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +24,20 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return { title, description, openGraph: { title, description, type: "website", images }, twitter: { card: "summary_large_image", title, description, images }, robots: { index: false } };
 }
 
-/** max.chaos.fail/<username>: that person's invitation to Max. */
+/**
+ * max.chaos.fail/<username>: that person's invitation to Max. A top-level site (published by
+ * Max's admins at max.chaos.fail/<slug>) takes the address instead; usernames can't collide.
+ */
 export default async function Invite({ params }: Params) {
-  const profile = await load((await params).handle);
+  const handle = decodeURIComponent((await params).handle).toLowerCase();
+  if (/^[a-z0-9-]{3,40}$/.test(handle) && (await isRootSite(handle))) {
+    return (
+      <AppRoot>
+        <SiteView slug={handle} pageParam={null} />
+      </AppRoot>
+    );
+  }
+  const profile = await load(handle);
   if (!profile) notFound();
   return <InvitePage profile={profile} member={null} />;
 }

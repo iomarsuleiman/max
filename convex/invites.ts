@@ -2,7 +2,7 @@ import { queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import { profileByUsername } from "../lib/domain/usernames";
 import { linkPreview } from "../lib/domain/sharing";
-import { siteHandle as handleForSite } from "../lib/domain/usernames";
+import { isRootSite, siteHandle as handleForSite } from "../lib/domain/usernames";
 import { convexDb } from "./convexDb";
 
 /**
@@ -23,4 +23,10 @@ export const preview = queryGeneric({
 export const siteHandle = queryGeneric({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => handleForSite(convexDb(ctx.db as never), slug.slice(0, 60)),
+});
+
+/** Whether max.chaos.fail/<slug> is a top-level site (published by Max's admins). */
+export const rootSite = queryGeneric({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => isRootSite(convexDb(ctx.db as never), slug.slice(0, 60)),
 });

@@ -17,6 +17,8 @@ export interface OpContext {
    * name-only listings of closed teamspaces; never return content read through it.
    */
   unrestrictedDb?: Db;
+  /** Max's platform admin, from the verified sign-in (set only by trusted transports). */
+  platformAdmin?: boolean;
   /** Calls from a connected app (source "app"): the permissions its installation was granted. */
   appScopes?: readonly string[];
   /** Set by transports that deliver webhooks: execute() counts deliveries queued by this call. */

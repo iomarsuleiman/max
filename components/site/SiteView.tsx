@@ -33,7 +33,8 @@ export function SiteView({ slug, pageParam }: { slug: string; pageParam: string 
   const pathname = usePathname();
   // /<username>/<slug> (the usual address), /site/<slug> (older links) or <slug>.<domain>.
   const at = pathname?.split("/") ?? [];
-  const base = pathname?.startsWith("/site/") ? `/site/${slug}` : at[2]?.toLowerCase() === slug ? `/${at[1]}/${slug}` : "";
+  // Top-level sites (Max's admins) live at /<slug>.
+  const base = pathname?.startsWith("/site/") ? `/site/${slug}` : at[2]?.toLowerCase() === slug ? `/${at[1]}/${slug}` : at[1]?.toLowerCase() === slug ? `/${slug}` : "";
   const hrefFor = useMemo(() => (id: string, title: string, rootId: string) => (id === rootId ? base || "/" : `${base}/${encodeURI(pageSlug(title))}-${id}`), [base]);
   if (q.error) {
     return (

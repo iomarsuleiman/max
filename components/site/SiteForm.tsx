@@ -8,6 +8,21 @@ import { useOp } from "@/lib/client/data";
 import { pageSlug } from "@/lib/pageUrl";
 import type { SiteRow } from "@/lib/domain/types";
 import { notifyError, useWorkspace } from "@/components/workspace/context";
+import { useAdminApi } from "@/lib/client/admin";
+
+/** Whether you're one of Max's platform admins (who may publish at the top level). */
+function useIsPlatformAdmin() {
+  const api = useAdminApi();
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    let live = true;
+    api.check().then((r) => live && setAdmin(r.admin && r.role !== "support"), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [api]);
+  return admin;
+}
 
 const toSlug = (t: string) => pageSlug(t).replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "my-site";
 
@@ -34,13 +49,17 @@ export function SiteForm({ page }: { page: { _id: string; title: string; icon?: 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   // Sites live under your username: max.chaos.fail/<username>/<site>.
   const username = useOp<{ username: string | null }>("account.username", {}).data?.username;
-  const siteUrl = (s: string) => (username ? `${origin}/${username}/${s}` : `${origin}/site/${s}`);
+  // Max's admins can also publish at the top level: max.chaos.fail/<site>.
+  const isAdmin = useIsPlatformAdmin();
+  const [topLevel, setTopLevel] = useState(false);
+  useEffect(() => setTopLevel(!!site?.root), [site?.root]);
+  const siteUrl = (s: string) => (topLevel ? `${origin}/${s}` : username ? `${origin}/${username}/${s}` : `${origin}/site/${s}`);
   const url = siteUrl(slug);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await ws.call("sites.publish", { pageId: page._id, slug, name, description, search, icon: page.icon ?? null });
+      await ws.call("sites.publish", { pageId: page._id, slug, name, description, search, icon: page.icon ?? null, ...(isAdmin ? { topLevel } : {}) });
       toast.success(site ? "Site updated" : "Your site is live", { action: { label: "Open", onClick: () => window.open(url, "_blank", "noopener") } });
     } catch (err) {
       notifyError(err, "Couldn't publish the site.");
@@ -56,6 +75,15 @@ export function SiteForm({ page }: { page: { _id: string; title: string; icon?: 
         <Field label="Address" htmlFor="site-slug" help={<span className="break-all font-mono text-[12px]">{url}</span>}>
           <Input id="site-slug" value={slug} maxLength={40} required pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />
         </Field>
+        {isAdmin && (
+          <label className="flex items-center justify-between gap-3 text-[13px]">
+            <span>
+              <span className="block font-medium">Top-level address</span>
+              <span className="block text-[12px] text-fg-3">Only Max&apos;s admins: {origin.replace(/^https?:\/\//, "")}/{slug} instead of under your username.</span>
+            </span>
+            <Switch checked={topLevel} onCheckedChange={setTopLevel} label="Top-level address" />
+          </label>
+        )}
         <Field label="Description" htmlFor="site-description">
           <Input id="site-description" value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} placeholder="What this site is about (optional)" />
         </Field>

@@ -268,7 +268,11 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
   const name = ws.settings?.displayName || ws.identity.name;
   const spaces = useWorkspaces();
   const router = useRouter();
-  const orgsEnabled = useMyOrgs().data?.enabled ?? false;
+  // Organizations start off for every account; Max's admins switch them on per account.
+  // Anyone already in an organization (invited) still sees theirs.
+  const mine = useMyOrgs().data;
+  const canCreateOrg = !!mine?.enabled && !!mine.canCreate;
+  const orgsEnabled = canCreateOrg || (mine?.organizations.length ?? 0) > 0;
   const [creating, setCreating] = useState(false);
   const [creatingOrg, setCreatingOrg] = useState(false);
   return (
@@ -323,9 +327,11 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
                   Members & settings
                 </MenuItem>
               )}
-              <MenuItem icon={<Plus />} onSelect={() => setCreatingOrg(true)}>
-                New organization
-              </MenuItem>
+              {canCreateOrg && (
+                <MenuItem icon={<Plus />} onSelect={() => setCreatingOrg(true)}>
+                  New organization
+                </MenuItem>
+              )}
             </>
           )}
           <MenuSeparator />

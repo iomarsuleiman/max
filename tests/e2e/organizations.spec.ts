@@ -14,6 +14,16 @@ test("organizations: create, invite by email, join, edit together, remove; admin
   await bob.goto("/home");
   await bob.waitForURL(/\/p\//);
 
+  // Organizations start off: the admin switches them on for this account in Admin → Users.
+  await page.goto("/home");
+  await page.waitForURL(/\/p\//);
+  await page.locator("[data-sidebar]").getByRole("button", { name: /workspace menu/ }).click();
+  await expect(page.getByRole("menuitem", { name: "New organization" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.goto("/admin");
+  await page.getByRole("radiogroup", { name: "Section" }).getByRole("radio", { name: /Users/ }).click();
+  await page.getByRole("switch", { name: /Organizations for (You|local)/ }).click();
+  await expect(page.getByRole("switch", { name: /Organizations for (You|local)/ })).toBeChecked();
   // The local owner creates an organization from the workspace menu and invites Bob.
   await page.goto("/home");
   await page.waitForURL(/\/p\//);

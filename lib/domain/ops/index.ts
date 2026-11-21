@@ -21,12 +21,13 @@ import * as automationOps from "./automations";
 import * as orgAccessOps from "./orgAccess";
 import * as approvalOps from "./approvals";
 import * as insightOps from "./insights";
+import * as platformOps from "./platform";
 import { accountOf } from "../workspaces";
 import { orgGate } from "./orgGate";
 import { queueEvents, scopeFor, SCOPES } from "../integrations";
 
 const all: OpDef[] = [];
-for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares, sites, workspaces, inboxOps, peopleOps, automationOps, orgAccessOps, approvalOps, insightOps]) {
+for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares, sites, workspaces, inboxOps, peopleOps, automationOps, orgAccessOps, approvalOps, insightOps, platformOps]) {
   for (const value of Object.values(mod)) {
     if (value && typeof value === "object" && "name" in value && "run" in value && "input" in value) all.push(value as OpDef);
   }

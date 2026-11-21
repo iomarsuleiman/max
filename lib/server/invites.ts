@@ -39,3 +39,14 @@ export async function siteHandle(slug: string): Promise<string | null> {
     return null;
   }
 }
+
+/** Whether a top-level address (max.chaos.fail/<slug>) is a site published by Max's admins. */
+export async function isRootSite(slug: string): Promise<boolean> {
+  try {
+    if (CLOUD) return (await new ConvexHttpClient(CONVEX_URL).query(anyApi.invites.rootSite, { slug })) as boolean;
+    if (!localModeAllowed()) return false;
+    return (await import("@/lib/domain/usernames")).isRootSite(await localDb(), slug);
+  } catch {
+    return false;
+  }
+}
