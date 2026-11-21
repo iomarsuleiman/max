@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isOrgNamespace } from "../organizations";
 import { MaxError } from "../errors";
 import { rankBetween } from "../rank";
 import { DOCUMENT_SCHEMA_VERSION, countWords, documentText, markdownToBlocks, parseContent, referencedPageIds } from "../blocks";
@@ -97,7 +98,8 @@ export const pagesGet = defineOp({
       page.archivedRootId && page.archivedRootId !== page._id ? ctx.db.get("pages", page.archivedRootId) : Promise.resolve(null),
       page.databaseId ? ctx.db.get("pages", page.databaseId) : Promise.resolve(null),
       // Check share state in parallel so solo pages never block editor mount on a separate shares.list RTT.
-      page.kind !== "database" && !page.isTemplate && !page.archivedAt
+      // An organization's pages are always edited live together; no per-page share lookup needed.
+      page.kind !== "database" && !page.isTemplate && !page.archivedAt && !isOrgNamespace(ctx.ownerId)
         ? Promise.all(
             chain.map(async (p) => {
               const [s, l] = await Promise.all([
@@ -121,7 +123,7 @@ export const pagesGet = defineOp({
       database: page.databaseId ? summary(databaseRow && databaseRow.ownerId === ctx.ownerId ? databaseRow : page) : null,
       inTrash: !!page.archivedAt,
       trashedWith: archivedRoot && archivedRoot.ownerId === ctx.ownerId && archivedRoot._id !== page._id ? summary(archivedRoot) : null,
-      isShared: sharedChecks.some(Boolean),
+      isShared: (isOrgNamespace(ctx.ownerId) && page.kind !== "database" && !page.isTemplate && !page.archivedAt) || sharedChecks.some(Boolean),
     };
   },
 });

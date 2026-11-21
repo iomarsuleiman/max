@@ -599,6 +599,8 @@ button[role="switch"] > span { transition: transform 180ms cubic-bezier(.2,.8,.2
 .space-panel .space-dial { width: 52px; height: 52px; }
 @media (min-width: 768px) { .space-panel { bottom: 28px; } }
 .workspace-initial { display: inline-grid; place-items: center; flex: none; border-radius: 6px; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--tint-1, #7b8cff), var(--tint-2, #c27bff)); }
+/* Organizations: a matte, outlined square instead of the personal gradient, so shared spaces read differently at a glance. */
+.workspace-initial--org { border-radius: 4px; color: var(--fg); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
 /* Invitation: the inviter's own card, tilted a little, floating on the paper. */
 /* As big as the screen allows next to (or above) the words: never pushes the page into scrolling. */
 .invite-card { width: min(300px, 72vw, calc((100dvh - 430px) * .79)); min-width: 130px; flex: none; transform: rotate(-4deg); filter: drop-shadow(0 30px 40px rgb(0 0 0 / .22)) drop-shadow(0 4px 10px rgb(0 0 0 / .08)); transition: transform 400ms cubic-bezier(.2,.8,.2,1); }

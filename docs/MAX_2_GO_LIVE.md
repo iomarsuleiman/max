@@ -22,6 +22,22 @@ npx convex env set MAX_ADMIN_EMAILS you@example.com --prod
 
 Separate several with commas. In local mode, whoever runs the server is the admin.
 
+Read-only support staff (they see the dashboard, organizations and audit trail but can't change anything):
+
+```bash
+npx convex env set MAX_SUPPORT_EMAILS support@example.com --prod
+```
+
+Turn on multi-factor authentication for these accounts in Clerk (Dashboard → User & authentication → Multi-factor). Both lists only match **verified** emails.
+
+## Organizations
+
+Organizations (shared company workspaces) are on as soon as this backend is deployed; see [ORGANIZATIONS.md](ORGANIZATIONS.md). To hide them everywhere without touching any data (rollback switch):
+
+```bash
+npx convex env set MAX_ORGANIZATIONS off --prod
+```
+
 ## Websites from pages
 
 Share → Publish on any page publishes it with everything inside it at `max.chaos.fail/site/<address>`. Nothing to set up.

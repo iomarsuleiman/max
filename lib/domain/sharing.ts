@@ -11,6 +11,7 @@
  */
 import { MaxError, notFound } from "./errors";
 import { accountOf } from "./workspaces";
+import { getOrg, isOrgNamespace, orgAccess, organizationsEnabled } from "./organizations";
 import type { Db, Storage } from "./db";
 import { execute } from "./ops";
 import type { PageRow, ShareLevel, Source } from "./types";
@@ -36,6 +37,14 @@ export interface Access {
   page: PageRow;
   /** The highest page in the chain that grants access (where the breadcrumb starts). */
   rootId: string | null;
+  /** Set when the caller reaches the page as a member of the organization that owns it. */
+  orgId?: string;
+}
+
+/** Who to name as a page's owner: the person, or the organization. */
+async function ownerName(db: Db, ownerId: string): Promise<string | null> {
+  if (isOrgNamespace(ownerId)) return (await getOrg(db, ownerId))?.name ?? null;
+  return (await db.list("settings", accountOf(ownerId)))[0]?.displayName ?? null;
 }
 
 /** The page and its ancestors, nearest first (pages, database rows and databases alike). */
@@ -78,6 +87,11 @@ export async function resolveAccess(db: Db, callerId: string, pageId: string, li
   const anonymous = callerId === ANONYMOUS;
   await assertSharingStanding(db, page.ownerId, callerId, false);
   if (!anonymous && accountOf(page.ownerId) === callerId) return { level: "owner", ownerId: page.ownerId, page, rootId: null };
+  // An organization's members hold its pages the way an owner holds their own (live rooms,
+  // presence and comments included); its guests only reach what is shared with them, below.
+  if (!anonymous && isOrgNamespace(page.ownerId) && organizationsEnabled() && (await orgAccess(db, callerId, page.ownerId))) {
+    return { level: "owner", ownerId: page.ownerId, page, rootId: null, orgId: page.ownerId };
+  }
   if (page.archivedAt) throw notFound();
   const ancestors = await chain(db, page);
   const ids = new Set(ancestors.map((p) => p._id));
@@ -218,7 +232,11 @@ export async function executeShared(op: string, rawArgs: unknown, ctx: SharedCon
   if (op === "shares.invite" && args.level === "full_access" && scope.level !== "owner" && !atLeast(scope.level, "full_access")) {
     throw new MaxError("FORBIDDEN", "You can't give more access than you have.");
   }
-  const result = await execute(op, args, { db: ctx.db, storage: ctx.storage, ownerId: scope.ownerId, now: ctx.now, source: ctx.source ?? "ui", actor: ctx.actor }, kind);
+  // Organization members acting on its pages run as members (their role is checked by the org
+  // gate); everyone else runs inside the share they hold.
+  const member = scope.orgId ? await orgAccess(ctx.db, ctx.actor.id, scope.orgId) : null;
+  const opCtx = member ? { org: { role: member.member.role } } : { viaShare: true };
+  const result = await execute(op, args, { db: ctx.db, storage: ctx.storage, ownerId: scope.ownerId, now: ctx.now, source: ctx.source ?? "ui", actor: ctx.actor, ...opCtx }, kind);
   if (op === "pages.get") return trimBreadcrumbs(result, scope);
   if (op === "pages.backlinks" && scope.level !== "owner") {
     const r = result as { pages: { _id: string }[] };
@@ -262,7 +280,7 @@ function trimBreadcrumbs(result: unknown, scope: Access) {
 /** What the signed-in person sees in the share menu header and the page chrome. */
 export async function accessInfo(db: Db, callerId: string, pageId: string, linkToken?: string | null) {
   const a = await resolveAccess(db, callerId, pageId, linkToken);
-  const owner = a.level === "owner" ? null : (await db.list("settings", accountOf(a.ownerId)))[0];
+  const owner = a.level === "owner" ? null : { displayName: await ownerName(db, a.ownerId) };
   // Someone visiting through a link (no share of their own) can join: the page, or the teamspace it
   // belongs to, then stays in their sidebar like an invitation.
   let invite: { pageId: string; title: string; icon: string | null; teamspace: boolean } | null = null;
@@ -276,7 +294,7 @@ export async function accessInfo(db: Db, callerId: string, pageId: string, linkT
       if (root) invite = { pageId: root._id, title: root.title, icon: root.icon, teamspace: !!root.teamspace };
     }
   }
-  return { you: callerId, level: a.level, ownerId: a.ownerId, ownerName: owner?.displayName ?? null, rootId: a.rootId, pageId: a.page._id, title: a.page.title, icon: a.page.icon, kind: a.page.kind, invite };
+  return { you: callerId, level: a.level, ownerId: a.ownerId, orgId: a.orgId ?? null, ownerName: owner?.displayName ?? null, rootId: a.rootId, pageId: a.page._id, title: a.page.title, icon: a.page.icon, kind: a.page.kind, invite };
 }
 
 /** The link nearest a page among its ancestors (the page itself first). */
@@ -318,8 +336,7 @@ export async function sharedWithMe(db: Db, callerId: string) {
     const page = await db.get("pages", share.pageId);
     if (!page || page.archivedAt || page.ownerId !== share.ownerId) continue;
     seen.add(page._id);
-    const owner = (await db.list("settings", accountOf(share.ownerId)))[0];
-    out.push({ _id: page._id, title: page.title, icon: page.icon, kind: page.kind, level: share.level, ownerId: share.ownerId, ownerName: owner?.displayName ?? null, sharedAt: share.createdAt, teamspace: !!page.teamspace });
+    out.push({ _id: page._id, title: page.title, icon: page.icon, kind: page.kind, level: share.level, ownerId: share.ownerId, ownerName: await ownerName(db, share.ownerId), sharedAt: share.createdAt, teamspace: !!page.teamspace });
   }
   return out;
 }

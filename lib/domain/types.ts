@@ -219,6 +219,8 @@ export interface SettingsRow {
   workspaceIcon?: string | null;
   /** Extra personal workspaces, each a private namespace of its own (see lib/domain/workspaces.ts). */
   workspaces?: import("./workspaces").WorkspaceEntry[];
+  /** This person's own sidebar and space settings inside each organization they belong to. */
+  orgPrefs?: Record<string, Partial<SettingsRow>>;
   onboarded: boolean;
   updatedAt: number;
 }
@@ -437,7 +439,96 @@ export interface CollabAwarenessRow {
   at: number;
 }
 
+/* ── Organizations (lib/domain/organizations.ts) ─────────────────────────────
+ * Every org row is owned by the organization's namespace (`org_<id>`), so the same
+ * ownership-scoped reads that keep personal data apart keep organizations apart. */
+export type OrgRole = "owner" | "admin" | "member" | "guest";
+
+export interface OrgPolicies {
+  /** Members (not only admins) may invite people to join as members. */
+  membersCanInvite: boolean;
+  /** Pages may be shared with people outside the organization (they join as page guests). */
+  allowGuests: boolean;
+  /** Pages may be published to the web with a public link. */
+  allowPublicLinks: boolean;
+  /** Pages may be published as websites (admins only). */
+  allowSites: boolean;
+}
+
+export interface OrgRow {
+  _id: string;
+  /** The organization's namespace, `org_<id>`: the ownerId of all its content. */
+  ownerId: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  description: string;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+  policies: OrgPolicies;
+  /** Platform-set operational limits (null: Max's defaults). */
+  maxMembers: number | null;
+}
+
+export interface OrgMemberRow {
+  _id: string;
+  ownerId: string;
+  accountId: string;
+  role: OrgRole;
+  status: "active" | "suspended";
+  name: string | null;
+  email: string | null;
+  image: string | null;
+  invitedBy: string | null;
+  joinedAt: number;
+  updatedAt: number;
+}
+
+export interface OrgInviteRow {
+  _id: string;
+  ownerId: string;
+  /** Normalized (lower-case) email. Accepting requires this verified email on the sign-in. */
+  email: string;
+  role: Exclude<OrgRole, "owner">;
+  status: "pending" | "accepted" | "declined" | "revoked";
+  invitedBy: string;
+  invitedByName: string | null;
+  createdAt: number;
+  expiresAt: number;
+  resolvedAt: number | null;
+  resolvedBy: string | null;
+}
+
+export interface OrgTeamRow {
+  _id: string;
+  ownerId: string;
+  name: string;
+  description: string;
+  memberIds: string[];
+  archivedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Append-only audit trail. ownerId is the organization's namespace, or "platform" for Max's admins. */
+export interface OrgEventRow {
+  _id: string;
+  ownerId: string;
+  actorId: string;
+  actorName: string | null;
+  action: string;
+  targetId: string | null;
+  detail: string | null;
+  at: number;
+}
+
 export interface Tables {
+  orgs: OrgRow;
+  orgMembers: OrgMemberRow;
+  orgInvites: OrgInviteRow;
+  orgTeams: OrgTeamRow;
+  orgEvents: OrgEventRow;
   pages: PageRow;
   documents: DocumentRow;
   settings: SettingsRow;

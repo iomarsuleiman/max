@@ -16,7 +16,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: "VALIDATION", message: "Invalid request." } }, { status: 400 });
   }
   try {
-    const result = await runLocal(String(body.op), body.args ?? {}, "ui", localActor(request).id, body.kind, body.ws);
+    const actor = localActor(request);
+    const result = await runLocal(String(body.op), body.args ?? {}, "ui", actor.id, body.kind, body.ws, actor.name);
     return NextResponse.json({ result: result ?? null });
   } catch (err) {
     const error = serializeError(err);

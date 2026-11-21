@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { activeWorkspace, switchWorkspace } from "@/lib/client/workspace";
 import { ArrowUpRight, FileQuestion, Link2, Lock, MessageSquare, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Notice, Skeleton, cn } from "@/components/ui";
@@ -63,6 +64,8 @@ interface AccessInfo {
   you: string;
   level: ShareLevel | "owner";
   ownerId: string;
+  /** Set when you reach the page as a member of the organization that owns it. */
+  orgId?: string | null;
   ownerName: string | null;
   rootId: string | null;
   invite: PageAccess["invite"];
@@ -77,6 +80,12 @@ export function PageView(props: { pageId: string; renderHeader?: (data: PageGetR
   const access = useSharing<AccessInfo>("access", { pageId: props.pageId, linkToken });
   const level = access.data?.level;
   const scope = useMemo(() => (level && level !== "owner" ? { pageId: props.pageId, linkToken } : null), [level, props.pageId, linkToken]);
+  // A page of yours, or of an organization you belong to, that lives in another workspace than the
+  // one open here (a link from a teammate, a bookmark): open that workspace at this page.
+  const home = level === "owner" && access.data ? (access.data.orgId ?? (access.data.ownerId.includes("~") ? access.data.ownerId.split("~")[1] : null)) : undefined;
+  useEffect(() => {
+    if (home !== undefined && home !== activeWorkspace()) switchWorkspace(home, window.location.pathname + window.location.search);
+  }, [home]);
   if (!scope) return <PageViewInner {...props} accessPending={access.isLoading} />;
   return (
     <ShareScope value={scope}>

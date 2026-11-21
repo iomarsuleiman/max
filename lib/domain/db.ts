@@ -34,11 +34,18 @@ export interface Db {
   /** How many accounts joined Max through this account's invite link. A count only: never who. */
   invitedCount(account: string): Promise<number>;
   /** Admins only (lib/domain/admin.ts): every row of a table across all accounts, newest first. */
-  listAll<T extends "settings" | "moderation" | "sites">(table: T, limit: number): Promise<Tables[T][]>;
+  listAll<T extends ListAllTable>(table: T, limit: number): Promise<Tables[T][]>;
 }
 
-export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites" | "usernames";
-export type CrossField<T extends CrossTable> = T extends "shares"
+export type ListAllTable = "settings" | "moderation" | "sites" | "orgs" | "orgEvents" | "audit";
+export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites" | "usernames" | "orgs" | "orgMembers" | "orgInvites";
+export type CrossField<T extends CrossTable> = T extends "orgs"
+  ? "slug"
+  : T extends "orgMembers"
+    ? "accountId"
+    : T extends "orgInvites"
+      ? "email"
+      : T extends "shares"
   ? "granteeId" | "pageId"
   : T extends "shareLinks"
     ? "token" | "pageId"
@@ -50,7 +57,9 @@ export type CrossField<T extends CrossTable> = T extends "shares"
           ? "username"
           : "pageId";
 
-export type IndexedField<T extends TableName> = T extends "pages"
+export type IndexedField<T extends TableName> = T extends "orgMembers"
+  ? "accountId"
+  : T extends "pages"
   ? "parentId" | "databaseId"
   : T extends "documents"
     ? "pageId"

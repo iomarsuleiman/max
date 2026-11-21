@@ -90,9 +90,7 @@ test("mobile keyboard toolbar formats, inserts blocks and saves without losing f
   // The line being typed stays above the keyboard and the formatting row.
   await editor.press("Control+End");
   await page.keyboard.insertText(" tail");
-  await page.waitForTimeout(150);
-  const caretBottom = await page.evaluate(() => window.getSelection()!.getRangeAt(0).getBoundingClientRect().bottom);
-  expect(caretBottom).toBeLessThanOrEqual(470 - 56);
+  await expect.poll(() => page.evaluate(() => window.getSelection()!.getRangeAt(0).getBoundingClientRect().bottom)).toBeLessThanOrEqual(470 - 56);
   await page.screenshot({ path: "test-results/max-mobile-editor.png" });
   await toolbar.getByRole("button", { name: "Done editing", exact: true }).click();
   await expect(toolbar).not.toBeVisible();

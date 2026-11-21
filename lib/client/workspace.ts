@@ -6,7 +6,8 @@
  * the previous one lingers) while the connection to the server stays open.
  */
 const KEY = "max:workspace";
-const VALID = /^[a-z0-9]{8}$/;
+/** A personal workspace (8 characters) or an organization (org_ + 10). */
+const VALID = /^([a-z0-9]{8}|org_[a-z0-9]{10})$/;
 
 function stored(): string | null {
   try {

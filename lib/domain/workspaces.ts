@@ -1,6 +1,7 @@
 import { MaxError } from "./errors";
 import type { Db } from "./db";
-import type { SettingsRow } from "./types";
+import type { OrgRole, SettingsRow } from "./types";
+import { isOrgNamespace, ORG_PREFIX, orgAccess, organizationsEnabled } from "./organizations";
 
 /**
  * Personal workspaces. Everyone has a main workspace whose data lives under their account id.
@@ -48,4 +49,24 @@ export async function resolveOwner(db: Db, account: string, workspace: unknown):
   const row = (await db.list("settings", account))[0];
   if (!row?.workspaces?.some((w) => w.id === workspace)) throw new MaxError("NOT_FOUND", "That workspace doesn't exist anymore.", { workspace: "missing" });
   return ownerFor(account, workspace);
+}
+
+/** Where a request acts, and as what: a personal namespace, or an organization the caller belongs to. */
+export interface RequestScope {
+  ownerId: string;
+  org?: { role: OrgRole; name: string | null };
+}
+
+/**
+ * Resolves the `ws` a request asked for. Organizations (`org_…`) are open only to their active,
+ * non-guest members; anyone else gets the same "missing workspace" answer as a deleted one, so
+ * an organization's existence never leaks.
+ */
+export async function resolveScope(db: Db, account: string, workspace: unknown): Promise<RequestScope> {
+  if (typeof workspace === "string" && workspace.startsWith(ORG_PREFIX)) {
+    const access = organizationsEnabled() && isOrgNamespace(workspace) ? await orgAccess(db, account, workspace) : null;
+    if (!access) throw new MaxError("NOT_FOUND", "That organization doesn't exist, or you're no longer a member.", { workspace: "missing" });
+    return { ownerId: workspace, org: { role: access.member.role, name: access.member.name } };
+  }
+  return { ownerId: await resolveOwner(db, account, workspace) };
 }

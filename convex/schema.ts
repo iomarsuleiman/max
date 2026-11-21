@@ -311,6 +311,69 @@ export default defineSchema({
     updatedAt: v.number(),
     archivedAt: nullableNumber,
   }).index("by_workspace_database", ["workspaceId", "databaseId"]),
+  // Organizations (lib/domain/organizations.ts). Every row is owned by the organization's
+  // namespace ("org_<id>"), the same ownerId its pages, files and history carry.
+  orgs: defineTable({
+    ownerId: v.string(),
+    name: v.string(),
+    slug: v.string(),
+    icon: nullableString,
+    description: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    policies: v.object({ membersCanInvite: v.boolean(), allowGuests: v.boolean(), allowPublicLinks: v.boolean(), allowSites: v.boolean() }),
+    maxMembers: nullableNumber,
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_slug", ["slug"]),
+  orgMembers: defineTable({
+    ownerId: v.string(),
+    accountId: v.string(),
+    role: v.union(v.literal("owner"), v.literal("admin"), v.literal("member"), v.literal("guest")),
+    status: v.union(v.literal("active"), v.literal("suspended")),
+    name: nullableString,
+    email: nullableString,
+    image: nullableString,
+    invitedBy: nullableString,
+    joinedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_accountId", ["ownerId", "accountId"])
+    .index("by_accountId", ["accountId"]),
+  orgInvites: defineTable({
+    ownerId: v.string(),
+    email: v.string(),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("guest")),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("declined"), v.literal("revoked")),
+    invitedBy: v.string(),
+    invitedByName: nullableString,
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    resolvedAt: nullableNumber,
+    resolvedBy: nullableString,
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_email", ["email"]),
+  orgTeams: defineTable({
+    ownerId: v.string(),
+    name: v.string(),
+    description: v.string(),
+    memberIds: v.array(v.string()),
+    archivedAt: nullableNumber,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
+  orgEvents: defineTable({
+    ownerId: v.string(),
+    actorId: v.string(),
+    actorName: nullableString,
+    action: v.string(),
+    targetId: nullableString,
+    detail: nullableString,
+    at: v.number(),
+  }).index("by_owner", ["ownerId"]),
   pages: defineTable({
     ownerId: v.string(),
     kind: v.union(v.literal("page"), v.literal("database")),

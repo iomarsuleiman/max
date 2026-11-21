@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { setup } from "./harness";
-import { adminOverview, isAdminEmail, listReports, setModeration, setReportStatus, submitReport } from "@/lib/domain/admin";
+import { adminOverview, adminUsers, isAdminEmail, listReports, setModeration, setReportStatus, submitReport } from "@/lib/domain/admin";
 import { siteNav } from "@/lib/domain/sites";
 
 describe("admin dashboard", () => {
@@ -19,7 +19,8 @@ describe("admin dashboard", () => {
     await sam("databases.create", { title: "Books" });
     await sam("sites.publish", { pageId: page._id, slug: "sams-recipes", name: "Recipes" });
     const now = Date.now();
-    const { totals, users } = await adminOverview(h.db, now);
+    const { totals } = await adminOverview(h.db, now);
+    const { users } = await adminUsers(h.db, { search: "sam" });
     const row = users.find((u) => u.id === "user_sam")!;
     expect(row).toMatchObject({ name: "Sam", email: "sam@example.com", databases: 1, sites: 1, status: "active" });
     expect(row.pages).toBeGreaterThanOrEqual(2);
@@ -35,7 +36,7 @@ describe("admin dashboard", () => {
     await expect(sam("pages.tree", {})).rejects.toThrow(/banned/);
     expect(await sam("account.standing", {})).toMatchObject({ status: "banned", reason: "Repeated spam" });
     await expect(siteNav(h.db, "sams-recipes")).rejects.toThrow();
-    expect((await adminOverview(h.db, now)).users.find((u) => u.id === "user_sam")?.status).toBe("banned");
+    expect((await adminUsers(h.db, {})).users.find((u) => u.id === "user_sam")?.status).toBe("banned");
     // Restored.
     await setModeration(h.db, "admin", "user_sam", "active", "", now);
     await sam("pages.create", { title: "Back again" });

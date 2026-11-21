@@ -10,22 +10,28 @@ import dynamic from "next/dynamic";
 const IconPicker = dynamic(() => import("@/components/page/IconPicker").then((m) => m.IconPicker), { ssr: false });
 import { PageIcon } from "./PageIcon";
 import { useOp } from "@/lib/client/data";
-import { switchWorkspace } from "@/lib/client/workspace";
+import { activeWorkspace, switchWorkspace } from "@/lib/client/workspace";
 import { notifyError, useWorkspace } from "./context";
 
 export interface WorkspaceItem {
   id: string | null;
   name: string;
   icon: string | null;
+  /** Personal workspaces are yours alone; organizations are shared with their members. */
+  kind?: "personal" | "organization";
+  role?: "owner" | "admin" | "member" | "guest";
 }
 
-/** Your personal workspaces, and the one open in this browser. */
+/** Your personal workspaces and organizations, and the one open in this browser. */
 export function useWorkspaces() {
   const q = useOp<{ current: string | null; workspaces: WorkspaceItem[] }>("workspaces.list", {});
   // The workspace this browser remembered was deleted (maybe on another device): go back to the main one.
   const missing = (q.error as { details?: { workspace?: string } } | null)?.details?.workspace === "missing";
   useEffect(() => {
-    if (missing) switchWorkspace(null);
+    if (!missing) return;
+    // Removed from an organization (or the workspace was deleted elsewhere): say so, then go home.
+    if (/^org_/.test(activeWorkspace() ?? "")) toast.message("You no longer have access to that organization.", { description: "You're back in your own workspace." });
+    switchWorkspace(null);
   }, [missing]);
   const list = q.data?.workspaces ?? [];
   const current = list.find((w) => w.id === (q.data?.current ?? null)) ?? null;
@@ -37,7 +43,7 @@ export function WorkspaceIcon({ workspace, size = 22 }: { workspace: WorkspaceIt
   if (workspace?.icon) return <PageIcon icon={workspace.icon} size={size} />;
   if (!workspace || workspace.id === null) return <LogoMark className="shrink-0" style={{ width: size, height: size }} />;
   return (
-    <span className="workspace-initial" style={{ width: size, height: size, fontSize: size * 0.55 }} aria-hidden>
+    <span className={workspace.kind === "organization" ? "workspace-initial workspace-initial--org" : "workspace-initial"} style={{ width: size, height: size, fontSize: size * 0.55 }} aria-hidden>
       {Array.from(workspace.name.trim())[0]?.toUpperCase() ?? "W"}
     </span>
   );
@@ -123,9 +129,9 @@ export function WorkspaceDock({ onCreate }: { onCreate: () => void }) {
           type="button"
           role="tab"
           aria-selected={i === here}
-          aria-label={w.name}
+          aria-label={w.kind === "organization" ? `${w.name}, organization` : w.name}
           aria-keyshortcuts={i < 9 ? (isMac() ? `Control+${i + 1}` : `Alt+${i + 1}`) : undefined}
-          title={i < 9 ? `${w.name}  ${workspaceKey(i + 1)}` : w.name}
+          title={`${w.name}${w.kind === "organization" ? " · Organization" : ""}${i < 9 ? `  ${workspaceKey(i + 1)}` : ""}`}
           className="workspace-dock-item"
           onClick={() => i !== here && goTo(w.id, i > here ? 1 : -1)}
         >

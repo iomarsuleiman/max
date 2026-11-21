@@ -16,6 +16,7 @@ import * as shares from "./shares";
 import * as sites from "./sites";
 import * as workspaces from "./workspaces";
 import { accountOf } from "../workspaces";
+import { orgGate } from "./orgGate";
 
 const all: OpDef[] = [];
 for (const mod of [pages, documents, databases, templates, account, versions, comments, graph, profileCard, shares, sites, workspaces]) {
@@ -40,7 +41,8 @@ export const batch = defineOp({
       }
       if (def.uiOnly && ctx.source === "mcp") throw new MaxError("VALIDATION", `"${item.op}" isn't available to assistants.`, { failedIndex: index });
       try {
-        results.push(await runOp(def, item.args ?? {}, ctx));
+        const gate = await orgGate(item.op, def, item.args, ctx);
+        results.push(gate.skip ? gate.skip.result : await runOp(def, item.args ?? {}, gate.ctx));
       } catch (err) {
         const e = serializeError(err);
         throw new MaxError(e.code, `Operation ${index + 1} (${item.op}) failed: ${e.message} Nothing in this batch was applied.`, { ...e.details, failedIndex: index });
@@ -99,6 +101,10 @@ export async function execute(name: string, args: unknown, ctx: OpContext, expec
   if (!def) throw new MaxError("NOT_FOUND", `Unknown operation "${name}".`);
   if (expectKind && def.kind !== expectKind) throw new MaxError("VALIDATION", `"${name}" is a ${def.kind}, not a ${expectKind}.`);
   if (def.uiOnly && ctx.source === "mcp") throw new MaxError("VALIDATION", `"${name}" isn't available to assistants.`);
+  // Organizations: membership, role and policy checks; may re-scope account-level ops to the caller.
+  const gate = await orgGate(name, def, args, ctx);
+  if (gate.skip) return gate.skip.result;
+  ctx = gate.ctx;
   // Your own standing is always readable, so a suspended or banned account can see why.
   if (name !== "account.standing") await assertInGoodStanding(ctx, def.kind);
   const audit = ctx.source === "mcp" && def.kind === "mutation";

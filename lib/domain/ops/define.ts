@@ -10,6 +10,10 @@ export interface OpContext {
   source: Source;
   /** Who is acting when it isn't the owner (someone the page is shared with). */
   actor?: { id: string; name: string; image: string | null };
+  /** Set when ownerId is an organization: the caller's verified role there (lib/domain/organizations.ts). */
+  org?: { role: import("../types").OrgRole };
+  /** The call came through a page share (lib/domain/sharing.ts), already checked against the share. */
+  viaShare?: boolean;
   /** A published site's page boundary, supplied by the trusted site reader. */
   publishedPages?: ReadonlyMap<string, PageRow>;
 }

@@ -88,11 +88,13 @@ export async function readLocalFile(id: string): Promise<{ body: Buffer; type: s
 }
 
 /** Runs an operation against the local store. Writes are serialized and atomic. */
-export async function runLocal(op: string, args: unknown, source: Source, account = LOCAL_OWNER, kind?: "query" | "mutation", workspace?: string) {
+export async function runLocal(op: string, args: unknown, source: Source, account = LOCAL_OWNER, kind?: "query" | "mutation", workspace?: string, actorName?: string) {
   const s = state();
   await s.db.load();
-  const ownerId = await (await import("@/lib/domain/workspaces")).resolveOwner(s.db, account, workspace);
-  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source };
+  const scope = await (await import("@/lib/domain/workspaces")).resolveScope(s.db, account, workspace);
+  const ownerId = scope.ownerId;
+  const org = scope.org ? { org: { role: scope.org.role }, actor: { id: account, name: actorName ?? scope.org.name ?? account, image: null } } : {};
+  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source, ...org };
   const { registry } = await import("@/lib/domain/ops");
   const def = registry.get(op);
   if (def?.kind === "query") return execute(op, args, ctx, kind);
@@ -166,7 +168,7 @@ export async function runLocalSharing(call: SharingCall, actor: { id: string; na
     return run;
   };
   if (call.fn === "ping") return write(() => sharing.heartbeat(s.db, actor, call.pageId, now, call.linkToken));
-  if (call.fn === "duplicate") return write(async () => sharing.duplicateShared(s.db, actor, call.pageId, now, call.linkToken, await (await import("@/lib/domain/workspaces")).resolveOwner(s.db, actor.id, call.ws)));
+  if (call.fn === "duplicate") return write(async () => sharing.duplicateShared(s.db, actor, call.pageId, now, call.linkToken, await (await import("@/lib/domain/workspaces")).resolveOwner(s.db, actor.id, call.ws?.startsWith("org_") ? undefined : call.ws)));
   if (call.fn === "join") return write(() => sharing.joinByLink(s.db, actor, call.pageId, now, call.linkToken));
   if (call.fn === "leave") return write(() => sharing.leaveShare(s.db, actor, call.pageId));
   if (call.fn === "collab") {
@@ -216,9 +218,37 @@ type AdminCall =
   | { fn: "check" }
   | { fn: "overview" }
   | { fn: "reports" }
+  | { fn: "users"; search?: string; offset?: number; limit?: number }
+  | { fn: "user"; userId: string }
+  | { fn: "organizations"; search?: string; offset?: number; limit?: number }
+  | { fn: "organization"; orgId: string }
+  | { fn: "audit"; scope?: string; action?: string; actor?: string; before?: number; limit?: number }
+  | { fn: "orgAction"; orgId: string; action: "moderate" | "recover" | "limits" | "removeMember" | "delete"; status?: "active" | "suspended" | "banned"; reason?: string; accountId?: string; maxMembers?: number | null; confirmName?: string }
   | { fn: "setStatus"; userId: string; status: "active" | "suspended" | "banned"; reason: string }
   | { fn: "setReport"; id: string; status: "open" | "resolved" }
   | { fn: "report"; kind: "bug" | "content" | "other"; message: string; url?: string | null; pageId?: string | null; siteSlug?: string | null };
+
+export const LOCAL_ADMIN_FNS = ["check", "overview", "reports", "users", "user", "organizations", "organization", "audit", "orgAction", "setStatus", "setReport", "report"];
+
+function localWriter(op: string) {
+  const s = state();
+  return async <T,>(fn: () => Promise<T>): Promise<T> => {
+    const run = s.lock.then(async () => {
+      const result = await s.db.transaction(fn);
+      await s.db.persist();
+      s.events.emit("change", { op, source: "ui" });
+      return result;
+    });
+    s.lock = run.catch(() => undefined);
+    return run as Promise<T>;
+  };
+}
+
+/** Deletes an organization's content in local mode (the account-deletion routine, on its namespace). */
+async function localPurge(ns: string) {
+  const { accountDeleteAllData } = await import("@/lib/domain/ops/account");
+  return (await accountDeleteAllData.run({ db: state().db, storage: localStorageAdapter, ownerId: ns, now: Date.now(), source: "ui" }, { confirm: true })).removed;
+}
 
 /** Local mode's admin dashboard: the person who runs this server (the local owner) is the admin. */
 export async function runLocalAdmin(call: AdminCall, actor: { id: string; name: string }) {
@@ -226,21 +256,91 @@ export async function runLocalAdmin(call: AdminCall, actor: { id: string; name: 
   await s.db.load();
   const admin = await import("@/lib/domain/admin");
   const isAdmin = actor.id === LOCAL_OWNER;
-  const write = async (fn: () => Promise<unknown>) => {
-    const run = s.lock.then(async () => {
-      const result = await s.db.transaction(fn);
-      await s.db.persist();
-      s.events.emit("change", { op: "admin", source: "ui" });
-      return result;
-    });
-    s.lock = run.catch(() => undefined);
-    return run;
-  };
-  if (call.fn === "check") return { admin: isAdmin };
-  if (call.fn === "report") return write(() => admin.submitReport(s.db, { id: actor.id, name: actor.name, email: null }, call, Date.now()));
+  const write = localWriter("admin");
+  const now = Date.now();
+  if (call.fn === "check") return { admin: isAdmin, role: isAdmin ? "admin" : null };
+  if (call.fn === "report") return write(() => admin.submitReport(s.db, { id: actor.id, name: actor.name, email: null }, call, now));
   if (!isAdmin) throw new (await import("@/lib/domain/errors")).MaxError("FORBIDDEN", "This page is for Max's admins.");
-  if (call.fn === "overview") return admin.adminOverview(s.db, Date.now());
+  if (call.fn === "overview") return admin.adminOverview(s.db, now);
   if (call.fn === "reports") return admin.listReports(s.db);
-  if (call.fn === "setStatus") return write(() => admin.setModeration(s.db, actor.id, call.userId, call.status, call.reason ?? "", Date.now()));
-  return write(() => admin.setReportStatus(s.db, call.id, call.status, Date.now()));
+  if (call.fn === "users") return admin.adminUsers(s.db, call);
+  if (call.fn === "user") return admin.adminUser(s.db, call.userId);
+  if (call.fn === "organizations") return admin.adminOrganizations(s.db, call, now);
+  if (call.fn === "organization") return admin.adminOrganization(s.db, call.orgId, now);
+  if (call.fn === "audit") return admin.adminAudit(s.db, call);
+  if (call.fn === "setStatus") return write(() => admin.setModeration(s.db, actor.id, call.userId, call.status, call.reason ?? "", now));
+  if (call.fn === "orgAction") {
+    const reason = call.reason ?? "";
+    return write(async () => {
+      if (call.action === "moderate") return admin.setOrgModeration(s.db, actor, call.orgId, call.status ?? "active", reason, now);
+      if (call.action === "recover") return admin.recoverOrgOwnership(s.db, actor, call.orgId, call.accountId ?? "", reason, now);
+      if (call.action === "limits") return admin.setOrgLimits(s.db, actor, call.orgId, { maxMembers: call.maxMembers ?? null }, now);
+      if (call.action === "removeMember") return admin.adminRemoveOrgMember(s.db, actor, call.orgId, call.accountId ?? "", reason, now);
+      return admin.adminDeleteOrg(s.db, actor, call.orgId, call.confirmName ?? "", reason, localPurge, now);
+    });
+  }
+  return write(() => admin.setReportStatus(s.db, call.id, call.status, now));
+}
+
+type OrgCall = { fn: string; [key: string]: unknown };
+export const LOCAL_ORG_FNS = ["mine", "details", "audit", "create", "update", "setPolicies", "invite", "answerInvite", "member", "leave", "transfer", "team", "remove"];
+
+/**
+ * Local mode's organizations (the twin of convex/organizations.ts). Local accounts have a pretend,
+ * verified email `<id>@local.max`, so invitations can be tried between MAX_LOCAL_MULTIUSER accounts.
+ */
+export async function runLocalOrganizations(call: OrgCall, who: { id: string; name: string }) {
+  const s = state();
+  await s.db.load();
+  const orgs = await import("@/lib/domain/organizations");
+  const { MaxError } = await import("@/lib/domain/errors");
+  if (!orgs.organizationsEnabled()) {
+    if (call.fn === "mine") return { enabled: false, organizations: [], invitations: [] };
+    throw new MaxError("NOT_FOUND", "Organizations aren't available on this server.");
+  }
+  const actor = { id: who.id, name: who.name, image: null, email: `${who.id}@local.max`, emailVerified: true };
+  const now = Date.now();
+  const str = (k: string) => String(call[k] ?? "");
+  const write = localWriter("organizations");
+  switch (call.fn) {
+    case "mine":
+      return { enabled: true, ...(await orgs.myOrganizations(s.db, actor, now)) };
+    case "details":
+      return orgs.organizationDetails(s.db, actor, str("orgId"), now);
+    case "audit":
+      return orgs.orgAuditLog(s.db, actor, str("orgId"), { before: call.before as number | undefined, action: call.action as string | undefined, limit: call.limit as number | undefined });
+    case "create":
+      return write(() => orgs.createOrganization(s.db, actor, { name: str("name"), icon: (call.icon as string | null) ?? null, description: call.description as string | undefined }, now));
+    case "update":
+      return write(() => orgs.updateOrganization(s.db, actor, str("orgId"), { name: call.name as string | undefined, icon: call.icon as string | null | undefined, description: call.description as string | undefined, slug: call.slug as string | undefined }, now));
+    case "setPolicies":
+      return write(() => orgs.setPolicies(s.db, actor, str("orgId"), call as never, now));
+    case "invite":
+      return write(() => orgs.inviteMembers(s.db, actor, str("orgId"), (call.emails as string[]) ?? [], call.role as "member", now));
+    case "answerInvite": {
+      const fn = { accept: orgs.acceptInvite, decline: orgs.declineInvite, revoke: orgs.revokeInvite, resend: orgs.resendInvite }[str("action") as "accept"];
+      if (!fn) throw new MaxError("VALIDATION", "Invalid request.");
+      return write(() => (fn as (...a: unknown[]) => Promise<unknown>)(s.db, actor, str("inviteId"), now));
+    }
+    case "member":
+      return write((): Promise<unknown> => {
+        if (call.action === "role") return orgs.setMemberRole(s.db, actor, str("orgId"), str("accountId"), call.role as "member", now);
+        if (call.action === "status") return orgs.setMemberStatus(s.db, actor, str("orgId"), str("accountId"), call.status as "active", now);
+        return orgs.removeMember(s.db, actor, str("orgId"), str("accountId"), now);
+      });
+    case "leave":
+      return write(() => orgs.leaveOrganization(s.db, actor, str("orgId"), now));
+    case "transfer":
+      return write(() => orgs.transferOwnership(s.db, actor, str("orgId"), str("nextOwnerId"), str("confirmName"), now));
+    case "team":
+      return write((): Promise<unknown> =>
+        call.teamId
+          ? orgs.updateTeam(s.db, actor, str("orgId"), str("teamId"), { name: call.name as string | undefined, description: call.description as string | undefined, memberIds: call.memberIds as string[] | undefined, archived: call.archived as boolean | undefined }, now)
+          : orgs.createTeam(s.db, actor, str("orgId"), { name: str("name"), description: call.description as string | undefined, memberIds: call.memberIds as string[] | undefined }, now),
+      );
+    case "remove":
+      return write(() => orgs.deleteOwnOrganization(s.db, actor, str("orgId"), str("confirmName"), localPurge, now));
+    default:
+      throw new MaxError("VALIDATION", "Invalid request.");
+  }
 }
