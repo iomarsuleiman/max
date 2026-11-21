@@ -26,14 +26,14 @@ import {
   Trash2,
   X,
   Waypoints,
-} from "lucide-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { IconButton, Kbd, Menu, Tooltip, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, MenuLabel, Skeleton, cn } from "@/components/ui";
 import { SharedList, useSharedPages } from "@/components/share/SharedSection";
 import { NEW_TEAMSPACE_EVENT, TeamspacesList } from "@/components/share/Teamspaces";
 import { withoutOrphans, withoutTeamspaces } from "@/lib/client/teamspaces";
 import { useAdminApi } from "@/lib/client/admin";
-import { BookOpen, Building2, ShieldCheck } from "lucide-react";
+import { BookOpen, Building2, ShieldCheck } from "@/components/icons";
 import { useOp, prefetchOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";
 import type { PageSummary, SettingsRow } from "@/lib/client/types";

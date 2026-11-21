@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Sheet } from "lucide-react";
+import { FileText, Sheet } from "@/components/icons";
 import type { IconName } from "lucide-react/dynamic";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
@@ -29,7 +29,7 @@ export const isImageIcon = (icon: string) => icon.startsWith("max-asset://") || 
  */
 const LucideByName = dynamic(
   () =>
-    import("lucide-react/dynamic").then((m) => {
+    import("@/components/icons/DynamicIcon").then((m) => {
       function LucideIcon(props: { name: IconName; size: number; strokeWidth: number; color: string }) {
         return <m.DynamicIcon {...props} fallback={() => <span style={{ width: props.size, height: props.size }} />} />;
       }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, ChevronRight, FileQuestion, Menu, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, FileQuestion, Menu, Search, X } from "@/components/icons";
 import { EmptyState, Skeleton, cn } from "@/components/ui";
 import { LogoMark } from "@/components/brand/Logo";
 import { ShareScope, useOp, useSiteNav, useSiteSearch, type SiteNav } from "@/lib/client/data";

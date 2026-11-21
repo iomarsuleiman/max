@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw } from "@/components/icons";
 import { useOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";
 import { pageHref } from "@/lib/pageUrl";

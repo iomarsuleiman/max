@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 import { Button, IconButton } from "@/components/ui";
 import { SpaceEditor } from "./SpaceEditor";
 

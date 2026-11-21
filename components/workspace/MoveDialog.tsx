@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CornerDownRight, Home, Search } from "lucide-react";
+import { CornerDownRight, Home, Search } from "@/components/icons";
 import { toast } from "sonner";
 import { Dialog, cn } from "@/components/ui";
 import { isDescendant } from "@/lib/client/tree";

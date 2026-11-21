@@ -3,7 +3,7 @@
 import { pageHref } from "@/lib/pageUrl";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowLeftToLine, ArrowRightToLine, ArrowUp, Copy, CornerUpRight, ExternalLink, Link2, PanelRight, PenLine, RectangleHorizontal, Star, StarOff, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeftToLine, ArrowRightToLine, ArrowUp, Copy, CornerUpRight, ExternalLink, Link2, PanelRight, PenLine, RectangleHorizontal, Star, StarOff, Trash2 } from "@/components/icons";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui";
 import type { PageSummary } from "@/lib/client/types";
 import { useWorkspace } from "./context";

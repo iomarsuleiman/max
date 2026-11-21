@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Minus, Moon, Plus, Sparkles, Sun } from "lucide-react";
+import { Minus, Moon, Plus, Sparkles, Sun } from "@/components/icons";
 import { useTheme } from "next-themes";
 import { cn } from "@/components/ui";
 import { notifyError, useWorkspace } from "@/components/workspace/context";

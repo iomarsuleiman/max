@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Ban, Building2, Crown, Eye, PauseCircle, RotateCcw, Search, Trash2, UserMinus } from "lucide-react";
+import { Ban, Building2, Crown, Eye, PauseCircle, RotateCcw, Search, Trash2, UserMinus } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Dialog, EmptyState, Input, Segmented, Skeleton, cn } from "@/components/ui";
 import { notifyError } from "@/components/workspace/context";

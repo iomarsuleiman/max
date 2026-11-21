@@ -16,7 +16,7 @@ import { SuggestionMenu, SyntaxHighlightingExtension } from "@blocknote/core/ext
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/shadcn";
 import { ImageViewer, type ViewerImage } from "./ImageViewer";
-import { CalendarDays, Plus, Ellipsis, Check, Undo2, Redo2, Copy, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
+import { CalendarDays, Plus, Ellipsis, Check, Undo2, Redo2, Copy, ArrowUp, ArrowDown, Trash2 } from "@/components/icons";
 import { PageIcon } from "@/components/workspace/PageIcon";
 import { pageIdFromPath } from "@/lib/pageUrl";
 import { EditorBridge, maxSchema, type EditorBridgeValue, type MaxEditorType } from "./blocks";
@@ -100,7 +100,10 @@ function useKeyboardAwareCaret(editor: MaxEditorType, editable: boolean) {
       else delete root.dataset.keyboard;
       if (!open || !editor.isFocused()) return;
       const sel = window.getSelection();
-      if (!sel?.rangeCount) return;
+      // Native selection handles own scrolling while a range is selected. Revealing the
+      // whole range fights iOS selection and feeds viewport/selection events back into us.
+      if (!sel?.rangeCount || !sel.isCollapsed) return;
+      if (!editor.prosemirrorView.dom.contains(sel.anchorNode)) return;
       const rect = sel.getRangeAt(0).getBoundingClientRect();
       if (!rect.height && !rect.top) return;
       // Room for the formatting row (about 56px) above the keyboard.

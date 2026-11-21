@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Share } from "lucide-react";
+import { Download, Share } from "@/components/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui";
 import { notifyError, useWorkspace } from "@/components/workspace/context";

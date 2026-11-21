@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AtSign, Bell, CalendarClock, CheckCheck, Inbox as InboxIcon, Megaphone, KeyRound, MessageSquare, Settings2, ShieldCheck, UserRoundCheck, Users, Zap } from "lucide-react";
+import { AtSign, Bell, CalendarClock, CheckCheck, Inbox as InboxIcon, Megaphone, KeyRound, MessageSquare, Settings2, ShieldCheck, UserRoundCheck, Users, Zap } from "@/components/icons";
 import { IconButton, Popover, Segmented, Switch, cn } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
 import { timeAgo } from "@/lib/client/format";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { Shuffle } from "lucide-react";
+import { Shuffle } from "@/components/icons";
 import { Button, Popover, PopoverClose, Input, cn } from "@/components/ui";
 import { ALL_COVERS, COVER_COLLECTIONS } from "@/lib/client/covers";
 import { CoverView } from "./CoverView";

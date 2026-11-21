@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { CheckCircle2, ClipboardList } from "lucide-react";
+import { CheckCircle2, ClipboardList } from "@/components/icons";
 import { Button, EmptyState, Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
 import { Topbar } from "@/components/workspace/Topbar";
 import { notifyError, useWorkspace } from "@/components/workspace/context";

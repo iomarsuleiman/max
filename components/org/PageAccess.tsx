@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Globe2, Lock, LockKeyhole, Users } from "lucide-react";
+import { Check, Globe2, Lock, LockKeyhole, Users } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Segmented, Select, cn } from "@/components/ui";
 import { useOp } from "@/lib/client/data";

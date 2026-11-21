@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { Building2, Crown, KeyRound, LogOut, Mail, MoreHorizontal, RotateCcw, Trash2, UserMinus, Users } from "lucide-react";
+import { Building2, Crown, KeyRound, LogOut, Mail, MoreHorizontal, RotateCcw, Trash2, UserMinus, Users } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Dialog, EmptyState, Field, IconButton, Input, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Segmented, Select, Skeleton, Switch, Textarea, cn, confirmAction } from "@/components/ui";
 import { Topbar } from "@/components/workspace/Topbar";

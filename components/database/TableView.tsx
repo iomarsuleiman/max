@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowUpRight, Check, GripVertical, Maximize2, Plus, Trash2, Copy } from "lucide-react";
+import { ArrowUpRight, Check, GripVertical, Maximize2, Plus, Trash2, Copy } from "@/components/icons";
 import { IconButton, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, cn } from "@/components/ui";
 import type { CalculationFn, DatabaseView, PageRow, PropertyDef } from "@/lib/domain/types";
 import type { RecordView } from "@/lib/client/types";

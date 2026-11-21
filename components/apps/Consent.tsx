@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Blocks, Check, Copy, ShieldCheck } from "lucide-react";
+import { Blocks, Check, Copy, ShieldCheck } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, EmptyState, Select, Skeleton } from "@/components/ui";
 import { Topbar } from "@/components/workspace/Topbar";

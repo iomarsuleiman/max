@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Dialog as D } from "radix-ui";
-import { Bot, Clock, History, RotateCcw, Save, X } from "lucide-react";
+import { Bot, Clock, History, RotateCcw, Save, X } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, EmptyState, IconButton, Skeleton, cn, confirmAction } from "@/components/ui";
 import { useOp } from "@/lib/client/data";

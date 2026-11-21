@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy } from "lucide-react";
+import { Copy } from "@/components/icons";
 import { toast } from "sonner";
 import { useDuplicateShared } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";

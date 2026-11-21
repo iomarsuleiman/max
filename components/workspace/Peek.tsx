@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog as D } from "radix-ui";
-import { ChevronDown, ChevronUp, ChevronsRight, Columns2, Maximize2, PanelRight, RectangleHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsRight, Columns2, Maximize2, PanelRight, RectangleHorizontal } from "@/components/icons";
 import { IconButton, Tooltip, cn } from "@/components/ui";
 import { readLocal, writeLocal } from "@/lib/client/storage";
 import { pageTitle } from "@/lib/client/format";

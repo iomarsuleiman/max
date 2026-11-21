@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { ArrowLeft, Layers3, LockKeyhole } from "lucide-react";
+import { ArrowLeft, Layers3, LockKeyhole } from "@/components/icons";
 import { useWorkspaceNavigation } from "./WorkspaceRail";
 import { workspacePreviewHref } from "@/lib/domain/workspaceNavigation";
 

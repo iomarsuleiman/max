@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Check, CloudOff, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, Check, CloudOff, Loader2, RefreshCw } from "@/components/icons";
 import { Tooltip, cn } from "@/components/ui";
 import { dateTime, timeAgo } from "@/lib/client/format";
 import type { SaveState } from "./useDocumentSync";

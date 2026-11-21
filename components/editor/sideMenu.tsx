@@ -5,7 +5,7 @@ import {
   blockTypeSelectItems, BlockColorsItem, SideMenuController, TableColumnHeaderItem, TableRowHeaderItem,
   useBlockNoteEditor, useComponentsContext, useExtension, useExtensionState, usePortalElement,
 } from "@blocknote/react";
-import { ArrowDown, ArrowUp, Copy, CopyPlus, GripVertical, MessageSquare, Palette, Plus, Repeat2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, CopyPlus, GripVertical, MessageSquare, Palette, Plus, Repeat2, Trash2 } from "@/components/icons";
 import { useMemo, type ReactNode } from "react";
 import type { MaxEditorType } from "./blocks";
 import { blockDragEnded, blockDragStarted } from "./dragFeedback";

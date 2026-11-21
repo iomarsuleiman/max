@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Play, Plus, Trash2, Zap } from "lucide-react";
+import { Play, Plus, Trash2, Zap } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Dialog, IconButton, Input, Select, Switch, Textarea } from "@/components/ui";
 import { useOp } from "@/lib/client/data";

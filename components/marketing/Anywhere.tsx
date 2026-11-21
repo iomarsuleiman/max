@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Bot, Globe, Smartphone } from "lucide-react";
+import { ArrowRight, Bot, Globe, Smartphone } from "@/components/icons";
 import { CLOUD } from "@/lib/config";
 import { SquiggleLabel } from "./Squiggle";
 

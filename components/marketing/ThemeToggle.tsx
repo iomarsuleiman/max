@@ -1,7 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "@/components/icons";
 const subscribe = () => () => {};
 /**
  * Light / dark for public pages and sites: a small pill with a knob that slides between a sun

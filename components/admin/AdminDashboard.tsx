@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Activity as ActivityIcon, Ban, Building2, CircleCheck, ExternalLink, Flag, Globe as GlobeIcon, Mail as MailIcon, PauseCircle, RotateCcw, Search, ShieldAlert, Sparkles as SparklesIcon, Users as UsersIcon } from "lucide-react";
+import { Activity as ActivityIcon, Ban, Building2, CircleCheck, ExternalLink, Flag, Globe as GlobeIcon, Mail as MailIcon, PauseCircle, RotateCcw, Search, ShieldAlert, Sparkles as SparklesIcon, Users as UsersIcon } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Dialog, EmptyState, Segmented, Skeleton, cn } from "@/components/ui";
 import { Topbar } from "@/components/workspace/Topbar";

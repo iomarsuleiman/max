@@ -2,7 +2,7 @@
 
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { Tooltip as T } from "radix-ui";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 import { cn } from "./cn";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "quiet";

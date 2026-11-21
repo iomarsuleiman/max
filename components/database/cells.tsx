@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Check, Plus, Search, X } from "lucide-react";
+import { Check, Plus, Search, X } from "@/components/icons";
 import { Popover, PopoverClose, cn } from "@/components/ui";
 import { useOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";

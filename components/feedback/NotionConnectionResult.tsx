@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, Link2, Loader2 } from "lucide-react";
+import { Check, Link2, Loader2 } from "@/components/icons";
 import { RecoveryPanel, recoveryLinkClass, recoverySecondaryClass } from "./RecoveryPanel";
 import { connectionMessage } from "./connectionState";
 

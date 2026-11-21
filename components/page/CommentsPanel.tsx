@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, MessageSquare, MoreHorizontal, Pencil, RotateCcw, SmilePlus, Trash2, X } from "lucide-react";
+import { Check, MessageSquare, MoreHorizontal, Pencil, RotateCcw, SmilePlus, Trash2, X } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, IconButton, Menu, MenuContent, MenuItem, MenuTrigger, Skeleton, Textarea, cn, confirmAction } from "@/components/ui";
 import { useOp } from "@/lib/client/data";

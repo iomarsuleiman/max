@@ -3,7 +3,7 @@
 import { pageHref } from "@/lib/pageUrl";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronsRight, Menu as MenuIcon, SquarePen } from "lucide-react";
+import { ChevronsRight, Menu as MenuIcon, SquarePen } from "@/components/icons";
 import { IconButton, Tooltip, cn } from "@/components/ui";
 import { pageTitle } from "@/lib/client/format";
 import { useWorkspace } from "./context";

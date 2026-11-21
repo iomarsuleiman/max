@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Dialog as D, DropdownMenu as M, Popover as P } from "radix-ui";
-import { Check, ChevronRight, X } from "lucide-react";
+import { Check, ChevronRight, X } from "@/components/icons";
 import { cn } from "./cn";
 import { Button, IconButton } from "./primitives";
 

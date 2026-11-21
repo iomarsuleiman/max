@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy } from "@/components/icons";
 
 /** A value people need to paste somewhere else (like the MCP server address), with a Copy button. */
 export function CopyField({ value, label }: { value: string; label: string }) {

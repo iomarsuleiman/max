@@ -5,7 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { useQueries } from "convex/react";
 import { anyApi } from "convex/server";
-import { Layers3, LockKeyhole, NotebookPen } from "lucide-react";
+import { Layers3, LockKeyhole, NotebookPen } from "@/components/icons";
 import { cn } from "@/components/ui";
 import { CLOUD } from "@/lib/config";
 import { isAccidentalWorkspaceSwitchGesture, nextWorkspaceFocusIndex } from "@/lib/domain/workspaceNavigationErgonomics";

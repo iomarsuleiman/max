@@ -6,7 +6,7 @@ import { ReportDialog } from "@/components/admin/ReportDialog";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, FileQuestion } from "lucide-react";
+import { Copy, FileQuestion } from "@/components/icons";
 import { EmptyState, Skeleton } from "@/components/ui";
 import { LogoMark } from "@/components/brand/Logo";
 import { ShareScope, useOp } from "@/lib/client/data";

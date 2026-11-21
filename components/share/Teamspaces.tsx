@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LockKeyhole, Plus } from "lucide-react";
+import { ChevronRight, LockKeyhole, Plus } from "@/components/icons";
 import { toast } from "sonner";
 import { Button, Dialog, Field, IconButton, Input, Segmented, Select, cn } from "@/components/ui";
 import { ShareScope, invalidateLocal, useOp, useSharing } from "@/lib/client/data";

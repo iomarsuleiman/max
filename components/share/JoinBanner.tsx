@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, UsersRound } from "lucide-react";
+import { Plus, UsersRound } from "@/components/icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui";
 import { invalidateLocal, useJoinShared } from "@/lib/client/data";

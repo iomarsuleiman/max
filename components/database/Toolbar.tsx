@@ -3,7 +3,7 @@
 import { useOp } from "@/lib/client/data";
 
 import { useEffect, useState } from "react";
-import { ArrowUpDown, Eye, EyeOff, Filter, Plus, Search, X } from "lucide-react";
+import { ArrowUpDown, Eye, EyeOff, Filter, Plus, Search, X } from "@/components/icons";
 import { ActionSelect, Button, Popover, Select, cn } from "@/components/ui";
 import type { DatabaseView, FilterOperator, PropertyDef, ViewFilter, ViewSort } from "@/lib/domain/types";
 import { PropIcon } from "./meta";

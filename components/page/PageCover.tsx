@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download } from "lucide-react";
+import { Download } from "@/components/icons";
 import { toast } from "sonner";
 import { coverImageUrl } from "@/lib/client/covers";
 import { useAssetResolver, useUploader } from "@/lib/client/upload";
