@@ -123,6 +123,12 @@ async function requireRole(db: Db, actor: OrgActor, ns: string, min: OrgRole, wr
   return { org, member };
 }
 
+/** Tells someone about a change to their membership (removed people get it without the org link). */
+async function notifyMember(db: Db, accountId: string, ns: string, actor: { id: string; name?: string | null }, title: string, now: number, keepScope = true) {
+  const { notify } = await import("./notifications");
+  await notify(db, [accountId], { kind: "membership", ownerId: keepScope ? ns : null, pageId: null, actor, title }, now);
+}
+
 export async function logEvent(db: Db, scope: string, actor: { id: string; name?: string | null }, action: string, targetId: string | null, detail: string | null, now: number) {
   await db.insert("orgEvents", { ownerId: scope, actorId: actor.id, actorName: actor.name?.slice(0, 120) ?? null, action, targetId, detail: detail?.slice(0, 500) ?? null, at: now });
 }
@@ -140,7 +146,7 @@ export async function myOrganizations(db: Db, actor: OrgActor, now: number) {
     organizations.push({ id: org.ownerId, name: org.name, icon: org.icon, slug: org.slug, role: m.role, status: m.status, standing: await orgStanding(db, org.ownerId) });
   }
   organizations.sort((a, b) => a.name.localeCompare(b.name));
-  return { organizations, invitations: await myInvitations(db, actor, now) };
+  return { organizations, invitations: await myInvitations(db, actor, now), joinable: await joinableByDomain(db, actor) };
 }
 
 /** Pending invitations for the caller's verified email. Unverified emails see none. */
@@ -183,6 +189,7 @@ export async function organizationDetails(db: Db, actor: OrgActor, ns: string, n
   const base = {
     org: { id: ns, name: org.name, slug: org.slug, icon: org.icon, description: org.description, createdAt: org.createdAt, policies: org.policies, maxMembers: org.maxMembers, standing: await orgStanding(db, ns) },
     me: { accountId: actor.id, role: member.role },
+    security: member.role === "owner" ? { phraseSet: !!org.phraseHash } : null,
     members: members
       .map((m) => ({ accountId: m.accountId, name: m.name, email: admin ? m.email : null, image: m.image, role: m.role, status: m.status, joinedAt: m.joinedAt, teams: teamsOf(m.accountId) }))
       .sort((a, b) => RANK[b.role] - RANK[a.role] || (a.name ?? "").localeCompare(b.name ?? "")),
@@ -228,14 +235,56 @@ export async function updateOrganization(db: Db, actor: OrgActor, ns: string, pa
   return { ok: true };
 }
 
+const RETENTION = [7, 14, 30, 60, 90, 180, 365];
+/** Domains anyone can sign up with can't be used to auto-join (they'd admit the whole world). */
+const PUBLIC_DOMAINS = new Set(["gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "yahoo.com", "icloud.com", "me.com", "proton.me", "protonmail.com", "aol.com", "gmx.com", "yandex.com", "mail.com", "local.max"]);
+
 export async function setPolicies(db: Db, actor: OrgActor, ns: string, patch: Partial<OrgPolicies>, now: number) {
-  const { org } = await requireRole(db, actor, ns, "admin", true);
-  const policies = { ...org.policies };
-  for (const key of Object.keys(DEFAULT_POLICIES) as (keyof OrgPolicies)[]) if (typeof patch[key] === "boolean") policies[key] = patch[key]!;
-  await db.patch("orgs", org._id, { policies, updatedAt: now });
+  const { org, member } = await requireRole(db, actor, ns, "admin", true);
+  const policies: OrgPolicies = { ...org.policies };
+  for (const key of ["membersCanInvite", "allowGuests", "allowPublicLinks", "allowSites"] as const) if (typeof patch[key] === "boolean") policies[key] = patch[key]!;
+  for (const key of ["trashRetentionDays", "versionRetentionDays"] as const) {
+    if (patch[key] === undefined) continue;
+    if (patch[key] !== null && !RETENTION.includes(patch[key] as number)) throw new MaxError("VALIDATION", `Pick one of ${RETENTION.join(", ")} days, or keep forever.`);
+    policies[key] = patch[key] ?? null;
+  }
+  if (patch.autoJoinDomain !== undefined) {
+    if (member.role !== "owner") throw new MaxError("FORBIDDEN", "Only the owner can let a whole email domain join.");
+    const domain = patch.autoJoinDomain?.trim().toLowerCase().replace(/^@/, "") || null;
+    if (domain) {
+      if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain) || PUBLIC_DOMAINS.has(domain)) throw new MaxError("VALIDATION", "Use your company's own email domain (public ones like gmail.com aren't allowed).");
+      // Only a domain the owner's own verified email belongs to: you can't claim someone else's company.
+      if (!actor.emailVerified || actor.email?.toLowerCase().split("@")[1] !== domain) throw new MaxError("FORBIDDEN", `Sign in with a verified @${domain} email to use that domain.`);
+    }
+    policies.autoJoinDomain = domain;
+  }
+  // Mirrored to an indexed field so finding a domain's organizations never scans them all.
+  await db.patch("orgs", org._id, { policies, joinDomain: policies.autoJoinDomain ?? null, updatedAt: now });
   const changed = (Object.keys(policies) as (keyof OrgPolicies)[]).filter((k) => policies[k] !== org.policies[k]);
   if (changed.length) await logEvent(db, ns, actor, "org.policies", ns, changed.map((k) => `${k}=${policies[k]}`).join(", "), now);
   return { policies };
+}
+
+/** Organizations your verified email's domain lets you join without an invitation. */
+export async function joinableByDomain(db: Db, actor: OrgActor) {
+  const domain = actor.emailVerified ? actor.email?.toLowerCase().split("@")[1] : null;
+  if (!domain || PUBLIC_DOMAINS.has(domain)) return [];
+  const out = [];
+  for (const org of await db.findBy("orgs", "joinDomain", domain)) {
+    if (org.policies.autoJoinDomain !== domain || (await memberOf(db, org.ownerId, actor.id))) continue;
+    if ((await orgStanding(db, org.ownerId)) === "banned") continue;
+    out.push({ orgId: org.ownerId, orgName: org.name, orgIcon: org.icon });
+  }
+  return out;
+}
+
+export async function joinByDomain(db: Db, actor: OrgActor, ns: string, now: number) {
+  if (!(await joinableByDomain(db, actor)).some((o) => o.orgId === ns)) throw notFound("organization");
+  const org = (await getOrg(db, ns))!;
+  if ((await db.list("orgMembers", ns)).length >= (org.maxMembers ?? ORG_LIMITS.members)) throw new MaxError("LIMIT", "This organization is full. Ask an admin to make room.");
+  await db.insert("orgMembers", { ownerId: ns, accountId: actor.id, role: "member", status: "active", name: actor.name, email: actor.email?.toLowerCase() ?? null, image: actor.image, invitedBy: null, joinedAt: now, updatedAt: now });
+  await logEvent(db, ns, actor, "member.joined_by_domain", actor.id, actor.email, now);
+  return { orgId: ns, name: org.name, role: "member" as const };
 }
 
 /* ── Invitations ─────────────────────────────────────────────────────────── */
@@ -351,6 +400,7 @@ export async function setMemberRole(db: Db, actor: OrgActor, ns: string, account
   if (target.role === role) return { changed: false };
   await db.patch("orgMembers", target._id, { role, updatedAt: now });
   await logEvent(db, ns, actor, "member.role", accountId, `${target.role} → ${role}`, now);
+  await notifyMember(db, accountId, ns, actor, `You're now ${role === "admin" ? "an admin" : `a ${role}`} in ${(await getOrg(db, ns))?.name ?? "the organization"}`, now);
   return { changed: true };
 }
 
@@ -360,6 +410,7 @@ export async function setMemberStatus(db: Db, actor: OrgActor, ns: string, accou
   if (target.status === status) return { changed: false };
   await db.patch("orgMembers", target._id, { status, updatedAt: now });
   await logEvent(db, ns, actor, status === "suspended" ? "member.suspended" : "member.reactivated", accountId, null, now);
+  if (status === "active") await notifyMember(db, accountId, ns, actor, `Your membership in ${(await getOrg(db, ns))?.name ?? "the organization"} was restored`, now);
   return { changed: true };
 }
 
@@ -379,10 +430,45 @@ async function clearAffiliations(db: Db, ns: string, accountId: string, now: num
   return shares;
 }
 
-export async function removeMember(db: Db, actor: OrgActor, ns: string, accountId: string, now: number) {
+/**
+ * Offboarding: hands someone's assigned work (Person properties on database rows) to another
+ * member, so nothing is left with nobody. Pages and records stay where they are: they belong to
+ * the organization, not to the person who wrote them.
+ */
+async function reassignWork(db: Db, ns: string, from: string, to: string | null, now: number) {
+  let moved = 0;
+  const pages = await db.list("pages", ns);
+  const personProps = new Map(pages.filter((p) => p.kind === "database").map((d) => [d._id, (d.properties ?? []).filter((p) => p.type === "person").map((p) => p.id)]));
+  for (const row of pages) {
+    const props = row.databaseId ? personProps.get(row.databaseId) : null;
+    if (!props?.length || !row.values) continue;
+    let changed = false;
+    const values = { ...row.values };
+    for (const id of props) {
+      const v = values[id];
+      if (!Array.isArray(v) || !v.includes(from)) continue;
+      values[id] = [...new Set(v.map((x) => (x === from ? to : x)).filter((x): x is string => !!x))];
+      changed = true;
+    }
+    if (changed) {
+      await db.patch("pages", row._id, { values, updatedAt: now });
+      moved++;
+    }
+  }
+  return moved;
+}
+
+export async function removeMember(db: Db, actor: OrgActor, ns: string, accountId: string, now: number, reassignTo?: string | null) {
   const { target } = await manageable(db, actor, ns, accountId);
+  if (reassignTo) {
+    const heir = await memberOf(db, ns, reassignTo);
+    if (!heir || heir.status !== "active" || heir.accountId === accountId) throw new MaxError("VALIDATION", "Hand their work to another active member.");
+  }
+  const moved = reassignTo !== undefined ? await reassignWork(db, ns, accountId, reassignTo ?? null, now) : 0;
   await db.delete("orgMembers", target._id);
   const shares = await clearAffiliations(db, ns, accountId, now);
+  if (moved) await logEvent(db, ns, actor, "member.work_reassigned", accountId, `${moved} rows → ${reassignTo ?? "unassigned"}`, now);
+  await notifyMember(db, accountId, ns, actor, `You were removed from ${(await getOrg(db, ns))?.name ?? "an organization"}`, now, false);
   await logEvent(db, ns, actor, "member.removed", accountId, `${target.email ?? target.name ?? accountId}${shares ? `, ${shares} page shares removed` : ""}`, now);
   return { ok: true };
 }
@@ -398,11 +484,66 @@ export async function leaveOrganization(db: Db, actor: OrgActor, ns: string, now
   return { ok: true };
 }
 
+/* ── The owner's security phrase ─────────────────────────────────────────
+ * Max accounts sign in with Google (or other providers), so there's no password to ask for again
+ * before the most dangerous actions, and no email to confirm with. Instead the owner sets a
+ * security phrase, stored only as a salted PBKDF2 hash. Five wrong tries lock it for 15 minutes.
+ * Wrong answers are RETURNED, not thrown, so the failure count survives the transaction. */
+
+export const PHRASE = { minLength: 12, maxTries: 5, lockMs: 15 * 60_000, iterations: 100_000 };
+export type PhraseCheck = { ok: true } | { ok: false; code: "PHRASE_REQUIRED" | "WRONG_PHRASE" | "LOCKED"; message: string };
+
+const hex = (b: ArrayBuffer | Uint8Array) => Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(2, "0")).join("");
+
+export async function hashPhrase(phrase: string, salt: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(phrase.normalize("NFKC")), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode(salt), iterations: PHRASE.iterations }, key, 256);
+  return hex(bits);
+}
+
+function sameHash(a: string, b: string) {
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+async function checkPhrase(db: Db, org: OrgRow, phrase: string, now: number): Promise<PhraseCheck> {
+  if (!org.phraseHash || !org.phraseSalt) return { ok: false, code: "PHRASE_REQUIRED", message: "Set the organization's security phrase first (Organization → General)." };
+  if (org.phraseLockedUntil && org.phraseLockedUntil > now) return { ok: false, code: "LOCKED", message: "Too many wrong tries. Try again in 15 minutes." };
+  if (sameHash(await hashPhrase(phrase, org.phraseSalt), org.phraseHash)) {
+    if (org.phraseFailures) await db.patch("orgs", org._id, { phraseFailures: 0, phraseLockedUntil: null });
+    return { ok: true };
+  }
+  const failures = (org.phraseFailures ?? 0) + 1;
+  const locked = failures >= PHRASE.maxTries;
+  await db.patch("orgs", org._id, { phraseFailures: locked ? 0 : failures, phraseLockedUntil: locked ? now + PHRASE.lockMs : null });
+  await logEvent(db, org.ownerId, { id: "system", name: "Max" }, locked ? "security.phrase_locked" : "security.phrase_wrong", null, null, now);
+  return { ok: false, code: locked ? "LOCKED" : "WRONG_PHRASE", message: locked ? "Too many wrong tries. Try again in 15 minutes." : `That's not the security phrase. ${PHRASE.maxTries - failures} ${PHRASE.maxTries - failures === 1 ? "try" : "tries"} left.` };
+}
+
+/** Sets or changes the phrase. Changing it needs the current one. */
+export async function setSecurityPhrase(db: Db, actor: OrgActor, ns: string, input: { current?: string; next: string }, now: number): Promise<PhraseCheck> {
+  const { org } = await requireRole(db, actor, ns, "owner");
+  const next = input.next.trim();
+  if (next.length < PHRASE.minLength || next.length > 200) throw new MaxError("VALIDATION", `Use at least ${PHRASE.minLength} characters: a short sentence only you know works well.`);
+  if (next.toLowerCase().includes(org.name.toLowerCase()) && next.length < org.name.length + 8) throw new MaxError("VALIDATION", "Don't build the phrase around the organization's name.");
+  if (org.phraseHash) {
+    const check = await checkPhrase(db, org, input.current ?? "", now);
+    if (!check.ok) return check;
+  }
+  const salt = hex(globalThis.crypto.getRandomValues(new Uint8Array(16)));
+  await db.patch("orgs", org._id, { phraseHash: await hashPhrase(next, salt), phraseSalt: salt, phraseFailures: 0, phraseLockedUntil: null, updatedAt: now });
+  await logEvent(db, ns, actor, org.phraseHash ? "security.phrase_changed" : "security.phrase_set", null, null, now);
+  return { ok: true };
+}
+
 /** One owner at a time: the new owner must already be an active admin or member. */
-export async function transferOwnership(db: Db, actor: OrgActor, ns: string, nextOwnerId: string, confirmName: string, now: number) {
+export async function transferOwnership(db: Db, actor: OrgActor, ns: string, nextOwnerId: string, phrase: string, now: number) {
   const { org, member } = await requireRole(db, actor, ns, "owner", true);
-  if (confirmName.trim() !== org.name) throw new MaxError("VALIDATION", "Type the organization's name exactly to confirm.");
-  return handOver(db, actor, org, member, nextOwnerId, now, "owner.transferred");
+  const check = await checkPhrase(db, org, phrase, now);
+  if (!check.ok) return check;
+  await handOver(db, actor, org, member, nextOwnerId, now, "owner.transferred");
+  return { ok: true as const };
 }
 
 export async function handOver(db: Db, actor: { id: string; name?: string | null }, org: OrgRow, oldOwner: OrgMemberRow | null, nextOwnerId: string, now: number, action: string, reason?: string) {
@@ -491,8 +632,9 @@ export async function deleteOrganization(db: Db, actor: { id: string; name?: str
   return { removed };
 }
 
-export async function deleteOwnOrganization(db: Db, actor: OrgActor, ns: string, confirmName: string, purgeContent: (ns: string) => Promise<number>, now: number) {
+export async function deleteOwnOrganization(db: Db, actor: OrgActor, ns: string, phrase: string, purgeContent: (ns: string) => Promise<number>, now: number) {
   const { org } = await requireRole(db, actor, ns, "owner");
-  if (confirmName.trim() !== org.name) throw new MaxError("VALIDATION", "Type the organization's name exactly to confirm.");
-  return deleteOrganization(db, actor, org, purgeContent, now, "owner");
+  const check = await checkPhrase(db, org, phrase, now);
+  if (!check.ok) return check;
+  return { ok: true as const, ...(await deleteOrganization(db, actor, org, purgeContent, now, "owner")) };
 }

@@ -16,11 +16,15 @@ import { timeAgo } from "@/lib/client/format";
 export function PendingInvitations() {
   const mine = useMyOrgs();
   const invitations = mine.data?.invitations ?? [];
-  if (!invitations.length) return null;
+  const joinable = mine.data?.joinable ?? [];
+  if (!invitations.length && !joinable.length) return null;
   return (
     <section aria-label="Invitations" className="mx-1 mb-2 grid gap-2">
       {invitations.slice(0, 3).map((i) => (
         <Invitation key={i.id} invite={i} />
+      ))}
+      {joinable.slice(0, 2).map((o) => (
+        <DomainJoin key={o.orgId} org={o} />
       ))}
     </section>
   );
@@ -64,6 +68,40 @@ function Invitation({ invite }: { invite: OrgInvitation }) {
           Decline
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Your company's organization, open to everyone with a verified email at its domain. */
+function DomainJoin({ org }: { org: { orgId: string; orgName: string } }) {
+  const api = useOrgApi();
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="rounded-lg bg-surface p-2.5 text-[12.5px] shadow-[0_0_0_1px_var(--line)]">
+      <p className="flex items-center gap-1.5 font-medium text-fg">
+        <Building2 className="size-3.5 shrink-0" aria-hidden />
+        <span className="min-w-0 truncate">{org.orgName}</span>
+      </p>
+      <p className="mt-0.5 text-fg-3">Your work email lets you join this organization.</p>
+      <Button
+        size="xs"
+        variant="primary"
+        className="mt-2"
+        pending={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await api.call("joinDomain", { orgId: org.orgId });
+            toast.success(`Welcome to ${org.orgName}`);
+            switchWorkspace(org.orgId);
+          } catch (err) {
+            notifyError(err, "Couldn't join.");
+            setBusy(false);
+          }
+        }}
+      >
+        Join
+      </Button>
     </div>
   );
 }

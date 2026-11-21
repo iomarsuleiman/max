@@ -9,12 +9,12 @@ import { Topbar } from "@/components/workspace/Topbar";
 import { notifyError } from "@/components/workspace/context";
 import { DOODLE, Doodle } from "@/components/icons/Doodle";
 import { useAdminApi, type AdminOverview, type AdminUser, type AdminUserDetail, type AuditEvent, type Report } from "@/lib/client/admin";
-import { AdminAudit, AdminOrganizations } from "./AdminOrganizations";
-import { EventList, Pager, RoleBadge, useDebounced } from "./shared";
+import { AdminAudit, AdminMarketplace, AdminOrganizations } from "./AdminOrganizations";
+import { EventList, Pager, RoleBadge, downloadCsv, useDebounced } from "./shared";
 import { dateTime, timeAgo } from "@/lib/client/format";
 import { pageHref } from "@/lib/pageUrl";
 
-type Tab = "overview" | "users" | "organizations" | "audit" | "reports";
+type Tab = "overview" | "users" | "organizations" | "apps" | "audit" | "reports";
 
 /**
  * Max's platform admin dashboard: how people and organizations use Max, who belongs where,
@@ -72,6 +72,7 @@ export function AdminDashboard() {
                   { value: "overview", label: "Overview" },
                   { value: "users", label: `Users${data ? ` · ${data.totals.users}` : ""}` },
                   { value: "organizations", label: `Organizations${data ? ` · ${data.totals.organizations}` : ""}` },
+                  { value: "apps", label: "Marketplace" },
                   { value: "audit", label: "Audit" },
                   { value: "reports", label: `Reports${data?.totals.openReports ? ` · ${data.totals.openReports}` : ""}` },
                 ]}
@@ -86,6 +87,8 @@ export function AdminDashboard() {
             <Users readOnly={readOnly} onChanged={refresh} onOpenOrg={(id) => (setFocusOrg(id), setTab("organizations"))} />
           ) : tab === "organizations" ? (
             <AdminOrganizations readOnly={readOnly} focus={focusOrg} onFocus={setFocusOrg} onChanged={refresh} />
+          ) : tab === "apps" ? (
+            <AdminMarketplace readOnly={readOnly} />
           ) : tab === "audit" ? (
             <AdminAudit />
           ) : (
@@ -208,6 +211,7 @@ function Users({ readOnly, onChanged, onOpenOrg }: { readOnly: boolean; onChange
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, email or id" aria-label="Search users" className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none" />
         </label>
         <Segmented label="Status" value={filter} onChange={(v) => setFilter(v as typeof filter)} options={[{ value: "all", label: "All" }, { value: "active", label: "Active" }, { value: "suspended", label: "Suspended" }, { value: "banned", label: "Banned" }]} />
+        <Button size="sm" variant="ghost" disabled={!shown.length} onClick={() => downloadCsv("max-people", shown.map(({ reason: _r, ...u }) => u))}>Export CSV</Button>
       </div>
       {!page ? (
         <Skeleton className="h-64" />

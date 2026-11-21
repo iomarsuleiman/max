@@ -257,6 +257,8 @@ export async function recoverOrgOwnership(db: Db, admin: { id: string; name?: st
   if (!why) throw new MaxError("VALIDATION", "Give a reason for the recovery.");
   const owner = (await db.list("orgMembers", ns)).find((m) => m.role === "owner") ?? null;
   await handOver(db, { id: admin.id, name: "Max admin" }, org, owner, nextOwnerId, now, "owner.recovered_by_admin", why);
+  // The new owner sets their own security phrase; the old one may be why recovery was needed.
+  await db.patch("orgs", org._id, { phraseHash: null, phraseSalt: null, phraseFailures: 0, phraseLockedUntil: null });
   await logEvent(db, PLATFORM, admin, "org.ownership_recovered", ns, `${org.name} → ${nextOwnerId}: ${why}`, now);
   return { ok: true };
 }

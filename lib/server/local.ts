@@ -94,15 +94,22 @@ export async function runLocal(op: string, args: unknown, source: Source, accoun
   const scope = await (await import("@/lib/domain/workspaces")).resolveScope(s.db, account, workspace);
   const ownerId = scope.ownerId;
   const org = scope.org ? { org: { role: scope.org.role }, actor: { id: account, name: actorName ?? scope.org.name ?? account, image: null } } : {};
-  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source, ...org };
+  const outbox = { queued: 0 };
+  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source, outbox, ...org };
   const { registry } = await import("@/lib/domain/ops");
   const def = registry.get(op);
+  // Local mode has no background jobs: recurring automations catch up when the sidebar loads.
+  if (op === "pages.tree" && (await s.db.listAll("schedules", 5000)).some((x) => x.nextAt <= Date.now())) {
+    const { runDueSchedules } = await import("@/lib/domain/ops/automations");
+    await localWriter("schedules")(() => runDueSchedules(s.db, localStorageAdapter, Date.now())).catch(() => undefined);
+  }
   if (def?.kind === "query") return execute(op, args, ctx, kind);
   const run = s.lock.then(async () => {
     try {
       const result = await s.db.transaction(() => execute(op, args, ctx, kind));
       await s.db.persist();
       s.events.emit("change", { op, source });
+      if (outbox.queued) void localDeliver();
       return result;
     } catch (err) {
       // The failed write rolled back; record the attempt for assistant activity (names and codes only).
@@ -224,11 +231,13 @@ type AdminCall =
   | { fn: "organization"; orgId: string }
   | { fn: "audit"; scope?: string; action?: string; actor?: string; before?: number; limit?: number }
   | { fn: "orgAction"; orgId: string; action: "moderate" | "recover" | "limits" | "removeMember" | "delete"; status?: "active" | "suspended" | "banned"; reason?: string; accountId?: string; maxMembers?: number | null; confirmName?: string }
+  | { fn: "apps" }
+  | { fn: "reviewApp"; appId: string; decision: "published" | "rejected" | "suspended"; note?: string }
   | { fn: "setStatus"; userId: string; status: "active" | "suspended" | "banned"; reason: string }
   | { fn: "setReport"; id: string; status: "open" | "resolved" }
   | { fn: "report"; kind: "bug" | "content" | "other"; message: string; url?: string | null; pageId?: string | null; siteSlug?: string | null };
 
-export const LOCAL_ADMIN_FNS = ["check", "overview", "reports", "users", "user", "organizations", "organization", "audit", "orgAction", "setStatus", "setReport", "report"];
+export const LOCAL_ADMIN_FNS = ["apps", "reviewApp", "check", "overview", "reports", "users", "user", "organizations", "organization", "audit", "orgAction", "setStatus", "setReport", "report"];
 
 function localWriter(op: string) {
   const s = state();
@@ -268,6 +277,11 @@ export async function runLocalAdmin(call: AdminCall, actor: { id: string; name: 
   if (call.fn === "organizations") return admin.adminOrganizations(s.db, call, now);
   if (call.fn === "organization") return admin.adminOrganization(s.db, call.orgId, now);
   if (call.fn === "audit") return admin.adminAudit(s.db, call);
+  if (call.fn === "apps") return (await import("@/lib/domain/integrations")).reviewQueue(s.db);
+  if (call.fn === "reviewApp") {
+    const { reviewIntegration } = await import("@/lib/domain/integrations");
+    return write(() => reviewIntegration(s.db, actor, call.appId, call.decision, call.note ?? "", now));
+  }
   if (call.fn === "setStatus") return write(() => admin.setModeration(s.db, actor.id, call.userId, call.status, call.reason ?? "", now));
   if (call.fn === "orgAction") {
     const reason = call.reason ?? "";
@@ -283,7 +297,7 @@ export async function runLocalAdmin(call: AdminCall, actor: { id: string; name: 
 }
 
 type OrgCall = { fn: string; [key: string]: unknown };
-export const LOCAL_ORG_FNS = ["mine", "details", "audit", "create", "update", "setPolicies", "invite", "answerInvite", "member", "leave", "transfer", "team", "remove"];
+export const LOCAL_ORG_FNS = ["mine", "details", "audit", "create", "update", "setPolicies", "invite", "answerInvite", "member", "leave", "joinDomain", "transfer", "setPhrase", "team", "remove"];
 
 /**
  * Local mode's organizations (the twin of convex/organizations.ts). Local accounts have a pretend,
@@ -305,12 +319,20 @@ export async function runLocalOrganizations(call: OrgCall, who: { id: string; na
   switch (call.fn) {
     case "mine":
       return { enabled: true, ...(await orgs.myOrganizations(s.db, actor, now)) };
-    case "details":
+    case "details": {
+      // Local mode has no daily job: apply this organization's retention when its settings open.
+      const { applyRetention } = await import("@/lib/domain/retention");
+      await write(() => applyRetention(s.db, localStorageAdapter, now, str("orgId"))).catch(() => undefined);
       return orgs.organizationDetails(s.db, actor, str("orgId"), now);
+    }
     case "audit":
       return orgs.orgAuditLog(s.db, actor, str("orgId"), { before: call.before as number | undefined, action: call.action as string | undefined, limit: call.limit as number | undefined });
     case "create":
-      return write(() => orgs.createOrganization(s.db, actor, { name: str("name"), icon: (call.icon as string | null) ?? null, description: call.description as string | undefined }, now));
+      return write(async () => {
+        const org = await orgs.createOrganization(s.db, actor, { name: str("name"), icon: (call.icon as string | null) ?? null, description: call.description as string | undefined }, now);
+        const { seedOrganization } = await import("@/lib/domain/orgSeed");
+        return { ...org, ...(await seedOrganization(s.db, localStorageAdapter, org.id, actor, now)) };
+      });
     case "update":
       return write(() => orgs.updateOrganization(s.db, actor, str("orgId"), { name: call.name as string | undefined, icon: call.icon as string | null | undefined, description: call.description as string | undefined, slug: call.slug as string | undefined }, now));
     case "setPolicies":
@@ -326,12 +348,16 @@ export async function runLocalOrganizations(call: OrgCall, who: { id: string; na
       return write((): Promise<unknown> => {
         if (call.action === "role") return orgs.setMemberRole(s.db, actor, str("orgId"), str("accountId"), call.role as "member", now);
         if (call.action === "status") return orgs.setMemberStatus(s.db, actor, str("orgId"), str("accountId"), call.status as "active", now);
-        return orgs.removeMember(s.db, actor, str("orgId"), str("accountId"), now);
+        return orgs.removeMember(s.db, actor, str("orgId"), str("accountId"), now, call.reassignTo as string | null | undefined);
       });
     case "leave":
       return write(() => orgs.leaveOrganization(s.db, actor, str("orgId"), now));
+    case "joinDomain":
+      return write(() => orgs.joinByDomain(s.db, actor, str("orgId"), now));
     case "transfer":
-      return write(() => orgs.transferOwnership(s.db, actor, str("orgId"), str("nextOwnerId"), str("confirmName"), now));
+      return write(() => orgs.transferOwnership(s.db, actor, str("orgId"), str("nextOwnerId"), str("phrase"), now));
+    case "setPhrase":
+      return write(() => orgs.setSecurityPhrase(s.db, actor, str("orgId"), { current: call.current as string | undefined, next: str("next") }, now));
     case "team":
       return write((): Promise<unknown> =>
         call.teamId
@@ -339,8 +365,87 @@ export async function runLocalOrganizations(call: OrgCall, who: { id: string; na
           : orgs.createTeam(s.db, actor, str("orgId"), { name: str("name"), description: call.description as string | undefined, memberIds: call.memberIds as string[] | undefined }, now),
       );
     case "remove":
-      return write(() => orgs.deleteOwnOrganization(s.db, actor, str("orgId"), str("confirmName"), localPurge, now));
+      return write(() => orgs.deleteOwnOrganization(s.db, actor, str("orgId"), str("phrase"), localPurge, now));
     default:
       throw new MaxError("VALIDATION", "Invalid request.");
+  }
+}
+
+/* ── Connected apps in local mode (the twin of convex/integrations.ts) ──────── */
+
+/** Runs one operation for an app token, then delivers any webhooks right away. */
+export async function runLocalApp(token: string, op: string, args: unknown) {
+  const s = state();
+  await s.db.load();
+  const apps = await import("@/lib/domain/integrations");
+  const { MaxError } = await import("@/lib/domain/errors");
+  const run = s.lock.then(async () => {
+    const result = await s.db.transaction(async () => {
+      const app = await apps.appForToken(s.db, token);
+      if (!app) throw new MaxError("UNAUTHENTICATED", "That app token is invalid or was disconnected.");
+      const outbox = { queued: 0 };
+      const r = await execute(op, args, { db: s.db, storage: localStorageAdapter, ownerId: app.ownerId, now: Date.now(), source: "app", actor: app.actor, appScopes: app.scopes, outbox, ...(app.ownerId.startsWith("org_") ? { org: { role: "member" as const } } : {}) });
+      await s.db.patch("installations", app.installationId, { lastUsedAt: Date.now() });
+      return r;
+    });
+    await s.db.persist();
+    s.events.emit("change", { op, source: "app" });
+    return result;
+  });
+  s.lock = run.catch(() => undefined);
+  const result = await run;
+  void localDeliver();
+  return result;
+}
+
+export async function runLocalExchange(input: { clientId: string; clientSecret: string; code: string; redirectUri?: string | null }) {
+  const s = state();
+  await s.db.load();
+  const apps = await import("@/lib/domain/integrations");
+  return localWriter("apps")(() => apps.exchangeCode(s.db, input, Date.now()));
+}
+
+/** Sends due webhooks (local mode has no background jobs: called after changes). */
+export async function localDeliver() {
+  const s = state();
+  const apps = await import("@/lib/domain/integrations");
+  await localWriter("webhooks")(() => apps.deliverDue(s.db, Date.now())).catch(() => undefined);
+}
+
+type AppCall = { fn: string; [key: string]: unknown };
+export const LOCAL_APP_FNS = ["marketplace", "info", "mine", "installed", "manage", "install", "revoke"];
+
+export async function runLocalApps(call: AppCall, who: { id: string; name: string }) {
+  const s = state();
+  await s.db.load();
+  const apps = await import("@/lib/domain/integrations");
+  const now = Date.now();
+  const write = localWriter("apps");
+  const str = (k: string) => String(call[k] ?? "");
+  switch (call.fn) {
+    case "marketplace":
+      return apps.marketplace(s.db, who.id);
+    case "info":
+      return apps.appInfo(s.db, str("appId"), who.id);
+    case "mine":
+      return apps.myIntegrations(s.db, who.id);
+    case "installed":
+      return apps.installedApps(s.db, await apps.installTarget(s.db, who.id, (call.ws as string | null) ?? null));
+    case "manage": {
+      const input = call.app as Parameters<typeof apps.createIntegration>[2];
+      return write((): Promise<unknown> => {
+        if (call.action === "create") return apps.createIntegration(s.db, who.id, input, now);
+        if (call.action === "update") return apps.updateIntegration(s.db, who.id, str("appId"), input, now);
+        if (call.action === "rotate") return apps.rotateSecrets(s.db, who.id, str("appId"), now);
+        if (call.action === "submit") return apps.submitIntegration(s.db, who.id, str("appId"), now);
+        return apps.deleteIntegration(s.db, who.id, str("appId"), now);
+      });
+    }
+    case "install":
+      return write(() => apps.install(s.db, who, { appId: str("appId"), workspace: (call.ws as string | null) ?? null, scopes: (call.scopes as string[]) ?? [], redirectUri: (call.redirectUri as string | null) ?? null, state: (call.state as string | null) ?? null }, now));
+    case "revoke":
+      return write(() => apps.revokeInstallation(s.db, who, str("installationId"), now));
+    default:
+      throw new (await import("@/lib/domain/errors")).MaxError("VALIDATION", "Invalid request.");
   }
 }

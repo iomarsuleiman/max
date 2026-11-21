@@ -14,6 +14,9 @@ export interface OrgPolicies {
   allowGuests: boolean;
   allowPublicLinks: boolean;
   allowSites: boolean;
+  trashRetentionDays?: number | null;
+  versionRetentionDays?: number | null;
+  autoJoinDomain?: string | null;
 }
 export interface MyOrg {
   id: string;
@@ -38,6 +41,8 @@ export interface MyOrgs {
   enabled: boolean;
   organizations: MyOrg[];
   invitations: OrgInvitation[];
+  /** Organizations your verified email's domain lets you join directly. */
+  joinable?: { orgId: string; orgName: string; orgIcon: string | null }[];
 }
 export interface OrgMember {
   accountId: string;
@@ -59,6 +64,7 @@ export interface OrgTeam {
 export interface OrgDetails {
   org: { id: string; name: string; slug: string; icon: string | null; description: string; createdAt: number; policies: OrgPolicies; maxMembers: number | null; standing: "active" | "suspended" | "banned" };
   me: { accountId: string; role: OrgRole };
+  security: { phraseSet: boolean } | null;
   members: OrgMember[];
   teams: OrgTeam[];
   invitations: { id: string; email: string; role: Exclude<OrgRole, "owner">; status: "pending" | "accepted" | "declined" | "revoked" | "expired"; invitedByName: string | null; createdAt: number; expiresAt: number; resolvedAt: number | null }[];

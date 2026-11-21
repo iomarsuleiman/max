@@ -13,7 +13,7 @@ import {
 } from "@blocknote/core";
 import { createReactBlockSpec, createReactInlineContentSpec, ResizableFileBlockWrapper, SourceBlockWithPreview, useEditorChange, useResolveUrl } from "@blocknote/react";
 import { CODE_LANGUAGES } from "./codeLanguages";
-import { AlertTriangle, FileText, Globe, Image as ImageIcon, Info, Lightbulb, Link2, ListTree, Octagon, PlayCircle, Sheet, Star, StickyNote, Video } from "lucide-react";
+import { RefreshCw, AlertTriangle, FileText, Globe, Image as ImageIcon, Info, Lightbulb, Link2, ListTree, Octagon, PlayCircle, Sheet, Star, StickyNote, Video } from "lucide-react";
 import { withMultiColumn } from "@blocknote/xl-multi-column";
 import Diagram from "./Diagram";
 import { EMBED_PROVIDERS, toEmbed } from "./embeds";
@@ -39,8 +39,10 @@ export interface EditorBridgeValue {
   navigate: (pageId: string) => void;
   editImage: (blockId: string) => void;
   renderDatabase: (databaseId: string, readOnly: boolean) => React.ReactNode;
+  /** Synced content: another page's live content, shown read-only (edited at its source). */
+  renderSynced: (pageId: string) => React.ReactNode;
 }
-export const EditorBridge = createContext<EditorBridgeValue>({ pages: new Map(), navigate: () => {}, editImage: () => {}, renderDatabase: () => null });
+export const EditorBridge = createContext<EditorBridgeValue>({ pages: new Map(), navigate: () => {}, editImage: () => {}, renderDatabase: () => null, renderSynced: () => null });
 
 const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
@@ -540,6 +542,40 @@ export const DatabaseBlock = createIsolatedBlockSpec(
   },
 );
 
+/* ── Synced page: another page's content, always up to date ─────────────── */
+
+export const SyncedBlock = createIsolatedBlockSpec(
+  { type: "syncedPage", content: "none", propSchema: { sourceId: { default: "" } } },
+  {
+    render: function SyncedRender({ block, editor }) {
+      const bridge = useContext(EditorBridge);
+      if (!block.props.sourceId) {
+        return (
+          <div className="lx-embed-input" contentEditable={false} onKeyDown={stop}>
+            <RefreshCw size={18} aria-hidden />
+            <span className="text-[13px]">Show the content of:</span>
+            <Select
+              label="Source page"
+              size="sm"
+              variant="filled"
+              value=""
+              placeholder="Select a page…"
+              disabled={!editor.isEditable}
+              onChange={(id) => id && editor.updateBlock(block, { props: { sourceId: id } })}
+              options={[...bridge.pages.entries()].filter(([, p]) => p.kind !== "database").map(([id, p]) => ({ value: id, label: p.title || "Untitled", icon: <PageIcon icon={p.icon} size={15} /> }))}
+            />
+          </div>
+        );
+      }
+      return (
+        <div className="mx-synced" contentEditable={false} onKeyDown={stop} onCopy={(e) => e.stopPropagation()}>
+          {bridge.renderSynced(block.props.sourceId)}
+        </div>
+      );
+    },
+  },
+);
+
 /* ── Date mention (@today) ───────────────────────────────────────────────── */
 
 export function formatMentionDate(iso: string): string {
@@ -584,6 +620,7 @@ export const maxSchema = withMultiColumn(BlockNoteSchema.create({
     toc: TocBlock(),
     embed: EmbedBlock(),
     databaseView: DatabaseBlock(),
+    syncedPage: SyncedBlock(),
   },
   inlineContentSpecs: { ...defaultInlineContentSpecs, pageMention: PageMention, dateMention: DateMention },
 }));

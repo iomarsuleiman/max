@@ -8,8 +8,10 @@ import { TITLE_PROPERTY_ID, defaultView, shortId } from "./databaseDefaults";
 import { markdownToBlocks } from "../blocks";
 import { evaluateFormula, parseFormula, FormulaError, type FValue } from "../formula";
 import type { CalculationFn, RollupFn } from "../types";
+import { people } from "./people";
+import { afterRecordChange } from "./recordHooks";
 
-const PROPERTY_TYPES = ["text", "number", "select", "multi_select", "status", "checkbox", "date", "url", "email", "phone", "relation", "formula", "rollup", "created_time", "updated_time"] as const;
+const PROPERTY_TYPES = ["text", "number", "select", "multi_select", "status", "checkbox", "date", "url", "email", "phone", "relation", "person", "formula", "rollup", "created_time", "updated_time"] as const;
 const COLORS = ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"] as const;
 const OPERATORS = ["contains", "not_contains", "equals", "not_equals", "is_empty", "is_not_empty", "gt", "lt", "is_checked", "is_not_checked", "before", "after"] as const;
 
@@ -93,6 +95,14 @@ async function coerceValue(ctx: OpContext, prop: PropertyDef, raw: unknown, newO
       if (!/^[+()\d\s.-]{3,32}$/.test(s)) throw fail("enter a phone number.");
       return s;
     }
+    case "person": {
+      // People who can be assigned here: the organization's active members, or just you.
+      const allowed = new Map((await people(ctx)).map((p) => [p.id, p]));
+      const ids = [...new Set((Array.isArray(raw) ? raw : String(raw).split(",")).map((v) => String(v).trim()).filter(Boolean))];
+      const resolved = ids.map((v) => allowed.get(v)?.id ?? [...allowed.values()].find((p) => p.email === v.toLowerCase() || p.name.toLowerCase() === v.toLowerCase())?.id);
+      if (resolved.some((v) => !v)) throw fail("everyone assigned must be a member of this workspace.");
+      return (resolved as string[]).slice(0, 20);
+    }
     case "formula":
     case "rollup":
     case "created_time":
@@ -101,7 +111,7 @@ async function coerceValue(ctx: OpContext, prop: PropertyDef, raw: unknown, newO
   }
 }
 
-async function applyValues(ctx: OpContext, db: PageRow, input: Record<string, unknown>) {
+export async function applyValues(ctx: OpContext, db: PageRow, input: Record<string, unknown>) {
   const props = db.properties ?? [];
   const values: Record<string, PropertyValue> = {};
   const newOptions = new Map<string, SelectOption[]>();
@@ -464,6 +474,7 @@ export const recordsCreate = defineOp({
     const row = newPageRow(ctx, { databaseId: db._id, title: titleValue ?? cleanTitle(input.title), rank: rankAt(siblings, input.index), values });
     const recordId = await ctx.db.insert("pages", row);
     await insertDocument(ctx, recordId, input.markdown ? markdownToBlocks(input.markdown) : []);
+    await afterRecordChange(ctx, db, null, { _id: recordId, ...row } as PageRow);
     return { record: recordView({ _id: recordId, ...row }) };
   },
 });
@@ -498,6 +509,7 @@ export const recordsUpdate = defineOp({
     const patch: Partial<PageRow> = { values: { ...record.values, ...values }, updatedAt: ctx.now };
     if (titleValue !== undefined) patch.title = titleValue;
     await ctx.db.patch("pages", recordId, patch);
+    await afterRecordChange(ctx, db, record, { ...record, ...patch });
     return { record: recordView({ ...record, ...patch }) };
   },
 });
@@ -558,7 +570,7 @@ function displayValue(prop: PropertyDef | undefined, value: PropertyValue, recor
   if (prop.type === "formula" || prop.type === "rollup") return value as string | number | boolean;
   if (["select", "status"].includes(prop.type)) return prop.options?.find((o) => o.id === value)?.name ?? null;
   if (prop.type === "multi_select") return (value as string[]).map((v) => prop.options?.find((o) => o.id === v)?.name ?? "").join(", ");
-  if (Array.isArray(value)) return value.join(",");
+  if (prop.type === "person") return (value as string[]).join(", ");
   return value as string | number | boolean;
 }
 
@@ -578,10 +590,10 @@ export function matchesFilter(prop: PropertyDef | undefined, record: PageRow, f:
     case "is_not_checked":
       return shown !== true;
     case "contains":
-      if (prop?.type === "multi_select") return text.split(", ").includes(needle);
+      if (prop?.type === "multi_select" || prop?.type === "person") return text.split(", ").includes(needle);
       return text.includes(needle);
     case "not_contains":
-      if (prop?.type === "multi_select") return !text.split(", ").includes(needle);
+      if (prop?.type === "multi_select" || prop?.type === "person") return !text.split(", ").includes(needle);
       return !text.includes(needle);
     case "equals":
       return prop?.type === "number" ? Number(shown) === Number(f.value) : text === needle;

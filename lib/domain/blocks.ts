@@ -111,6 +111,7 @@ export function referencedPageIds(blocks: Block[]): string[] {
     if (Array.isArray(block.content)) visitInline(block.content);
     else if (block.content?.type === "tableContent") block.content.rows.forEach((r) => r.cells.forEach((c) => visitInline(cellInlines(c))));
     if ((block.type === "pageLink" || block.type === "databaseView") && typeof block.props?.pageId === "string") ids.add(block.props.pageId);
+    if (block.type === "syncedPage" && typeof block.props?.sourceId === "string" && block.props.sourceId) ids.add(block.props.sourceId);
     if (block.type === "databaseView" && typeof block.props?.databaseId === "string" && block.props.databaseId) ids.add(block.props.databaseId);
   }
   return [...ids];
@@ -209,7 +210,7 @@ export function normalizeBlocks(input: unknown[], seen = new Set<string>()): Blo
 }
 
 const TEXT_PROPS = { textColor: "default", backgroundColor: "default", textAlignment: "left" };
-const NO_INLINE_TYPES = new Set(["image", "video", "audio", "file", "divider", "youtube", "pageLink", "diagram", "bookmark", "toc", "embed", "databaseView", "columnList", "column"]);
+const NO_INLINE_TYPES = new Set(["image", "video", "audio", "file", "divider", "youtube", "pageLink", "diagram", "bookmark", "toc", "embed", "databaseView", "syncedPage", "columnList", "column"]);
 const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   paragraph: TEXT_PROPS,
   heading: { ...TEXT_PROPS, level: 1, isToggleable: false },
@@ -231,6 +232,7 @@ const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   toc: {},
   embed: { url: "" },
   databaseView: { databaseId: "" },
+  syncedPage: { sourceId: "" },
   columnList: {},
   column: { width: 1 },
   file: { backgroundColor: "default", name: "", url: "", caption: "" },
@@ -376,6 +378,11 @@ export function blocksToMarkdown(blocks: Block[], resolveTitle?: (id: string) =>
         case "pageLink": {
           const id = String(block.props.pageId);
           out.push(`[${escapeMd(resolveTitle?.(id) ?? "Untitled")}](/p/${id})`);
+          break;
+        }
+        case "syncedPage": {
+          const id = String(block.props.sourceId ?? "");
+          if (id) out.push(`> Synced from [${escapeMd(resolveTitle?.(id) ?? "Untitled")}](/p/${id})`);
           break;
         }
         case "table": {

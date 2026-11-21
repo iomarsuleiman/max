@@ -131,7 +131,7 @@ export function WorkspaceDock({ onCreate }: { onCreate: () => void }) {
           aria-selected={i === here}
           aria-label={w.kind === "organization" ? `${w.name}, organization` : w.name}
           aria-keyshortcuts={i < 9 ? (isMac() ? `Control+${i + 1}` : `Alt+${i + 1}`) : undefined}
-          title={`${w.name}${w.kind === "organization" ? " · Organization" : ""}${i < 9 ? `  ${workspaceKey(i + 1)}` : ""}`}
+          title={`${w.name}${w.kind === "organization" ? " · Organization" : ""}${i < 9 ? `  ${workspaceKey(i + 1)}` : ""} · Shift+scroll to switch`}
           className="workspace-dock-item"
           onClick={() => i !== here && goTo(w.id, i > here ? 1 : -1)}
         >
@@ -203,7 +203,25 @@ export function useWorkspaceSwipe() {
   const touch = useRef({ x: 0, y: 0 }).current;
   return {
     onWheel(e: React.WheelEvent) {
-      if (list.length < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      if (list.length < 2) return;
+      // Shift + scroll (the page-15 gesture): one deliberate turn of the wheel = one workspace.
+      // Never while typing, in a menu or dialog, or dragging.
+      const t = e.target as HTMLElement;
+      if (t.closest("input, textarea, [contenteditable=true], [role=menu], [role=dialog], [data-dragging]")) return;
+      if (e.shiftKey) {
+        // Most browsers turn Shift+vertical scrolling into horizontal; accept either axis.
+        const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        clearTimeout(wheel.timer);
+        wheel.timer = setTimeout(() => ((wheel.dx = 0), (wheel.locked = false)), 260);
+        if (wheel.locked) return;
+        wheel.dx += d;
+        if (Math.abs(wheel.dx) > 60) {
+          wheel.locked = true;
+          step(wheel.dx > 0 ? 1 : -1);
+        }
+        return;
+      }
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       clearTimeout(wheel.timer);
       wheel.timer = setTimeout(() => ((wheel.dx = 0), (wheel.locked = false)), 220);
       if (wheel.locked) return;

@@ -22,6 +22,7 @@ import { Avatar } from "@/components/workspace/Sidebar";
 import { notifyError, useWorkspace, type SettingsSection } from "@/components/workspace/context";
 import { download } from "@/components/page/PageOptions";
 import { SHORTCUTS } from "@/lib/client/shortcuts";
+import { AppsSettings } from "@/components/apps/AppsSettings";
 import { NotionConnection } from "./NotionConnection";
 import { ProfileCardEditor } from "@/components/profile/ProfileCardEditor";
 import { INVITE_NOTE, MAX_NOTE_CHARS, writeNote } from "@/lib/welcomeNote";
@@ -670,8 +671,10 @@ function ConnectionsSection() {
   };
   return (
     <>
-      <Heading title="Connections" description="Bring your work into Max and connect assistants to your private workspace." />
-      <NotionConnection />
+      <Heading title="Connections" description="Connect apps from the marketplace, bring your work in from Notion, and connect AI assistants." />
+      <AppsSettings />
+      <div id="notion"><NotionConnection /></div>
+      <div id="assistants" />
       <Group title="Server address">
         <div className="grid gap-2 py-3">
           <Copyable value={mcpUrl} label="server address" />

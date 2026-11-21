@@ -47,6 +47,8 @@ export interface MaxEditorProps {
   navigate: (pageId: string) => void;
   /** Renders an inline database (or linked view) inside the page. */
   renderDatabase?: EditorBridgeValue["renderDatabase"];
+  /** Renders a synced page's live content (see SyncedBlock). */
+  renderSynced?: EditorBridgeValue["renderSynced"];
   /** Creates a database inside this page for "/Database – inline". */
   createDatabase?: () => Promise<string | null>;
   density?: "comfortable" | "compact";
@@ -222,6 +224,7 @@ export default function MaxEditor(props: MaxEditorProps) {
       navigate: (id) => propsRef.current.navigate(id),
       editImage: (id) => propsRef.current.onEditImage(id, editor),
       renderDatabase: (id, readOnly) => propsRef.current.renderDatabase?.(id, readOnly) ?? null,
+      renderSynced: (id) => propsRef.current.renderSynced?.(id) ?? null,
     }),
     [props.pages, editor],
   );
@@ -233,6 +236,7 @@ export default function MaxEditor(props: MaxEditorProps) {
         if (id) insertOrUpdateBlockForSlashMenu(editor, { type: "databaseView", props: { databaseId: id } } as never);
       },
       linkDatabase: () => insertOrUpdateBlockForSlashMenu(editor, { type: "databaseView", props: { databaseId: "" } } as never),
+      syncPage: () => insertOrUpdateBlockForSlashMenu(editor, { type: "syncedPage", props: { sourceId: "" } } as never),
       createSubpage: async () => {
         const page = await propsRef.current.createSubpage();
         if (!page) return;

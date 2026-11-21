@@ -285,8 +285,16 @@ export function newPageRow(ctx: OpContext, fields: Partial<PageRow> & { rank: st
     isTemplate: false,
     createdAt: ctx.now,
     updatedAt: ctx.now,
+    createdBy: actorOf(ctx),
+    updatedBy: actorOf(ctx),
     ...fields,
   };
+}
+
+/** The person acting: whoever is signed in (a member, a share guest), else the workspace's account. */
+export function actorOf(ctx: OpContext): string | null {
+  if (ctx.actor?.id && ctx.actor.id !== "anon") return ctx.actor.id;
+  return isOrgNamespace(ctx.ownerId) ? null : accountOf(ctx.ownerId);
 }
 
 export async function randomToken(bytes = 24): Promise<string> {

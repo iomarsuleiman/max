@@ -66,6 +66,27 @@ Platform roles are separate from organization roles: `MAX_ADMIN_EMAILS` may act 
 - Schema changes are additive (new tables, one optional settings field). Existing personal data, IDs and URLs are unchanged.
 - Local mode works too (`/api/local/organizations`). With `MAX_LOCAL_MULTIUSER=true`, each pretend account has the verified email `<id>@local.max`.
 
-## Not in this release (roadmap phases 5–7)
+## Also in this release
 
-Still open: per-page restrictions *inside* an organization (private teamspaces), person-typed task assignment, the notification inbox beyond invitations, email delivery of invitations, approvals and automations, and Clerk step-up ("fresh") authentication for ownership transfer. Today a transfer requires typing the organization's name. Org favorites and "recently opened" are shared by the organization's members.
+| Area | Where it lives |
+| --- | --- |
+| Private pages, closed and private teamspaces, view/comment-only for others | `lib/domain/orgPageAccess.ts` (`restrictedDb` wraps the request's database so every operation is filtered) |
+| Owner security phrase (PBKDF2, lockout), instead of a password re-prompt | `lib/domain/organizations.ts` |
+| Inbox: mentions, replies, assignments, reviews, access requests, membership, automations, announcements, due-date reminders, per-kind preferences | `lib/domain/notifications.ts`, `lib/domain/reminders.ts`, `ops/inbox.ts` |
+| Comment threads, reactions, @mentions | `ops/comments.ts` |
+| Reviews (every reviewer approves; no self-approval) and suggested edits (accepted as a new version) | `ops/approvals.ts` |
+| Person property, assignment notifications, offboarding reassignment | `ops/databases.ts`, `ops/recordHooks.ts`, `organizations.ts` |
+| Automations (created / changed / button / schedule), bounded, non-cascading, run counts | `ops/recordHooks.ts`, `ops/automations.ts`, `convex/crons.ts` |
+| Forms that create rows | `components/database/FormView.tsx` |
+| Synced pages (live, read-only, edited at the source) | `SyncedBlock` in `components/editor/blocks.tsx` |
+| Wiki verification, activity, analytics (workload, pending reviews) | `ops/insights.ts` |
+| Expiring share links | `ops/shares.ts`, `sharing.ts` |
+| Retention (trash, history) and verified-domain auto-join | `retention.ts`, `organizations.ts` |
+| Connectors: scoped app tokens, OAuth code flow, REST API `/api/v1/ops`, signed webhooks (SSRF-safe, retried), marketplace with admin review | `lib/domain/integrations.ts`, `convex/integrations.ts`, `app/api/v1` |
+| Public guides | `/docs` (`lib/docs.ts`) |
+
+## Still outside Max
+
+- **Email.** Invitations and notifications appear in Max (sidebar card, inbox). Max has no email provider yet, so nothing is emailed.
+- **Enterprise SSO/SCIM.** SAML/OIDC is configured in Clerk (Enterprise connections). Verified-domain auto-join covers automatic enrollment.
+- **Gmail, Google Calendar and other third-party connectors** need their providers' OAuth credentials. The connector platform (API, OAuth, webhooks, marketplace) is ready for them to be built as apps.

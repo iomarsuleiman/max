@@ -2,18 +2,23 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { Building2, Crown, LogOut, Mail, MoreHorizontal, RotateCcw, Trash2, UserMinus, Users } from "lucide-react";
+import { Building2, Crown, KeyRound, LogOut, Mail, MoreHorizontal, RotateCcw, Trash2, UserMinus, Users } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Dialog, EmptyState, Field, IconButton, Input, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Segmented, Skeleton, Switch, Textarea, cn, confirmAction } from "@/components/ui";
+import { Button, Dialog, EmptyState, Field, IconButton, Input, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Segmented, Select, Skeleton, Switch, Textarea, cn, confirmAction } from "@/components/ui";
 import { Topbar } from "@/components/workspace/Topbar";
 import { notifyError } from "@/components/workspace/context";
 import { useWorkspaces } from "@/components/workspace/Workspaces";
 import { EventList } from "@/components/admin/shared";
+import { OrgAccessSection } from "./PageAccess";
+import { NEW_TEAMSPACE_EVENT } from "@/components/share/Teamspaces";
+import { useWorkspace } from "@/components/workspace/context";
+import { pageHref } from "@/lib/pageUrl";
+import { useOp } from "@/lib/client/data";
 import { ROLE_LABEL, isOrgId, useOrgApi, useOrgAudit, useOrgDetails, type OrgDetails, type OrgMember, type OrgPolicies, type OrgRole } from "@/lib/client/organizations";
 import { activeWorkspace, switchWorkspace } from "@/lib/client/workspace";
 import { bytes, dateTime, timeAgo } from "@/lib/client/format";
 
-type Tab = "general" | "members" | "invitations" | "teams" | "policies" | "activity";
+type Tab = "general" | "insights" | "members" | "invitations" | "teamspaces" | "teams" | "policies" | "activity";
 
 /**
  * The open organization's settings: its people, invitations, teams, sharing policies and audit log.
@@ -58,8 +63,10 @@ export function OrgSettings() {
   const admin = d ? d.me.role === "owner" || d.me.role === "admin" : false;
   const tabs: { value: Tab; label: string }[] = [
     { value: "general", label: "General" },
+    { value: "insights", label: "Insights" },
     { value: "members", label: d ? `Members · ${d.members.length}` : "Members" },
     ...(admin ? [{ value: "invitations" as Tab, label: `Invitations${d?.stats?.pendingInvites ? ` · ${d.stats.pendingInvites}` : ""}` }] : []),
+    { value: "teamspaces", label: "Teamspaces" },
     { value: "teams", label: "Teams" },
     ...(admin ? [{ value: "policies" as Tab, label: "Policies" }, { value: "activity" as Tab, label: "Activity" }] : []),
   ];
@@ -83,10 +90,14 @@ export function OrgSettings() {
             <div className="mt-6 grid gap-3"><Skeleton className="h-24" /><Skeleton className="h-48" /></div>
           ) : shown === "general" ? (
             <General d={d} admin={admin} />
+          ) : shown === "insights" ? (
+            <Insights admin={admin} />
           ) : shown === "members" ? (
             <Members d={d} admin={admin} />
           ) : shown === "invitations" ? (
             <InvitationsTab d={d} />
+          ) : shown === "teamspaces" ? (
+            <TeamspacesTab d={d} />
           ) : shown === "teams" ? (
             <Teams d={d} admin={admin} />
           ) : shown === "policies" ? (
@@ -175,25 +186,35 @@ function General({ d, admin }: { d: OrgDetails; admin: boolean }) {
           </div>
         )}
       </section>
+      {d.me.role === "owner" && <SecurityPhrase d={d} />}
       {danger && <OwnerAction d={d} kind={danger} onClose={() => setDanger(null)} />}
     </div>
   );
 }
 
+type PhraseResult = { ok: boolean; message?: string };
+
 function OwnerAction({ d, kind, onClose }: { d: OrgDetails; kind: "transfer" | "delete"; onClose: () => void }) {
   const api = useOrgApi();
   const candidates = d.members.filter((m) => m.status === "active" && (m.role === "admin" || m.role === "member"));
   const [next, setNext] = useState(candidates.find((m) => m.role === "admin")?.accountId ?? candidates[0]?.accountId ?? "");
-  const [confirm, setConfirm] = useState("");
+  const [phrase, setPhrase] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const submit = async () => {
+  const phraseSet = !!d.security?.phraseSet;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
-      if (kind === "transfer") {
-        await api.call("transfer", { orgId: d.org.id, nextOwnerId: next, confirmName: confirm });
-        toast.success("Ownership transferred. You're now an admin.");
-      } else {
-        await api.call("remove", { orgId: d.org.id, confirmName: confirm });
+      const r = await api.call<PhraseResult>(kind === "transfer" ? "transfer" : "remove", kind === "transfer" ? { orgId: d.org.id, nextOwnerId: next, phrase } : { orgId: d.org.id, phrase });
+      if (!r.ok) {
+        setError(r.message ?? "That didn't work.");
+        setBusy(false);
+        return;
+      }
+      if (kind === "transfer") toast.success("Ownership transferred. You're now an admin.");
+      else {
         toast.success(`${d.org.name} was deleted`);
         switchWorkspace(null);
       }
@@ -210,38 +231,114 @@ function OwnerAction({ d, kind, onClose }: { d: OrgDetails; kind: "transfer" | "
       title={kind === "transfer" ? "Transfer ownership" : `Delete ${d.org.name}?`}
       description={kind === "transfer" ? "The new owner gets every permission, including deleting the organization. You stay on as an admin." : "Every page, database, file and its history in this organization is permanently deleted, for everyone. This can't be undone."}
     >
-      <div className="grid gap-3 px-5 pb-5 pt-2 text-[13px]">
-        {kind === "transfer" &&
-          (candidates.length ? (
-            <label className="grid gap-1.5">
-              New owner
-              <select value={next} onChange={(e) => setNext(e.target.value)} className="h-9 rounded-md bg-surface px-2 shadow-[0_0_0_1px_var(--line)]">
-                {candidates.map((m) => (
-                  <option key={m.accountId} value={m.accountId}>{m.name || m.email || m.accountId} ({ROLE_LABEL[m.role]})</option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <p className="text-fg-3">Invite someone as an admin or member first.</p>
-          ))}
-        <label className="grid gap-1.5">
-          Type <b>{d.org.name}</b> to confirm
-          <Input value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="Organization name" />
-        </label>
+      <form onSubmit={submit} className="grid gap-3 px-5 pb-5 pt-2 text-[13px]">
+        {!phraseSet ? (
+          <p className="rounded-lg bg-warning-soft px-3 py-2">Set the organization&apos;s security phrase first, under <b>Security</b> on this page. It protects this action, without needing a password.</p>
+        ) : (
+          <>
+            {kind === "transfer" &&
+              (candidates.length ? (
+                <label className="grid gap-1.5">
+                  New owner
+                  <select value={next} onChange={(e) => setNext(e.target.value)} className="h-9 rounded-md bg-surface px-2 shadow-[0_0_0_1px_var(--line)]">
+                    {candidates.map((m) => (
+                      <option key={m.accountId} value={m.accountId}>{m.name || m.email || m.accountId} ({ROLE_LABEL[m.role]})</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <p className="text-fg-3">Invite someone as an admin or member first.</p>
+              ))}
+            <Field label="Security phrase" htmlFor="owner-phrase" error={error ?? undefined}>
+              <Input id="owner-phrase" type="password" autoComplete="off" autoFocus value={phrase} onChange={(e) => setPhrase(e.target.value)} invalid={!!error} />
+            </Field>
+          </>
+        )}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant={kind === "delete" ? "danger" : "primary"} pending={busy} disabled={confirm !== d.org.name || (kind === "transfer" && !next)} onClick={submit}>
-            {kind === "transfer" ? "Transfer" : "Delete forever"}
-          </Button>
+          {phraseSet && (
+            <Button type="submit" variant={kind === "delete" ? "danger" : "primary"} pending={busy} disabled={!phrase || (kind === "transfer" && !next)}>
+              {kind === "transfer" ? "Transfer" : "Delete forever"}
+            </Button>
+          )}
         </div>
-      </div>
+      </form>
     </Dialog>
+  );
+}
+
+/** The owner's security phrase: asked before transfer and deletion instead of a password. */
+function SecurityPhrase({ d }: { d: OrgDetails }) {
+  const api = useOrgApi();
+  const set = !!d.security?.phraseSet;
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const mismatch = !!again && next !== again;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.call<PhraseResult>("setPhrase", { orgId: d.org.id, ...(set ? { current } : {}), next });
+      if (!r.ok) setError(r.message ?? "That didn't work.");
+      else {
+        toast.success(set ? "Security phrase changed" : "Security phrase set");
+        setOpen(false);
+        setCurrent("");
+        setNext("");
+        setAgain("");
+      }
+    } catch (err) {
+      notifyError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="settings-card grid gap-2 py-4">
+      <div className="flex items-start gap-3">
+        <KeyRound className="mt-0.5 size-4 shrink-0 text-fg-3" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[13.5px] font-medium">Security phrase</h2>
+          <p className="text-[12.5px] text-fg-3">
+            {set ? "Set. Max asks for it before transferring ownership or deleting the organization." : "Protects transferring ownership and deleting the organization. It works with Google sign-in: no password or email needed."} Only a scrambled copy is stored; if you lose it, Max&apos;s admins can reset it while recovering ownership.
+          </p>
+        </div>
+        <Button size="sm" variant={set ? "ghost" : "primary"} onClick={() => setOpen(true)}>{set ? "Change" : "Set phrase"}</Button>
+      </div>
+      {open && (
+        <Dialog open onOpenChange={(o) => !o && setOpen(false)} title={set ? "Change security phrase" : "Set a security phrase"} description="Use a sentence only you would know, at least 12 characters. Five wrong tries lock it for 15 minutes.">
+          <form onSubmit={submit} className="grid gap-3 px-5 pb-5 pt-2">
+            {set && (
+              <Field label="Current phrase" htmlFor="phrase-current">
+                <Input id="phrase-current" type="password" autoComplete="off" value={current} onChange={(e) => setCurrent(e.target.value)} />
+              </Field>
+            )}
+            <Field label="New phrase" htmlFor="phrase-next">
+              <Input id="phrase-next" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
+            </Field>
+            <Field label="Type it again" htmlFor="phrase-again" error={mismatch ? "The two don't match." : (error ?? undefined)}>
+              <Input id="phrase-again" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} invalid={mismatch || !!error} />
+            </Field>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" pending={busy} disabled={next.trim().length < 12 || next !== again || (set && !current)}>Save phrase</Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </section>
   );
 }
 
 function Members({ d, admin }: { d: OrgDetails; admin: boolean }) {
   const api = useOrgApi();
   const [inviting, setInviting] = useState(false);
+  const [removing, setRemoving] = useState<OrgMember | null>(null);
   const [q, setQ] = useState("");
   const teams = useMemo(() => new Map(d.teams.map((t) => [t.id, t.name])), [d.teams]);
   const canInvite = admin || (d.org.policies.membersCanInvite && d.me.role === "member");
@@ -295,9 +392,7 @@ function Members({ d, admin }: { d: OrgDetails; admin: boolean }) {
                   <MenuItem
                     icon={<UserMinus />}
                     danger
-                    onSelect={async () => {
-                      if (await confirmAction({ title: `Remove ${m.name || m.email}?`, body: "They lose access to the organization immediately, including pages shared with them here.", confirmLabel: "Remove", tone: "danger" })) await act(m, { action: "remove" }, "Removed");
-                    }}
+                    onSelect={() => setRemoving(m)}
                   >
                     Remove from organization
                   </MenuItem>
@@ -311,6 +406,7 @@ function Members({ d, admin }: { d: OrgDetails; admin: boolean }) {
         Owners and admins manage people and settings. Members read and edit the organization&apos;s pages. Guests only see the pages shared with them.
       </p>
       {inviting && <InviteDialog d={d} onClose={() => setInviting(false)} />}
+      {removing && <Offboard d={d} member={removing} onClose={() => setRemoving(null)} onRemove={(reassignTo) => act(removing, { action: "remove", reassignTo }, "Removed").then(() => setRemoving(null))} />}
     </div>
   );
 }
@@ -483,7 +579,8 @@ function TeamDialog({ d, teamId, onClose }: { d: OrgDetails; teamId: string | nu
   );
 }
 
-const POLICY_COPY: Record<keyof OrgPolicies, { title: string; body: string }> = {
+type SwitchPolicy = "membersCanInvite" | "allowGuests" | "allowPublicLinks" | "allowSites";
+const POLICY_COPY: Record<SwitchPolicy, { title: string; body: string }> = {
   membersCanInvite: { title: "Members can invite members", body: "Otherwise only admins send invitations." },
   allowGuests: { title: "Share pages outside the organization", body: "Lets people share pages with guests by email or with a Max link. Turning it off stops new outside shares; existing ones stay until removed." },
   allowPublicLinks: { title: "Publish pages to the web", body: "Lets pages get a public link that works without a Max account." },
@@ -492,24 +589,71 @@ const POLICY_COPY: Record<keyof OrgPolicies, { title: string; body: string }> = 
 
 function Policies({ d }: { d: OrgDetails }) {
   const api = useOrgApi();
-  const set = async (key: keyof OrgPolicies, value: boolean) => {
+  const [domain, setDomain] = useState(d.org.policies.autoJoinDomain ?? "");
+  const set = async (patch: Partial<OrgPolicies>) => {
     try {
-      await api.call("setPolicies", { orgId: d.org.id, [key]: value });
+      await api.call("setPolicies", { orgId: d.org.id, ...patch });
+      toast.success("Saved");
     } catch (err) {
       notifyError(err);
     }
   };
+  const retention = (key: "trashRetentionDays" | "versionRetentionDays") => (
+    <Select
+      label={key === "trashRetentionDays" ? "Trash retention" : "History retention"}
+      size="sm"
+      variant="filled"
+      value={String(d.org.policies[key] ?? "forever")}
+      onChange={(v) => set({ [key]: v === "forever" ? null : Number(v) })}
+      options={[{ value: "forever", label: "Keep forever" }, ...[7, 14, 30, 60, 90, 180, 365].map((n) => ({ value: String(n), label: `${n} days` }))]}
+    />
+  );
   return (
-    <div className="settings-card mt-6 divide-y divide-line py-1">
-      {(Object.keys(POLICY_COPY) as (keyof OrgPolicies)[]).map((k) => (
-        <div key={k} className="flex items-center gap-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[13.5px] font-medium">{POLICY_COPY[k].title}</p>
-            <p className="text-[12.5px] text-fg-3">{POLICY_COPY[k].body}</p>
+    <div className="mt-6 grid gap-6">
+      <div className="settings-card divide-y divide-line py-1">
+        {(Object.keys(POLICY_COPY) as SwitchPolicy[]).map((k) => (
+          <div key={k} className="flex items-center gap-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-medium">{POLICY_COPY[k].title}</p>
+              <p className="text-[12.5px] text-fg-3">{POLICY_COPY[k].body}</p>
+            </div>
+            <Switch checked={!!d.org.policies[k]} onCheckedChange={(v) => set({ [k]: v })} label={POLICY_COPY[k].title} />
           </div>
-          <Switch checked={d.org.policies[k]} onCheckedChange={(v) => set(k, v)} label={POLICY_COPY[k].title} />
+        ))}
+      </div>
+      <div className="settings-card divide-y divide-line py-1">
+        <div className="flex flex-wrap items-center gap-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-medium">Trash</p>
+            <p className="text-[12.5px] text-fg-3">Delete trashed pages for good after this long, checked daily. Admins can always restore them before then.</p>
+          </div>
+          {retention("trashRetentionDays")}
         </div>
-      ))}
+        <div className="flex flex-wrap items-center gap-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-medium">Page history</p>
+            <p className="text-[12.5px] text-fg-3">Remove older versions after this long. Each page always keeps its latest version.</p>
+          </div>
+          {retention("versionRetentionDays")}
+        </div>
+        {d.me.role === "owner" && (
+          <form
+            className="flex flex-wrap items-center gap-3 py-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void set({ autoJoinDomain: domain.trim() || null });
+            }}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-medium">Join with a work email</p>
+              <p className="text-[12.5px] text-fg-3">Anyone signed in with a verified email at this domain can join as a member, no invitation needed. Only your own company domain.</p>
+            </div>
+            <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="company.com" aria-label="Email domain" className="h-8 w-40" />
+            <Button size="sm" type="submit">Save</Button>
+          </form>
+        )}
+      </div>
+      <p className="text-[12.5px] text-fg-3">Single sign-on (SAML or OIDC, e.g. Okta, Microsoft Entra, Google Workspace) is set up by Max&apos;s operators in the sign-in provider; once it&apos;s on for your domain, people sign in with it here automatically.</p>
     </div>
   );
 }
@@ -522,5 +666,156 @@ function Activity({ orgId }: { orgId: string }) {
       <Input value={action} onChange={(e) => setAction(e.target.value)} placeholder="Filter, e.g. member or invite" aria-label="Filter activity" className="mb-3 h-9 max-w-[280px]" />
       <div className="settings-card py-3">{q.data ? <EventList events={q.data.events.map((e) => ({ ...e, ownerId: orgId }))} empty="Nothing recorded yet." /> : <Skeleton className="h-40" />}</div>
     </div>
+  );
+}
+
+/** Every teamspace you can see in the organization, with who can open it. Admins see them all. */
+function TeamspacesTab({ d }: { d: OrgDetails }) {
+  const ws = useWorkspace();
+  const [open, setOpen] = useState<string | null>(null);
+  const spaces = (ws.tree ?? []).filter((p) => p.teamspace && !p.parentId);
+  const teams = d.teams.filter((t) => !t.archivedAt).map((t) => ({ id: t.id, name: t.name }));
+  return (
+    <div className="mt-6">
+      <div className="mb-3 flex justify-end">
+        <Button variant="primary" onClick={() => window.dispatchEvent(new Event(NEW_TEAMSPACE_EVENT))}>New teamspace</Button>
+      </div>
+      {spaces.length === 0 ? (
+        <EmptyState icon={<Users className="size-5" />} title="No teamspaces yet" body="Teamspaces are areas of the organization, like Engineering or Handbook, each with its own pages and members." />
+      ) : (
+        <ul className="settings-card divide-y divide-line py-1" aria-label="Teamspaces">
+          {spaces.map((t) => (
+            <li key={t._id} className="py-1">
+              <div className="flex items-center gap-3 py-1.5">
+                <span className="w-5 text-center" aria-hidden>{t.icon && t.icon.length <= 4 ? t.icon : "▢"}</span>
+                <a href={pageHref(t._id, t.title)} className="min-w-0 flex-1 truncate text-[13.5px] font-medium hover:underline">{t.title || "Untitled"}</a>
+                <Button size="xs" variant="ghost" onClick={() => setOpen(open === t._id ? null : t._id)}>{open === t._id ? "Close" : "Access"}</Button>
+              </div>
+              {open === t._id && <div className="-mx-4"><OrgAccessSection pageId={t._id} teams={teams} /></div>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[12.5px] text-fg-3">Open teamspaces are for everyone. Closed ones are listed so people can ask to join. Private ones are invisible to non-members.</p>
+    </div>
+  );
+}
+
+type Weeks = { weekStart: number; created: number; edited: number; comments: number; activePeople: number }[];
+
+/** What's happening: recent activity for everyone; analytics and the wiki's review queue for admins. */
+function Insights({ admin }: { admin: boolean }) {
+  const activity = useOp<{ items: { at: number; kind: string; pageId: string; title: string; who: string | null }[] }>("activity.list", { limit: 30 });
+  const stats = useOp<{ totals: Record<string, number>; weeks: Weeks; topContributors: { id: string; name: string; pagesEdited: number }[]; workload: { id: string; name: string; open: number }[]; pendingReviews: number }>("analytics.summary", admin ? {} : "skip");
+  const stale = useOp<{ pages: { _id: string; title: string; expired: boolean; verification: { until: number; byName: string | null } }[] }>("pages.stale", {});
+  const max = Math.max(1, ...(stats.data?.weeks ?? []).map((w) => w.edited));
+  return (
+    <div className="mt-6 grid gap-6">
+      {admin && stats.data && (
+        <section className="settings-card grid gap-4 py-4">
+          <dl className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            {[["Pages", stats.data.totals.pages], ["Databases", stats.data.totals.databases], ["Rows", stats.data.totals.rows], ["Comments", stats.data.totals.comments], ["Verified", stats.data.totals.verified], ["Needs review", stats.data.totals.staleVerified]].map(([k, v]) => (
+              <div key={k as string}>
+                <dt className="text-[12px] text-fg-3">{k}</dt>
+                <dd className="text-[20px] font-semibold tabular-nums">{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <div>
+            <h3 className="mb-2 text-[12px] font-medium text-fg-3">Pages edited per week · active people</h3>
+            <div className="flex h-24 items-end gap-2" role="img" aria-label={`Pages edited per week: ${stats.data.weeks.map((w) => w.edited).join(", ")}`}>
+              {stats.data.weeks.map((w) => (
+                <div key={w.weekStart} className="flex flex-1 flex-col items-center gap-1" title={`Week of ${new Date(w.weekStart).toLocaleDateString()}: ${w.edited} edited, ${w.created} created, ${w.comments} comments, ${w.activePeople} people`}>
+                  <div className="w-full rounded-t-[3px] bg-accent" style={{ height: `${Math.max(4, (w.edited / max) * 72)}px`, opacity: w.edited ? 1 : 0.25 }} />
+                  <span className="text-[11px] tabular-nums text-fg-3">{w.activePeople}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <h3 className="mb-1.5 text-[12px] font-medium text-fg-3">Open tasks per person</h3>
+              {stats.data.workload.length === 0 ? (
+                <p className="text-[12.5px] text-fg-3">No assigned open tasks. Add a Person property to a database to assign work.</p>
+              ) : (
+                <ul className="grid gap-1">
+                  {stats.data.workload.map((w) => (
+                    <li key={w.id} className="flex items-center gap-2 text-[13px]">
+                      <span className="min-w-0 flex-1 truncate">{w.name}</span>
+                      <span className="h-1.5 rounded-full bg-accent" style={{ width: `${Math.max(6, (w.open / stats.data!.workload[0].open) * 96)}px` }} aria-hidden />
+                      <span className="w-6 text-end tabular-nums text-fg-2">{w.open}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <h3 className="mb-1.5 text-[12px] font-medium text-fg-3">Waiting for review</h3>
+              <p className="text-[20px] font-semibold tabular-nums">{stats.data.pendingReviews}</p>
+              <p className="text-[12.5px] text-fg-3">Review requests and suggested edits not yet decided.</p>
+            </div>
+          </div>
+          {stats.data.topContributors.length > 0 && (
+            <p className="text-[12.5px] text-fg-3">Most active (4 weeks): {stats.data.topContributors.map((c) => `${c.name} (${c.pagesEdited})`).join(", ")}</p>
+          )}
+        </section>
+      )}
+      {!!stale.data?.pages.length && (
+        <section className="settings-card py-3">
+          <h3 className="mb-1.5 text-[13px] font-medium text-fg-3">Wiki pages to review</h3>
+          <ul className="grid gap-1">
+            {stale.data.pages.map((p) => (
+              <li key={p._id} className="flex items-center gap-2 text-[13px]">
+                <a href={pageHref(p._id, p.title)} className="min-w-0 flex-1 truncate hover:underline">{p.title || "Untitled"}</a>
+                <span className={p.expired ? "text-warning" : "text-fg-3"}>{p.expired ? "expired" : "expires"} {timeAgo(p.verification.until)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <section className="settings-card py-3">
+        <h3 className="mb-1.5 text-[13px] font-medium text-fg-3">Recent activity</h3>
+        {!activity.data ? (
+          <Skeleton className="h-32" />
+        ) : activity.data.items.length === 0 ? (
+          <p className="text-[13px] text-fg-3">Nothing yet.</p>
+        ) : (
+          <ul className="grid gap-0.5" aria-label="Recent activity">
+            {activity.data.items.map((i, n) => (
+              <li key={n} className="flex items-baseline gap-2 text-[13px]">
+                <span className="w-24 shrink-0 text-fg-3">{timeAgo(i.at)}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {i.who ? <b className="font-medium">{i.who}</b> : "Someone"} {i.kind} <a href={pageHref(i.pageId, i.title)} className="hover:underline">“{i.title}”</a>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** Removing someone: they lose access at once; their assigned tasks go to whoever you pick. */
+function Offboard({ d, member, onClose, onRemove }: { d: OrgDetails; member: OrgMember; onClose: () => void; onRemove: (reassignTo: string | null) => Promise<unknown> }) {
+  const others = d.members.filter((m) => m.accountId !== member.accountId && m.status === "active" && m.role !== "guest");
+  const [to, setTo] = useState<string>(d.me.accountId);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()} title={`Remove ${member.name || member.email || "this member"}?`} description="They lose access to the organization immediately, including pages shared with them here. Their pages stay: they belong to the organization.">
+      <div className="grid gap-3 px-5 pb-5 pt-2 text-[13px]">
+        <Select
+          label="Their assigned tasks go to"
+          variant="filled"
+          value={to}
+          onChange={setTo}
+          options={[...others.map((m) => ({ value: m.accountId, label: `Assign their tasks to ${m.accountId === d.me.accountId ? "me" : m.name || m.email || "member"}` })), { value: "", label: "Leave their tasks unassigned" }]}
+        />
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="danger" pending={busy} onClick={async () => (setBusy(true), await onRemove(to || null), setBusy(false))}>Remove</Button>
+        </div>
+      </div>
+    </Dialog>
   );
 }

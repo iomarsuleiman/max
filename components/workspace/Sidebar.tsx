@@ -17,15 +17,12 @@ import {
   LayoutGrid,
   LayoutTemplate,
   LogOut,
-  Monitor,
-  Moon,
   MoreHorizontal,
   Plus,
   Search,
   Settings,
   SquarePen,
   Star,
-  Sun,
   Trash2,
   X,
   Waypoints,
@@ -36,7 +33,7 @@ import { SharedList, useSharedPages } from "@/components/share/SharedSection";
 import { NEW_TEAMSPACE_EVENT, TeamspacesList } from "@/components/share/Teamspaces";
 import { withoutOrphans, withoutTeamspaces } from "@/lib/client/teamspaces";
 import { useAdminApi } from "@/lib/client/admin";
-import { Building2, ShieldCheck } from "lucide-react";
+import { BookOpen, Building2, ShieldCheck } from "lucide-react";
 import { useOp, prefetchOp } from "@/lib/client/data";
 import { pageTitle } from "@/lib/client/format";
 import type { PageSummary, SettingsRow } from "@/lib/client/types";
@@ -45,6 +42,7 @@ import { notifyError, useWorkspace } from "./context";
 import { NewWorkspaceDialog, WorkspaceDock, WorkspaceIcon, useWorkspaceSwipe, useWorkspaces } from "./Workspaces";
 import { NewOrganizationDialog } from "@/components/org/NewOrganizationDialog";
 import { PendingInvitations } from "@/components/org/Invitations";
+import { InboxButton } from "./Inbox";
 import { useMyOrgs } from "@/lib/client/organizations";
 import { switchWorkspace } from "@/lib/client/workspace";
 import { PageIcon } from "./PageIcon";
@@ -58,6 +56,7 @@ const SECTION_LABEL: Partial<Record<SectionId, string>> = { favorites: "Favorite
 
 export function Sidebar({ mobile }: { mobile?: boolean }) {
   const ws = useWorkspace();
+  const router = useRouter();
   const settings = ws.settings;
   const [width, setWidth] = useState(settings?.sidebarWidth ?? 248);
   useEffect(() => {
@@ -116,6 +115,8 @@ export function Sidebar({ mobile }: { mobile?: boolean }) {
       {/* Quick search up top; everything else is in the menu at the bottom. */}
       <nav className="grid gap-px ps-4 pe-2 pb-2" aria-label="Main">
         <NavButton icon={<Search />} label="Search" shortcut="⌘K" onClick={() => ws.setSearchOpen(true)} />
+        <InboxButton />
+        <NavButton icon={<Waypoints />} label="Graph view" shortcut="⌘⇧G" onClick={() => router.push("/graph")} />
       </nav>
       <div className="scroll-none min-h-0 flex-1 overflow-y-auto overflow-x-hidden ps-4 pe-2 pb-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionsDragEnd}>
@@ -331,17 +332,6 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
           <MenuItem icon={<Settings />} onSelect={() => ws.openSettings("account")} shortcut="⌘,">
             Settings
           </MenuItem>
-          <MenuSub>
-            <MenuSubTrigger icon={ws.settings?.theme === "dark" ? <Moon /> : ws.settings?.theme === "light" ? <Sun /> : <Monitor />}>Appearance</MenuSubTrigger>
-            <MenuSubContent>
-              <MenuLabel>Theme</MenuLabel>
-              {(["system", "light", "dark"] as const).map((t) => (
-                <MenuItem key={t} icon={t === "dark" ? <Moon /> : t === "light" ? <Sun /> : <Monitor />} onSelect={() => ws.updateSettings({ theme: t })} hint={ws.settings?.theme === t ? "✓" : undefined}>
-                  {t === "system" ? "Use system setting" : t === "light" ? "Light" : "Dark"}
-                </MenuItem>
-              ))}
-            </MenuSubContent>
-          </MenuSub>
           <MenuItem icon={<Download />} onSelect={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))}>
             Import
           </MenuItem>
@@ -425,9 +415,6 @@ function MoreMenu() {
         <MenuItem icon={<LayoutTemplate />} shortcut="⌘⇧T" onSelect={() => router.push("/templates")}>
           Templates
         </MenuItem>
-        <MenuItem icon={<Waypoints />} shortcut="⌘⇧G" onSelect={() => router.push("/graph")}>
-          Graph view
-        </MenuItem>
         <MenuItem icon={<Download />} shortcut="⌘⇧I" onSelect={() => (ws.setImportAsTemplates(false), ws.setImportOpen(true))}>
           Import
         </MenuItem>
@@ -439,6 +426,9 @@ function MoreMenu() {
             Admin
           </MenuItem>
         )}
+        <MenuItem icon={<BookOpen />} onSelect={() => window.open("/docs", "_blank", "noopener")}>
+          Guides and help
+        </MenuItem>
         <MenuSeparator />
         <MenuItem icon={<Trash2 />} onSelect={() => router.push("/trash")}>
           Trash

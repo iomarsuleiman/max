@@ -13,6 +13,9 @@ export function SiteHeader() {
           <span className="text-[16px] font-semibold tracking-tight">Max</span>
         </Link>
         <nav aria-label="Site" className="ms-auto flex items-center gap-1 text-[14px]">
+          <Link href="/docs" className="rounded-full px-3 py-1.5 text-fg-2 hover:bg-hover hover:text-fg max-sm:hidden">
+            Guides
+          </Link>
           <Link href="/connect" className="rounded-full px-3 py-1.5 text-fg-2 hover:bg-hover hover:text-fg max-sm:hidden">
             Assistants
           </Link>

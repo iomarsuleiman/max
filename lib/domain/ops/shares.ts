@@ -45,11 +45,11 @@ export const sharesList = defineOp({
         if (!direct.some((d) => d.granteeId === s.granteeId) && !inherited.some((i) => i.granteeId === s.granteeId)) inherited.push({ ...s, fromTitle: ancestor.title });
       }
     }
-    let link: { token: string; level: ShareLevel; public: boolean; pageId: string; fromTitle: string | null } | null = null;
+    let link: { token: string; level: ShareLevel; public: boolean; pageId: string; fromTitle: string | null; expiresAt: number | null } | null = null;
     for (const [i, p] of pages.entries()) {
       const row = (await ctx.db.list("shareLinks", ctx.ownerId, { field: "pageId", value: p._id }))[0];
       if (row) {
-        link = { token: row.token, level: row.level, public: !!row.public, pageId: p._id, fromTitle: i === 0 ? null : p.title };
+        link = { token: row.token, level: row.level, public: !!row.public, pageId: p._id, fromTitle: i === 0 ? null : p.title, expiresAt: row.expiresAt ?? null };
         break;
       }
     }
@@ -112,8 +112,8 @@ export const sharesSetLink = defineOp({
   title: "Set link access",
   description:
     "Sets who can open a page with its link: anyone signed in to Max (view, comment or edit), or, with web: true, anyone on the web without an account (view only, published). Level null turns link access off.",
-  input: z.object({ pageId: id, level: linkLevel.nullable(), web: z.boolean().optional() }),
-  async run(ctx, { pageId, level: lvl, web = false }) {
+  input: z.object({ pageId: id, level: linkLevel.nullable(), web: z.boolean().optional(), expiresInDays: z.number().int().min(1).max(365).nullable().optional().describe("The link stops working after this many days (null: never). Omit to keep the current expiry.") }),
+  async run(ctx, { pageId, level: lvl, web = false, expiresInDays }) {
     const page = await requirePage(ctx, pageId);
     if (web && page.isTemplate) throw new MaxError("VALIDATION", "Templates can't be published.");
     const row = (await ctx.db.list("shareLinks", ctx.ownerId, { field: "pageId", value: pageId }))[0];
@@ -123,13 +123,14 @@ export const sharesSetLink = defineOp({
     }
     // Publishing to the web is view-only: visitors have no account to comment or edit as.
     const level = web ? "view" : lvl;
+    const expiresAt = expiresInDays === undefined ? (row?.expiresAt ?? null) : expiresInDays === null ? null : ctx.now + expiresInDays * 86_400_000;
     if (row) {
-      await ctx.db.patch("shareLinks", row._id, { level, public: web });
-      return { link: { token: row.token, level, public: web } };
+      await ctx.db.patch("shareLinks", row._id, { level, public: web, expiresAt });
+      return { link: { token: row.token, level, public: web, expiresAt } };
     }
     const token = newToken();
-    await ctx.db.insert("shareLinks", { ownerId: ctx.ownerId, pageId, token, level, public: web, createdAt: ctx.now });
-    return { link: { token, level, public: web } };
+    await ctx.db.insert("shareLinks", { ownerId: ctx.ownerId, pageId, token, level, public: web, expiresAt, createdAt: ctx.now });
+    return { link: { token, level, public: web, expiresAt } };
   },
 });
 

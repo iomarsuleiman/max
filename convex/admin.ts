@@ -4,6 +4,7 @@ import * as admin from "../lib/domain/admin";
 import { listReports, platformRole, setModeration, setReportStatus, submitReport, type PlatformRole } from "../lib/domain/admin";
 import { convexDb } from "./convexDb";
 import { purger } from "./organizations";
+import { reviewIntegration, reviewQueue } from "../lib/domain/integrations";
 import { guard } from "./sharing";
 
 /**
@@ -107,6 +108,22 @@ export const orgAction = mutationGeneric({
       if (a.action === "removeMember") return admin.adminRemoveOrgMember(db, me.actor, a.orgId, a.accountId ?? "", reason, now);
       return admin.adminDeleteOrg(db, me.actor, a.orgId, a.confirmName ?? "", reason, purger(ctx as GenericMutationCtx<GenericDataModel>), now);
     });
+  },
+});
+
+export const apps = queryGeneric({
+  args: {},
+  handler: async (ctx) => {
+    await viewer(ctx);
+    return guard(() => reviewQueue(convexDb(ctx.db)));
+  },
+});
+
+export const reviewApp = mutationGeneric({
+  args: { appId: v.string(), decision: v.union(v.literal("published"), v.literal("rejected"), v.literal("suspended")), note: v.optional(v.string()) },
+  handler: async (ctx, a) => {
+    const me = await adminOf(ctx);
+    return guard(() => reviewIntegration(writer(ctx), me.actor, a.appId, a.decision, a.note ?? "", Date.now()));
   },
 });
 

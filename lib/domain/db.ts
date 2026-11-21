@@ -37,10 +37,16 @@ export interface Db {
   listAll<T extends ListAllTable>(table: T, limit: number): Promise<Tables[T][]>;
 }
 
-export type ListAllTable = "settings" | "moderation" | "sites" | "orgs" | "orgEvents" | "audit";
-export type CrossTable = "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites" | "usernames" | "orgs" | "orgMembers" | "orgInvites";
-export type CrossField<T extends CrossTable> = T extends "orgs"
-  ? "slug"
+export type ListAllTable = "settings" | "moderation" | "sites" | "orgs" | "orgEvents" | "audit" | "schedules";
+export type CrossTable = "integrations" | "installations" | "webhookDeliveries" | "shares" | "shareLinks" | "presence" | "collabRooms" | "collabUpdates" | "collabAwareness" | "sites" | "usernames" | "orgs" | "orgMembers" | "orgInvites";
+export type CrossField<T extends CrossTable> = T extends "integrations"
+  ? "status"
+  : T extends "installations"
+    ? "tokenHash" | "codeHash" | "integrationId"
+    : T extends "webhookDeliveries"
+      ? "status"
+      : T extends "orgs"
+  ? "slug" | "joinDomain"
   : T extends "orgMembers"
     ? "accountId"
     : T extends "orgInvites"
@@ -59,6 +65,8 @@ export type CrossField<T extends CrossTable> = T extends "orgs"
 
 export type IndexedField<T extends TableName> = T extends "orgMembers"
   ? "accountId"
+  : T extends "orgPageAccess" | "approvals"
+    ? "pageId"
   : T extends "pages"
   ? "parentId" | "databaseId"
   : T extends "documents"

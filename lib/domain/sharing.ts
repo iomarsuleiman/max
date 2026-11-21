@@ -12,6 +12,7 @@
 import { MaxError, notFound } from "./errors";
 import { accountOf } from "./workspaces";
 import { getOrg, isOrgNamespace, orgAccess, organizationsEnabled } from "./organizations";
+import { memberLevel } from "./orgPageAccess";
 import type { Db, Storage } from "./db";
 import { execute } from "./ops";
 import type { PageRow, ShareLevel, Source } from "./types";
@@ -89,8 +90,13 @@ export async function resolveAccess(db: Db, callerId: string, pageId: string, li
   if (!anonymous && accountOf(page.ownerId) === callerId) return { level: "owner", ownerId: page.ownerId, page, rootId: null };
   // An organization's members hold its pages the way an owner holds their own (live rooms,
   // presence and comments included); its guests only reach what is shared with them, below.
-  if (!anonymous && isOrgNamespace(page.ownerId) && organizationsEnabled() && (await orgAccess(db, callerId, page.ownerId))) {
-    return { level: "owner", ownerId: page.ownerId, page, rootId: null, orgId: page.ownerId };
+  if (!anonymous && isOrgNamespace(page.ownerId) && organizationsEnabled()) {
+    const member = await orgAccess(db, callerId, page.ownerId);
+    // Private pages: full members as owners; view/comment-only as that level; hidden ones fall
+    // through to the ordinary share rules below.
+    const level = member ? await memberLevel(db, page.ownerId, callerId, member.member.role, page._id) : "none";
+    if (level === "full") return { level: "owner", ownerId: page.ownerId, page, rootId: null, orgId: page.ownerId };
+    if (level === "view" || level === "comment") return { level, ownerId: page.ownerId, page, rootId: page._id, orgId: page.ownerId };
   }
   if (page.archivedAt) throw notFound();
   const ancestors = await chain(db, page);
@@ -113,12 +119,12 @@ export async function resolveAccess(db: Db, callerId: string, pageId: string, li
     // redirects and copied addresses often drop it).
     for (const p of ancestors) {
       for (const link of await db.findBy("shareLinks", "pageId", p._id)) {
-        if (link.ownerId === page.ownerId) consider(link.public ? "view" : link.level, link.pageId);
+        if (link.ownerId === page.ownerId && !linkExpired(link)) consider(link.public ? "view" : link.level, link.pageId);
       }
     }
   }
   if (linkToken) {
-    for (const link of await db.findBy("shareLinks", "token", linkToken)) {
+    for (const link of (await db.findBy("shareLinks", "token", linkToken)).filter((l) => !linkExpired(l))) {
       // Visitors without an account only get in through links published to the web, and only to view.
       if (anonymous && !link.public) continue;
       if (link.ownerId === page.ownerId && ids.has(link.pageId)) consider(anonymous ? "view" : link.level, link.pageId);
@@ -153,6 +159,15 @@ const POLICY: Record<string, { min: ShareLevel; targets: Targets }> = {
   "export.page": { min: "view", targets: arg("id") },
   "comments.add": { min: "comment", targets: arg("pageId") },
   "comments.resolve": { min: "comment", targets: viaRow("comments") },
+  "comments.react": { min: "comment", targets: viaRow("comments") },
+  "approvals.list": { min: "view", targets: arg("pageId") },
+  "pages.verify": { min: "edit", targets: arg("id") },
+  "automations.list": { min: "view", targets: arg("databaseId") },
+  "automations.press": { min: "edit", targets: arg("recordId") },
+  "approvals.get": { min: "view", targets: async (args, db) => [(await db.get("approvals", String(args.id ?? "")))?.pageId ?? "\0missing"] },
+  "approvals.suggest": { min: "comment", targets: arg("pageId") },
+  "approvals.request": { min: "edit", targets: arg("pageId") },
+  "approvals.decide": { min: "comment", targets: async (args, db) => [(await db.get("approvals", String(args.id ?? "")))?.pageId ?? "\0missing"] },
   "comments.update": { min: "comment", targets: viaRow("comments") },
   "comments.delete": { min: "comment", targets: viaRow("comments") },
   "documents.save": { min: "edit", targets: arg("pageId") },
@@ -234,7 +249,7 @@ export async function executeShared(op: string, rawArgs: unknown, ctx: SharedCon
   }
   // Organization members acting on its pages run as members (their role is checked by the org
   // gate); everyone else runs inside the share they hold.
-  const member = scope.orgId ? await orgAccess(ctx.db, ctx.actor.id, scope.orgId) : null;
+  const member = scope.orgId ? await orgAccess(ctx.db, ctx.actor.id, scope.orgId) : null; // scope.orgId is set only when they can see it
   const opCtx = member ? { org: { role: member.member.role } } : { viaShare: true };
   const result = await execute(op, args, { db: ctx.db, storage: ctx.storage, ownerId: scope.ownerId, now: ctx.now, source: ctx.source ?? "ui", actor: ctx.actor, ...opCtx }, kind);
   if (op === "pages.get") return trimBreadcrumbs(result, scope);
@@ -297,10 +312,13 @@ export async function accessInfo(db: Db, callerId: string, pageId: string, linkT
   return { you: callerId, level: a.level, ownerId: a.ownerId, orgId: a.orgId ?? null, ownerName: owner?.displayName ?? null, rootId: a.rootId, pageId: a.page._id, title: a.page.title, icon: a.page.icon, kind: a.page.kind, invite };
 }
 
+/** Expiring links stop working at their time; nothing else changes. */
+const linkExpired = (l: { expiresAt?: number | null }) => !!l.expiresAt && l.expiresAt <= Date.now();
+
 /** The link nearest a page among its ancestors (the page itself first). */
 async function nearestLink(db: Db, ancestors: PageRow[]) {
   for (const p of ancestors) {
-    const link = (await db.findBy("shareLinks", "pageId", p._id)).find((l) => l.ownerId === p.ownerId);
+    const link = (await db.findBy("shareLinks", "pageId", p._id)).find((l) => l.ownerId === p.ownerId && !linkExpired(l));
     if (link) return link;
   }
   return null;
@@ -463,7 +481,7 @@ export async function leaveShare(db: Db, actor: Actor, pageId: string) {
 export async function linkPreview(db: Db, token: string, pageId: string): Promise<{ title: string; icon: string | null; from: string | null; public: boolean; teamspace: boolean } | null> {
   if (!/^[a-f0-9]{16,64}$/.test(token) || !pageId) return null;
   const link = (await db.findBy("shareLinks", "token", token))[0];
-  if (!link) return null;
+  if (!link || linkExpired(link)) return null;
   const page = await db.get("pages", pageId).catch(() => null);
   if (!page || page.archivedAt || page.ownerId !== link.ownerId) return null;
   if (!(await chain(db, page)).some((p) => p._id === link.pageId)) return null;

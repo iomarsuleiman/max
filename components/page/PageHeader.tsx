@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ImagePlus, MessageSquare, SmilePlus } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import { requestComment } from "./CommentsPanel";
 import { cn } from "@/components/ui";
 import { useUploader } from "@/lib/client/upload";
@@ -152,7 +153,20 @@ export function PageHeader({ page, readOnly, onEnter, widthClass }: { page: Page
           className="block w-full resize-none overflow-hidden bg-transparent text-fg outline-none placeholder:text-fg-3/60"
         />
         </div>
+        {page.verification && <VerifiedBadge v={page.verification} />}
       </div>
     </div>
+  );
+}
+
+/** Wiki verification: who vouches for this page and until when; a warning once it lapses. */
+function VerifiedBadge({ v }: { v: { byName: string | null; until: number } }) {
+  const [openedAt] = useState(() => Date.now());
+  const expired = v.until < openedAt;
+  return (
+    <p className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12.5px] ${expired ? "bg-warning-soft text-fg" : "bg-success-soft text-fg"}`}>
+      <BadgeCheck className="size-3.5" aria-hidden />
+      {expired ? `Verification expired ${new Date(v.until).toLocaleDateString()}: review this page` : `Verified by ${v.byName ?? "a teammate"} until ${new Date(v.until).toLocaleDateString()}`}
+    </p>
   );
 }

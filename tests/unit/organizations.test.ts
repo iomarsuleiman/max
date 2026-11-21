@@ -69,6 +69,36 @@ describe("organizations", () => {
     expect((await op("bob", undefined, "workspaces.list")).workspaces.some((w: { id: string }) => w.id === acme)).toBe(false);
   });
 
+  it("hides private pages from everyone not on their list, on every path", async () => {
+    const { h, now, op, join } = world();
+    const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
+    await join(acme, "ann", "bob");
+    await join(acme, "ann", "cy");
+    const { page: hr } = await op("bob", acme, "pages.create", { title: "HR salaries", teamspace: true });
+    const { page: child } = await op("bob", acme, "pages.create", { title: "Payroll", parentId: hr._id });
+    await op("bob", acme, "access.set", { pageId: hr._id, memberIds: [], listed: true });
+    // Bob (who restricted it) and Ann (owner) still see it; Cy doesn't, anywhere.
+    expect((await op("bob", acme, "pages.get", { id: child._id })).page.title).toBe("Payroll");
+    expect((await op("ann", acme, "pages.tree")).pages.map((p: { title: string }) => p.title)).toContain("Payroll");
+    const cyTree = (await op("cy", acme, "pages.tree")).pages.map((p: { title: string }) => p.title);
+    expect(cyTree).not.toContain("HR salaries");
+    expect(cyTree).not.toContain("Payroll");
+    await expect(op("cy", acme, "pages.get", { id: child._id })).rejects.toThrow();
+    expect(JSON.stringify(await op("cy", acme, "search.query", { query: "Payroll" }))).not.toContain(child._id);
+    await expect(op("cy", acme, "pages.update", { id: child._id, title: "x" })).rejects.toThrow();
+    await expect(op("cy", acme, "pages.create", { title: "sneak", parentId: hr._id })).rejects.toThrow();
+    await expect(resolveAccess(h.db, "cy", child._id)).rejects.toThrow();
+    // Closed: Cy sees its name and can ask to join; the request reaches Bob and the owner.
+    expect((await op("cy", acme, "teamspaces.locked")).pages.map((p: { title: string }) => p.title)).toEqual(["HR salaries"]);
+    await op("cy", acme, "teamspaces.requestJoin", { pageId: hr._id });
+    expect((await op("bob", acme, "inbox.list")).notifications[0]).toMatchObject({ kind: "access", pageId: hr._id });
+    // View-only for everyone else: readable, not changeable.
+    await op("bob", acme, "access.set", { pageId: hr._id, memberIds: ["bob"], othersLevel: "view" });
+    expect((await op("cy", acme, "pages.get", { id: child._id })).page.title).toBe("Payroll");
+    await expect(op("cy", acme, "pages.update", { id: child._id, title: "x" })).rejects.toThrow(/view/);
+    expect((await resolveAccess(h.db, "cy", child._id)).level).toBe("view");
+  });
+
   it("binds invitations to a verified email, and guests only see what is shared with them", async () => {
     const { h, now, op, join } = world();
     const { id: acme } = await orgs.createOrganization(h.db, person("ann"), { name: "Acme" }, now());
@@ -101,8 +131,11 @@ describe("organizations", () => {
     await expect(orgs.removeMember(h.db, person("ada"), acme, "ann", now())).rejects.toThrow(/ownership transfer/);
     await expect(orgs.setMemberRole(h.db, person("bob"), acme, "ada", "member", now())).rejects.toThrow(/admins/);
     await expect(orgs.leaveOrganization(h.db, person("ann"), acme, now())).rejects.toThrow(/Transfer ownership/);
-    await expect(orgs.transferOwnership(h.db, person("ann"), acme, "bob", "wrong", now())).rejects.toThrow(/name/);
-    await orgs.transferOwnership(h.db, person("ann"), acme, "bob", "Acme", now());
+    // The owner's security phrase guards transfer (no password needed with Google sign-in).
+    expect(await orgs.transferOwnership(h.db, person("ann"), acme, "bob", "anything", now())).toMatchObject({ ok: false, code: "PHRASE_REQUIRED" });
+    expect(await orgs.setSecurityPhrase(h.db, person("ann"), acme, { next: "blue kettle sings at noon" }, now())).toEqual({ ok: true });
+    expect(await orgs.transferOwnership(h.db, person("ann"), acme, "bob", "wrong", now())).toMatchObject({ ok: false, code: "WRONG_PHRASE" });
+    expect(await orgs.transferOwnership(h.db, person("ann"), acme, "bob", "blue kettle sings at noon", now())).toEqual({ ok: true });
     expect((await orgs.memberOf(h.db, acme, "ann"))?.role).toBe("admin");
     expect((await orgs.memberOf(h.db, acme, "bob"))?.role).toBe("owner");
     const { events } = await orgs.orgAuditLog(h.db, person("bob"), acme, {});

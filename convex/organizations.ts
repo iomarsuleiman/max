@@ -4,6 +4,7 @@ import * as orgs from "../lib/domain/organizations";
 import { accountDeleteAllData } from "../lib/domain/ops/account";
 import { makeFunctionReference } from "convex/server";
 import { convexDb, convexStorage } from "./convexDb";
+import { seedOrganization } from "../lib/domain/orgSeed";
 import { guard } from "./sharing";
 
 /**
@@ -63,7 +64,11 @@ export const create = mutationGeneric({
   args: { name: v.string(), icon: v.optional(v.union(v.string(), v.null())), description: v.optional(v.string()) },
   handler: async (ctx, a) => {
     const actor = await actorOf(ctx);
-    return guard(() => orgs.createOrganization(writer(ctx), actor, a, Date.now()));
+    return guard(async () => {
+      const db = writer(ctx);
+      const org = await orgs.createOrganization(db, actor, a, Date.now());
+      return { ...org, ...(await seedOrganization(db, convexStorage(ctx.storage), org.id, actor, Date.now())) };
+    });
   },
 });
 
@@ -76,7 +81,16 @@ export const update = mutationGeneric({
 });
 
 export const setPolicies = mutationGeneric({
-  args: { orgId: v.string(), membersCanInvite: v.optional(v.boolean()), allowGuests: v.optional(v.boolean()), allowPublicLinks: v.optional(v.boolean()), allowSites: v.optional(v.boolean()) },
+  args: {
+    orgId: v.string(),
+    membersCanInvite: v.optional(v.boolean()),
+    allowGuests: v.optional(v.boolean()),
+    allowPublicLinks: v.optional(v.boolean()),
+    allowSites: v.optional(v.boolean()),
+    trashRetentionDays: v.optional(v.union(v.number(), v.null())),
+    versionRetentionDays: v.optional(v.union(v.number(), v.null())),
+    autoJoinDomain: v.optional(v.union(v.string(), v.null())),
+  },
   handler: async (ctx, { orgId, ...patch }) => {
     const actor = await actorOf(ctx);
     return guard(() => orgs.setPolicies(writer(ctx), actor, orgId, patch, Date.now()));
@@ -100,6 +114,14 @@ export const answerInvite = mutationGeneric({
   },
 });
 
+export const joinDomain = mutationGeneric({
+  args: { orgId: v.string() },
+  handler: async (ctx, a) => {
+    const actor = await actorOf(ctx);
+    return guard(() => orgs.joinByDomain(writer(ctx), actor, a.orgId, Date.now()));
+  },
+});
+
 export const member = mutationGeneric({
   args: {
     orgId: v.string(),
@@ -107,6 +129,7 @@ export const member = mutationGeneric({
     action: v.union(v.literal("role"), v.literal("status"), v.literal("remove")),
     role: v.optional(role),
     status: v.optional(v.union(v.literal("active"), v.literal("suspended"))),
+    reassignTo: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, a) => {
     const actor = await actorOf(ctx);
@@ -115,7 +138,7 @@ export const member = mutationGeneric({
     return guard(async () => {
       if (a.action === "role") return orgs.setMemberRole(db, actor, a.orgId, a.accountId, a.role ?? "member", now);
       if (a.action === "status") return orgs.setMemberStatus(db, actor, a.orgId, a.accountId, a.status ?? "active", now);
-      return orgs.removeMember(db, actor, a.orgId, a.accountId, now);
+      return orgs.removeMember(db, actor, a.orgId, a.accountId, now, a.reassignTo);
     });
   },
 });
@@ -129,10 +152,18 @@ export const leave = mutationGeneric({
 });
 
 export const transfer = mutationGeneric({
-  args: { orgId: v.string(), nextOwnerId: v.string(), confirmName: v.string() },
+  args: { orgId: v.string(), nextOwnerId: v.string(), phrase: v.string() },
   handler: async (ctx, a) => {
     const actor = await actorOf(ctx);
-    return guard(() => orgs.transferOwnership(writer(ctx), actor, a.orgId, a.nextOwnerId, a.confirmName, Date.now()));
+    return guard(() => orgs.transferOwnership(writer(ctx), actor, a.orgId, a.nextOwnerId, a.phrase, Date.now()));
+  },
+});
+
+export const setPhrase = mutationGeneric({
+  args: { orgId: v.string(), current: v.optional(v.string()), next: v.string() },
+  handler: async (ctx, a) => {
+    const actor = await actorOf(ctx);
+    return guard(() => orgs.setSecurityPhrase(writer(ctx), actor, a.orgId, a, Date.now()));
   },
 });
 
@@ -156,9 +187,9 @@ export const team = mutationGeneric({
 });
 
 export const remove = mutationGeneric({
-  args: { orgId: v.string(), confirmName: v.string() },
+  args: { orgId: v.string(), phrase: v.string() },
   handler: async (ctx, a) => {
     const actor = await actorOf(ctx);
-    return guard(() => orgs.deleteOwnOrganization(writer(ctx), actor, a.orgId, a.confirmName, purger(ctx as GenericMutationCtx<GenericDataModel>), Date.now()));
+    return guard(() => orgs.deleteOwnOrganization(writer(ctx), actor, a.orgId, a.phrase, purger(ctx as GenericMutationCtx<GenericDataModel>), Date.now()));
   },
 });

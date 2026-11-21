@@ -20,6 +20,7 @@ import {
   Text,
   ArrowUpRight,
   type LucideIcon,
+  UserRound,
 } from "lucide-react";
 import type { OptionColor, PropertyDef, PropertyType } from "@/lib/domain/types";
 
@@ -36,13 +37,14 @@ export const TYPE_META: Record<PropertyType, { label: string; icon: LucideIcon; 
   email: { label: "Email", icon: AtSign, help: "An email address" },
   phone: { label: "Phone", icon: Phone, help: "A phone number" },
   relation: { label: "Relation", icon: ArrowUpRight, help: "Links to rows in another database" },
+  person: { label: "Person", icon: UserRound, help: "Who's responsible: assign members, they get notified" },
   formula: { label: "Formula", icon: Sigma, help: "Calculated from other properties" },
   rollup: { label: "Rollup", icon: Calculator, help: "Summarizes related rows" },
   created_time: { label: "Created time", icon: Clock, help: "When the row was created" },
   updated_time: { label: "Last edited time", icon: Clock, help: "When the row last changed" },
 };
 
-export const ADDABLE_TYPES: PropertyType[] = ["text", "number", "select", "multi_select", "status", "date", "checkbox", "url", "email", "phone", "relation", "formula", "rollup", "created_time", "updated_time"];
+export const ADDABLE_TYPES: PropertyType[] = ["text", "number", "select", "multi_select", "status", "date", "checkbox", "url", "email", "phone", "person", "relation", "formula", "rollup", "created_time", "updated_time"];
 export const COLORS: OptionColor[] = ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"];
 export const READONLY_TYPES = new Set<PropertyType>(["formula", "rollup", "created_time", "updated_time"]);
 

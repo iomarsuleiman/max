@@ -50,3 +50,19 @@ export function EventList({ events, empty }: { events: AuditEvent[]; empty: stri
   );
 }
 
+
+/** Downloads rows as CSV. Admin exports are metadata only: never page contents. */
+export function downloadCsv(name: string, rows: Record<string, unknown>[]) {
+  if (!rows.length) return;
+  const cols = Object.keys(rows[0]);
+  const cell = (v: unknown) => {
+    const t = v === null || v === undefined ? "" : typeof v === "number" && v > 1e12 ? new Date(v).toISOString() : String(v);
+    // Quote, and neutralize spreadsheet formulas (=, +, -, @ at the start).
+    return `"${(/^[=+\-@]/.test(t) ? `'${t}` : t).replace(/"/g, '""')}"`;
+  };
+  const csv = [cols.join(","), ...rows.map((r) => cols.map((c) => cell(r[c])).join(","))].join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: `${name}-${new Date().toISOString().slice(0, 10)}.csv` });
+  a.click();
+  URL.revokeObjectURL(url);
+}

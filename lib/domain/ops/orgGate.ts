@@ -1,6 +1,7 @@
 import { MaxError, notFound } from "../errors";
 import { atLeastRole, getOrg, isOrgNamespace, orgAccess } from "../organizations";
 import type { OpContext, OpDef } from "./define";
+import { hiddenFor, restrictedDb } from "../orgPageAccess";
 
 /**
  * The one place that decides what an operation may do inside an organization's namespace.
@@ -50,7 +51,9 @@ export async function orgGate(name: string, def: OpDef, args: unknown, ctx: OpCo
   if (PERSONAL.has(name)) return { ctx: { ...ctx, ownerId: actorId, org: undefined } };
   if (ADMIN.has(name) && !atLeastRole(role, "admin")) throw new MaxError("FORBIDDEN", "Only the organization's admins can do that.");
   if (def.kind === "mutation" && !atLeastRole(role, "member")) throw new MaxError("FORBIDDEN", "Guests can't change the organization's pages.");
-  return { ctx };
+  // Private pages: for members who aren't on their lists, they (and all they contain) don't exist.
+  const hidden = await hiddenFor(ctx.db, ctx.ownerId, actorId, role);
+  return { ctx: hidden ? { ...ctx, db: restrictedDb(ctx.db, hidden), unrestrictedDb: ctx.db } : ctx };
 }
 
 /** The organization's sharing and publishing policies, for members and page guests alike. */

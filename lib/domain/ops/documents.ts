@@ -1,3 +1,4 @@
+import { actorOf } from "./helpers";
 import { z } from "zod";
 import { MaxError } from "../errors";
 import {
@@ -60,7 +61,7 @@ export async function writeContent(ctx: OpContext, pageId: string, blocks: Block
   const text = documentText(blocks);
   const revision = doc.revision + 1;
   await ctx.db.patch("documents", doc._id, { content, text, wordCount: countWords(text), revision, updatedAt: ctx.now });
-  await ctx.db.patch("pages", pageId, { updatedAt: ctx.now });
+  await ctx.db.patch("pages", pageId, { updatedAt: ctx.now, updatedBy: actorOf(ctx) });
   if (!opts.fromRoom) await resetRoom(ctx, pageId);
   return { revision, updatedAt: ctx.now, unchanged: false };
 }

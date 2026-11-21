@@ -7,7 +7,7 @@ import { Button, Dialog, EmptyState, Input, Segmented, Skeleton, cn } from "@/co
 import { notifyError } from "@/components/workspace/context";
 import { useAdminApi, type AdminOrgDetail, type AdminOrgRow, type AuditEvent, type OrgAction, type Standing } from "@/lib/client/admin";
 import { bytes, dateTime, timeAgo } from "@/lib/client/format";
-import { EventList, Pager, RoleBadge, useDebounced } from "./shared";
+import { EventList, Pager, RoleBadge, downloadCsv, useDebounced } from "./shared";
 
 const PAGE = 50;
 const POLICY_LABEL: Record<string, string> = { membersCanInvite: "Members invite", allowGuests: "Outside sharing", allowPublicLinks: "Web links", allowSites: "Websites" };
@@ -36,10 +36,13 @@ export function AdminOrganizations({ readOnly, focus, onFocus, onChanged }: { re
   };
   return (
     <div className="mt-8">
-      <label className="mb-3 flex h-9 items-center gap-2 rounded-lg bg-surface px-3 shadow-[0_0_0_1px_var(--line)]">
-        <Search className="size-4 text-fg-3" aria-hidden />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, address or id" aria-label="Search organizations" className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none" />
-      </label>
+      <div className="mb-3 flex items-center gap-2">
+        <label className="flex h-9 flex-1 items-center gap-2 rounded-lg bg-surface px-3 shadow-[0_0_0_1px_var(--line)]">
+          <Search className="size-4 text-fg-3" aria-hidden />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, address or id" aria-label="Search organizations" className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none" />
+        </label>
+        <Button size="sm" variant="ghost" disabled={!page?.organizations.length} onClick={() => downloadCsv("max-organizations", (page?.organizations ?? []).map(({ owner, reason: _r, icon: _i, ...o }) => ({ ...o, ownerName: owner?.name ?? "", ownerEmail: owner?.email ?? "" })))}>Export CSV</Button>
+      </div>
       {!page ? (
         <Skeleton className="h-64" />
       ) : page.organizations.length === 0 ? (
@@ -335,5 +338,66 @@ export function AdminAudit() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Marketplace review: apps waiting for review, and every listed or suspended app. */
+export function AdminMarketplace({ readOnly }: { readOnly: boolean }) {
+  const api = useAdminApi();
+  const [apps, setApps] = useState<Awaited<ReturnType<typeof api.apps>>["apps"] | null>(null);
+  const load = useCallback(() => {
+    api.apps().then((r) => setApps(r.apps), (err) => notifyError(err, "Couldn't load apps."));
+  }, [api]);
+  useEffect(load, [load]);
+  const [asking, setAsking] = useState<{ appId: string; decision: "rejected" | "suspended" } | null>(null);
+  const [note, setNote] = useState("");
+  const decide = async (appId: string, decision: "published" | "rejected" | "suspended", why = "") => {
+    if (decision !== "published" && !why) return setAsking({ appId, decision });
+    try {
+      await api.reviewApp(appId, decision, why);
+      setAsking(null);
+      setNote("");
+      toast.success(decision === "published" ? "Published to the marketplace" : decision === "rejected" ? "Rejected" : "Suspended everywhere");
+      load();
+    } catch (err) {
+      notifyError(err);
+    }
+  };
+  if (!apps) return <Skeleton className="mt-8 h-48" />;
+  if (!apps.length) return <EmptyState icon={<Building2 className="size-5" />} title="No apps to review" body="Apps developers submit for the marketplace appear here for review." className="mt-12" />;
+  return (
+    <>
+    {asking && (
+      <Dialog open onOpenChange={(o) => !o && setAsking(null)} title={asking.decision === "rejected" ? "Reject this app?" : "Suspend this app?"} description={asking.decision === "rejected" ? "The developer sees your reason and can fix it and submit again." : "It stops working in every workspace right away. The developer sees your reason."}>
+        <div className="grid gap-3 px-5 pb-5 pt-2">
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={3} aria-label="Reason" className="rounded-md bg-surface px-3 py-2 text-[13px] shadow-[0_0_0_1px_var(--line)] outline-none focus:shadow-[0_0_0_1.5px_var(--accent)]" />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setAsking(null)}>Cancel</Button>
+            <Button variant="danger" disabled={!note.trim()} onClick={() => decide(asking.appId, asking.decision, note.trim())}>{asking.decision === "rejected" ? "Reject" : "Suspend"}</Button>
+          </div>
+        </div>
+      </Dialog>
+    )}
+    <ul className="mt-8 grid gap-3" aria-label="Apps">
+      {apps.map((a) => (
+        <li key={a.id} className="settings-card grid gap-2 py-4 text-[13.5px]">
+          <div className="flex flex-wrap items-center gap-2">
+            <b className="font-semibold">{a.name}</b>
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[12px] capitalize">{a.status}</span>
+            <span className="text-[12px] text-fg-3">{a.installs} connections · updated {timeAgo(a.updatedAt)} · developer {a.developer}</span>
+          </div>
+          <p className="text-fg-2">{a.description || "No description."}</p>
+          <p className="text-[12.5px] text-fg-3">Asks to: {a.scopes.join(", ")}{a.webhookUrl ? ` · webhooks to ${a.webhookUrl}` : ""}{a.redirectUris?.length ? ` · redirects to ${a.redirectUris.join(", ")}` : ""}</p>
+          {!readOnly && (
+            <div className="flex flex-wrap gap-1.5">
+              {a.status !== "published" && <Button size="xs" variant="primary" onClick={() => decide(a.id, "published")}>Approve and publish</Button>}
+              {a.status === "submitted" && <Button size="xs" variant="ghost" onClick={() => decide(a.id, "rejected")}>Reject</Button>}
+              {a.status !== "suspended" && <Button size="xs" variant="ghost" className="text-danger hover:bg-danger-soft" onClick={() => decide(a.id, "suspended")}>Suspend</Button>}
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+    </>
   );
 }

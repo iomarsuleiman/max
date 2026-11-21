@@ -34,6 +34,8 @@ import { SaveStatus } from "./SaveStatus";
 import { ImageDetailsDialog } from "./ImageDetailsDialog";
 import { useDocumentSync } from "./useDocumentSync";
 import { useLiveRoom } from "./useLiveRoom";
+import { ReviewBanner, ReviewMenu } from "./Reviews";
+import { SyncedContent } from "./SyncedContent";
 import { CommentsPanel, requestComment, useCommentCount, type CommentsData } from "./CommentsPanel";
 import { requestEditorFocus, takeEditorFocusRequest } from "@/lib/client/editorFocus";
 import { registerEditor } from "@/lib/client/saveFlush";
@@ -222,6 +224,7 @@ function PageViewInner({ pageId, renderHeader, accessPending }: { pageId: string
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" id={embedded ? undefined : "page-scroll"}>
         {page.archivedAt && <TrashBanner data={data} />}
         {access.invite && !embedded && <JoinBanner invite={access.invite} />}
+        {!embedded && !isDatabase && !page.isTemplate && !page.archivedAt && <ReviewBanner pageId={pageId} />}
         {page.isTemplate && (
           <div className="bg-accent-soft px-4 py-2 text-center text-[13px] text-fg">
             You&apos;re editing a template. New {page.databaseId ? "rows" : "pages"} made from it copy this content. Use {"{{today}}"} to insert the date.
@@ -275,6 +278,7 @@ export function PageTopbarActions({ page, saveSlotId, isShared: isSharedProp, co
     <>
       <div id={saveSlotId} className="flex items-center" />
       {SHARING_ENABLED && <PresenceStack pageId={page._id} linkToken={linkToken} active={isShared && !page.archivedAt} />}
+      {!page.isTemplate && !page.archivedAt && page.kind !== "database" && <ReviewMenu pageId={page._id} />}
       {SHARING_ENABLED && !page.archivedAt && <ShareMenu page={page} />}
       {access.shared && !page.archivedAt && <DuplicateShared pageId={page._id} linkToken={linkToken} />}
       {onToggleComments && (
@@ -626,6 +630,7 @@ function DocumentEditor({ pageId, saveSlotId, doc, readOnly, smallText, outline,
           pages={pages}
           navigate={(id) => router.push(pageHref(id, ws.byId.get(id)?.title))}
           renderDatabase={(id, ro) => <InlineDatabase databaseId={id} readOnly={ro} />}
+          renderSynced={(id) => (id === pageId ? <p className="text-[13px] text-fg-3">A page can&apos;t show itself.</p> : <SyncedContent pageId={id} />)}
           createDatabase={async () => {
             try {
               const { database } = await ws.call<{ database: { _id: string } }>("databases.create", { parentId: pageId, title: "" });

@@ -116,6 +116,8 @@ export interface AdminApi {
   organization(orgId: string): Promise<AdminOrgDetail>;
   audit(q: { scope?: string; action?: string; actor?: string; before?: number; limit?: number }): Promise<{ events: AuditEvent[] }>;
   orgAction(orgId: string, a: OrgAction): Promise<unknown>;
+  apps(): Promise<{ apps: (import("./apps").AppListing & { updatedAt: number })[] }>;
+  reviewApp(appId: string, decision: "published" | "rejected" | "suspended", note: string): Promise<unknown>;
   reports(): Promise<{ reports: Report[] }>;
   setStatus(userId: string, status: AdminUser["status"], reason: string): Promise<unknown>;
   setReport(id: string, status: Report["status"]): Promise<unknown>;
@@ -136,6 +138,8 @@ function useAdminCloud(): AdminApi {
       organization: (orgId) => q("organization", { orgId, at: Math.floor(Date.now() / 60_000) * 60_000 }),
       audit: (a) => q("audit", a),
       orgAction: (orgId, a) => m("orgAction", { orgId, ...a }),
+      apps: () => q("apps"),
+      reviewApp: (appId, decision, note) => m("reviewApp", { appId, decision, note }),
       reports: () => q("reports"),
       setStatus: (userId, status, reason) => m("setStatus", { userId, status, reason }),
       setReport: (id, status) => m("setReport", { id, status }),
@@ -162,6 +166,8 @@ function useAdminLocal(): AdminApi {
       organization: (orgId) => postAdmin({ fn: "organization", orgId }),
       audit: (a) => postAdmin({ fn: "audit", ...a }),
       orgAction: (orgId, a) => postAdmin({ fn: "orgAction", orgId, ...a }),
+      apps: () => postAdmin({ fn: "apps" }),
+      reviewApp: (appId, decision, note) => postAdmin({ fn: "reviewApp", appId, decision, note }),
       reports: () => postAdmin({ fn: "reports" }),
       setStatus: (userId, status, reason) => postAdmin({ fn: "setStatus", userId, status, reason }),
       setReport: (id, status) => postAdmin({ fn: "setReport", id, status }),

@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Dialog as D } from "radix-ui";
-import { Clock, CornerDownLeft, Database, FilePlus, LayoutTemplate, Moon, Search, Settings, Sun, X } from "lucide-react";
+import { ArrowRightLeft, Building2, Clock, CornerDownLeft, Database, FilePlus, LayoutTemplate, Moon, Plug, Search, Settings, Sun, Trash2, UserPlus, Waypoints, X } from "lucide-react";
+import { switchWorkspace } from "@/lib/client/workspace";
+import { useWorkspaces } from "./Workspaces";
 import { useOp } from "@/lib/client/data";
 import { pageTitle, timeAgo } from "@/lib/client/format";
 import type { PageSummary } from "@/lib/client/types";
@@ -65,12 +67,25 @@ export function SearchDialog() {
     router.push(href);
   };
 
+  const spaces = useWorkspaces();
   const commands = useMemo(
     () => [
       { id: "new-page", label: "New page", icon: <FilePlus />, run: () => (ws.setSearchOpen(false), ws.createPage()) },
       { id: "new-db", label: "New database", icon: <Database />, run: () => (ws.setSearchOpen(false), ws.createPage({ kind: "database" })) },
       { id: "templates", label: "Browse templates", icon: <LayoutTemplate />, run: () => go("/templates") },
       { id: "settings", label: "Open settings", icon: <Settings />, run: () => (ws.setSearchOpen(false), ws.openSettings("preferences")) },
+      { id: "graph", label: "Open graph view", icon: <Waypoints />, run: () => go("/graph") },
+      { id: "trash", label: "Open trash", icon: <Trash2 />, run: () => go("/trash") },
+      { id: "connect", label: "Connect an app", icon: <Plug />, run: () => (ws.setSearchOpen(false), ws.openSettings("connections")) },
+      ...(spaces.current?.kind === "organization"
+        ? [
+            { id: "org", label: "Organization members and settings", icon: <Building2 />, run: () => go("/org") },
+            { id: "invite", label: "Invite people to the organization", icon: <UserPlus />, run: () => go("/org?tab=members") },
+          ]
+        : []),
+      ...spaces.list
+        .filter((w) => w.id !== (spaces.current?.id ?? null))
+        .map((w) => ({ id: `ws-${w.id ?? "main"}`, label: `Go to ${w.name}${w.kind === "organization" ? " (organization)" : ""}`, icon: <ArrowRightLeft />, run: () => (ws.setSearchOpen(false), switchWorkspace(w.id)) })),
       {
         id: "theme",
         label: ws.settings?.theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
@@ -78,7 +93,7 @@ export function SearchDialog() {
         run: () => ws.updateSettings({ theme: ws.settings?.theme === "dark" ? "light" : "dark" }),
       },
     ],
-    [ws], // eslint-disable-line react-hooks/exhaustive-deps
+    [ws, spaces], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const matchingCommands = query ? commands.filter((c) => c.label.toLowerCase().includes(query.toLowerCase())) : [];
 

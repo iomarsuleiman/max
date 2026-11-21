@@ -20,7 +20,7 @@ import {
   MoveHorizontal,
   Unlock, Printer, Waypoints } from "lucide-react";
 import { toast } from "sonner";
-import { Flag, UsersRound } from "lucide-react";
+import { BadgeCheck, Flag, UsersRound } from "lucide-react";
 import { SHARING_ENABLED } from "@/lib/config";
 import { IconButton, Menu, MenuCheckItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui";
 import { useRead } from "@/lib/client/data";
@@ -120,6 +120,9 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
               {page.teamspace ? "Turn into a private page" : "Turn into a teamspace"}
             </MenuItem>
           )}
+          {!page.isTemplate && page.kind === "page" && (
+            <VerifyItem page={page} />
+          )}
           <MenuItem icon={<Link2 />} onSelect={() => ws.copyLink(page._id)}>
             Copy link
           </MenuItem>
@@ -173,5 +176,25 @@ export function PageOptions({ page, wordCount }: { page: PageRow; wordCount?: nu
       {historyOpen && page.kind === "page" && <PageHistory pageId={page._id} open={historyOpen} onOpenChange={setHistoryOpen} />}
       {reportOpen && <ReportDialog open={reportOpen} onOpenChange={setReportOpen} context={{ pageId: page._id }} />}
     </>
+  );
+}
+
+/** Verify a page for 90 days, verify it again, or remove the verification. */
+function VerifyItem({ page }: { page: PageRow }) {
+  const ws = useWorkspace();
+  const [openedAt] = useState(() => Date.now());
+  const current = !!page.verification && page.verification.until > openedAt;
+  return (
+    <MenuItem
+      icon={<BadgeCheck />}
+      onSelect={() =>
+        ws
+          .call("pages.verify", { id: page._id, days: current ? null : 90 })
+          .then(() => toast.success(current ? "Verification removed" : "Verified for 90 days"))
+          .catch((e) => notifyError(e))
+      }
+    >
+      {current ? "Remove verification" : page.verification ? "Verify again (90 days)" : "Verify page (90 days)"}
+    </MenuItem>
   );
 }

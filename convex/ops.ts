@@ -6,6 +6,7 @@ import { convexDb, convexStorage } from "./convexDb";
 import { makeFunctionReference } from "convex/server";
 
 const deleteR2Object = makeFunctionReference<"action", { key: string }>("r2:deleteObject");
+const deliverWebhooks = makeFunctionReference<"action">("integrations:deliver");
 import { accountOf, resolveScope, type RequestScope } from "../lib/domain/workspaces";
 import { purgeNotionAccount } from "./notionCleanup";
 
@@ -32,7 +33,7 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-function checkSecret(secret: string) {
+export function checkSecret(secret: string) {
   const expected = process.env.MAX_SERVER_SECRET;
   if (!expected || expected.length < 32 || !constantTimeEqual(secret, expected)) {
     throw new ConvexError({ code: "UNAUTHENTICATED", message: "Server credentials are not configured." });
@@ -51,12 +52,15 @@ async function run(
   try {
     // R2 files are deleted by a background action (mutations can't make network calls).
     const schedule = kind === "mutation" && ctx.scheduler ? (key: string) => ctx.scheduler.runAfter(0, deleteR2Object, { key }) : undefined;
+    const outbox = { queued: 0 };
     const result = await execute(
       op,
       args,
-      { db: convexDb(ctx.db), storage: convexStorage(ctx.storage, schedule), ownerId, now: Date.now(), source, ...(scope.org ? { org: { role: scope.org.role }, actor: scope.actor } : {}) },
+      { db: convexDb(ctx.db), storage: convexStorage(ctx.storage, schedule), ownerId, now: Date.now(), source, ...(kind === "mutation" ? { outbox } : {}), ...(scope.org ? { org: { role: scope.org.role }, actor: scope.actor } : {}) },
       kind,
     );
+    // Connected apps hear about the change (webhooks go out from an action, after this commits).
+    if (outbox.queued && ctx.scheduler) await ctx.scheduler.runAfter(0, deliverWebhooks, {});
     if (op === "account.deleteAllData") await purgeNotionAccount(ctx, ownerId);
     return result;
   } catch (err) {
