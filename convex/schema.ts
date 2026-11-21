@@ -639,6 +639,7 @@ export default defineSchema({
     icon: v.union(v.string(), v.null()),
     description: v.string(),
     search: v.boolean(),
+    root: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

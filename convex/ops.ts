@@ -8,6 +8,7 @@ import { makeFunctionReference } from "convex/server";
 const deleteR2Object = makeFunctionReference<"action", { key: string }>("r2:deleteObject");
 const deliverWebhooks = makeFunctionReference<"action">("integrations:deliver");
 import { accountOf, resolveScope, type RequestScope } from "../lib/domain/workspaces";
+import { platformRole } from "../lib/domain/admin";
 import { purgeNotionAccount } from "./notionCleanup";
 
 /**
@@ -17,7 +18,7 @@ import { purgeNotionAccount } from "./notionCleanup";
  * domain operations, so UI and MCP behaviour can't drift apart.
  */
 
-type Identity = { subject: string; name?: string; givenName?: string; email?: string; pictureUrl?: string };
+type Identity = { subject: string; name?: string; givenName?: string; email?: string; emailVerified?: boolean; pictureUrl?: string };
 type Auth = { auth: { getUserIdentity(): Promise<Identity | null> } };
 
 async function identityOf(ctx: Auth) {
@@ -44,7 +45,7 @@ async function run(
   ctx: { db: never; storage: never; scheduler: GenericMutationCtx<GenericDataModel>["scheduler"] },
   op: string,
   args: unknown,
-  scope: RequestScope & { actor?: { id: string; name: string; image: string | null } },
+  scope: RequestScope & { actor?: { id: string; name: string; image: string | null }; platformAdmin?: boolean },
   source: "ui" | "mcp",
   kind: "query" | "mutation",
 ) {
@@ -56,7 +57,7 @@ async function run(
     const result = await execute(
       op,
       args,
-      { db: convexDb(ctx.db), storage: convexStorage(ctx.storage, schedule), ownerId, now: Date.now(), source, ...(kind === "mutation" ? { outbox } : {}), ...(scope.org ? { org: { role: scope.org.role }, actor: scope.actor } : {}) },
+      { db: convexDb(ctx.db), storage: convexStorage(ctx.storage, schedule), ownerId, now: Date.now(), source, platformAdmin: !!scope.platformAdmin, ...(kind === "mutation" ? { outbox } : {}), ...(scope.org ? { org: { role: scope.org.role }, actor: scope.actor } : {}) },
       kind,
     );
     // Connected apps hear about the change (webhooks go out from an action, after this commits).
@@ -77,7 +78,9 @@ async function ownerOf(ctx: Auth & { db: unknown }, ws: string | undefined) {
   try {
     const scope = await resolveScope(convexDb(ctx.db as never), identity.subject, ws);
     const name = (identity.name || identity.givenName || identity.email?.split("@")[0] || "Someone").slice(0, 120);
-    return { ...scope, actor: { id: identity.subject, name, image: identity.pictureUrl ?? null } };
+    // Platform admin comes only from a verified sign-in email listed in MAX_ADMIN_EMAILS.
+    const platformAdmin = identity.emailVerified !== false && platformRole(identity.email) === "admin";
+    return { ...scope, platformAdmin, actor: { id: identity.subject, name, image: identity.pictureUrl ?? null } };
   } catch (err) {
     throw new ConvexError(serializeError(err) as never);
   }

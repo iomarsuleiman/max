@@ -95,7 +95,8 @@ export async function runLocal(op: string, args: unknown, source: Source, accoun
   const ownerId = scope.ownerId;
   const org = scope.org ? { org: { role: scope.org.role }, actor: { id: account, name: actorName ?? scope.org.name ?? account, image: null } } : {};
   const outbox = { queued: 0 };
-  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source, outbox, ...org };
+  // Local mode: whoever runs this server (the local owner) is its admin.
+  const ctx = { db: s.db, storage: localStorageAdapter, ownerId, now: Date.now(), source, outbox, platformAdmin: source === "ui" && account === LOCAL_OWNER, ...org };
   const { registry } = await import("@/lib/domain/ops");
   const def = registry.get(op);
   // Local mode has no background jobs: recurring automations catch up when the sidebar loads.

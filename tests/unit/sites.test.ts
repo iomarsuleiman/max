@@ -69,3 +69,26 @@ describe("published websites", () => {
     expect(await alice("databases.query", { databaseId: publicDb._id, search: "8675309" })).toMatchObject({ total: 1 });
   });
 });
+
+describe("top-level site addresses", () => {
+  it("are for Max's admins only, and never take someone's username", async () => {
+    const { execute } = await import("@/lib/domain/ops");
+    const { setup } = await import("./harness");
+    const { isRootSite } = await import("@/lib/domain/usernames");
+    const h = setup();
+    const run = (who: string, op: string, args: Record<string, unknown>, platformAdmin = false) => h.db.transaction(() => execute(op, args, { db: h.db, storage: h.storage, ownerId: who, now: Date.now(), source: "ui", platformAdmin }));
+    const page = ((await run("user_a", "pages.create", { title: "Docs" })) as { page: { _id: string } }).page;
+    await expect(run("user_a", "sites.publish", { pageId: page._id, slug: "docs-hub", name: "Docs", topLevel: true })).rejects.toThrow(/admins/);
+    await run("user_a", "sites.publish", { pageId: page._id, slug: "docs-hub", name: "Docs" });
+    expect(await isRootSite(h.db, "docs-hub")).toBe(false);
+    const own = ((await run("root", "pages.create", { title: "Home" })) as { page: { _id: string } }).page;
+    await run("user_b", "account.setUsername", { username: "taken" });
+    await expect(run("root", "sites.publish", { pageId: own._id, slug: "taken", name: "Home", topLevel: true }, true)).rejects.toThrow(/username/);
+    await run("root", "sites.publish", { pageId: own._id, slug: "company", name: "Home", topLevel: true }, true);
+    expect(await isRootSite(h.db, "company")).toBe(true);
+    // Republishing without admin rights (e.g. an assistant) keeps it where it is.
+    await run("root", "sites.publish", { pageId: own._id, slug: "company", name: "Home 2" });
+    expect(await isRootSite(h.db, "company")).toBe(true);
+    await expect(run("user_c", "account.setUsername", { username: "company" })).rejects.toThrow(/taken/);
+  });
+});

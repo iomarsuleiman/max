@@ -4,7 +4,7 @@ import { defineOp, id } from "./define";
 import { requirePage } from "./helpers";
 
 /** Addresses that would clash with Max itself or mislead visitors. */
-const RESERVED = new Set(["www", "app", "api", "admin", "max", "home", "site", "sites", "help", "support", "mail", "status", "docs", "blog", "login", "signin", "signup", "join", "settings", "static", "assets", "cdn"]);
+const RESERVED = new Set(["p", "s", "w", "org", "apps", "forms", "connect", "privacy", "welcome", "graph", "templates", "trash", "mcp", "robots.txt", "sitemap.xml", "manifest", "www", "app", "api", "admin", "max", "home", "site", "sites", "help", "support", "mail", "status", "docs", "blog", "login", "signin", "signup", "join", "settings", "static", "assets", "cdn"]);
 const slug = z
   .string()
   .trim()
@@ -39,7 +39,7 @@ export const sitesPublish = defineOp({
   kind: "mutation",
   title: "Publish a page as a website",
   description:
-    "Publishes a page and every page inside it as a simple public website with navigation, at /site/<slug> (and <slug>.<your domain> where subdomains are set up). Calling it again updates the name, address, icon, description or search. Anyone with the address can read the site; nothing else in your workspace is visible.",
+    "Publishes a page and every page inside it as a simple public website with navigation, at /<your username>/<slug> (and <slug>.<your domain> where subdomains are set up). Calling it again updates the name, address, icon, description or search. Anyone with the address can read the site; nothing else in your workspace is visible.",
   input: z.object({
     pageId: id,
     slug,
@@ -47,15 +47,21 @@ export const sitesPublish = defineOp({
     icon: z.string().max(2048).nullable().optional(),
     description: z.string().trim().max(200).optional(),
     search: z.boolean().optional(),
+    topLevel: z.boolean().optional().describe("Publish at the top level (max.chaos.fail/<slug>). Max's platform admins only; everyone else's sites live at /<username>/<slug>."),
   }),
   async run(ctx, input) {
     const page = await requirePage(ctx, input.pageId);
+    if (input.topLevel && !ctx.platformAdmin) throw new MaxError("FORBIDDEN", "Only Max's admins publish at the top level. Your site lives at /your-username/address.");
+    // A top-level address can't take someone's username (max.chaos.fail/<username> is their page).
+    if (input.topLevel && (await ctx.db.findBy("usernames", "username", input.slug)).length) throw new MaxError("CONFLICT", `“${input.slug}” is someone's username. Pick another address.`);
     if (page.kind !== "page" || page.isTemplate) throw new MaxError("VALIDATION", "Publish a page (not a database or template) as a website.");
     if (RESERVED.has(input.slug)) throw new MaxError("VALIDATION", `“${input.slug}” is reserved. Pick another address.`);
     const taken = (await ctx.db.findBy("sites", "slug", input.slug)).find((s) => s.pageId !== input.pageId || s.ownerId !== ctx.ownerId);
     if (taken) throw new MaxError("CONFLICT", `The address “${input.slug}” is taken. Try another.`);
     const existing = (await ctx.db.list("sites", ctx.ownerId, { field: "pageId", value: input.pageId }))[0];
-    const fields = { slug: input.slug, name: input.name, icon: input.icon === undefined ? (existing?.icon ?? page.icon) : input.icon, description: input.description ?? existing?.description ?? "", search: input.search ?? existing?.search ?? true, updatedAt: ctx.now };
+    // Unchanged unless asked; only an admin's request can make a site top-level.
+    const root = input.topLevel === undefined ? !!existing?.root : input.topLevel && !!ctx.platformAdmin;
+    const fields = { slug: input.slug, root, name: input.name, icon: input.icon === undefined ? (existing?.icon ?? page.icon) : input.icon, description: input.description ?? existing?.description ?? "", search: input.search ?? existing?.search ?? true, updatedAt: ctx.now };
     if (existing) {
       await ctx.db.patch("sites", existing._id, fields);
       return { site: { ...existing, ...fields } };

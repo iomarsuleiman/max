@@ -429,6 +429,8 @@ export interface SiteRow {
   search: boolean;
   createdAt: number;
   updatedAt: number;
+  /** Published at the top level (max.chaos.fail/<slug>): Max's platform admins only. */
+  root?: boolean;
 }
 
 export interface PresenceRow {

@@ -268,7 +268,8 @@ function SidebarHeader({ mobile }: { mobile?: boolean }) {
   const name = ws.settings?.displayName || ws.identity.name;
   const spaces = useWorkspaces();
   const router = useRouter();
-  const orgsEnabled = useMyOrgs().data?.enabled ?? false;
+  // On unless the server says organizations are switched off (MAX_ORGANIZATIONS=off).
+  const orgsEnabled = useMyOrgs().data?.enabled !== false;
   const [creating, setCreating] = useState(false);
   const [creatingOrg, setCreatingOrg] = useState(false);
   return (
